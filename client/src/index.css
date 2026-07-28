@@ -82,9 +82,10 @@ h1, h2, h3 {
   flex-wrap: wrap;
 }
 
+/* min() keeps the track from forcing a track wider than the viewport on phones */
 .grid-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -153,6 +154,7 @@ button:disabled {
   gap: 4px;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  min-width: 120px;
 }
 
 .entry-list {
@@ -192,4 +194,21 @@ button:disabled {
   font-size: 0.95rem;
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  #root {
+    padding: 16px 12px 48px;
+  }
+
+  /* 16px keeps iOS Safari from auto-zooming the page on input focus */
+  input[type='number'],
+  input[type='text'] {
+    font-size: 16px;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 8px 14px;
+  }
 }
