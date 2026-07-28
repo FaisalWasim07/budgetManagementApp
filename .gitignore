@@ -1,0 +1,5 @@
+node_modules/
+client/dist/
+server/src/data/*.sqlite3
+.env
+*.log

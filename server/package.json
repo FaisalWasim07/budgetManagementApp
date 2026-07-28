@@ -1,0 +1,20 @@
+{
+  "name": "budget-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "db:init": "node src/db/init.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
