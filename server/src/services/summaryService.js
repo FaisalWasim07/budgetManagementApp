@@ -127,6 +127,7 @@ async function getSummary(month) {
   const household = {
     netWorth: 0,
     savings: 0,
+    debt: 0,
     income: 0,
     expenses: 0,
     subscriptions: 0,
@@ -150,6 +151,8 @@ async function getSummary(month) {
       } else {
         household.netWorth += balancePrimary;
         if (account.type === 'savings') household.savings += balancePrimary;
+        // A card's negative balance is money owed; report it as a positive debt.
+        if (account.type === 'credit' && balancePrimary < 0) household.debt += -balancePrimary;
         byCurrency[account.currency] = (byCurrency[account.currency] || 0) + balancePrimary;
       }
 
@@ -276,6 +279,7 @@ module.exports = {
   getSummary,
   getTrend,
   getCategoryBreakdown,
+  accountBalance,
   currentMonth,
   shiftMonth,
   subscriptionDueIn,

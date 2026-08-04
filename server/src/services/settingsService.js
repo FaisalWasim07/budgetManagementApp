@@ -11,8 +11,12 @@ function set(key, value) {
   db.prepare(
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-  ).run(key, value);
+  ).run(key, String(value));
   return get(key);
+}
+
+function remove(key) {
+  db.prepare('DELETE FROM settings WHERE key = ?').run(key);
 }
 
 function getAll() {
@@ -24,4 +28,20 @@ function getAll() {
 
 const primaryCurrency = () => get('primary_currency');
 
-module.exports = { get, set, getAll, primaryCurrency };
+const manualRateKey = (base, target) => `manual_rate_${base}_${target}`;
+
+// Manual rates keyed by source currency, for the currently selected primary.
+function manualRates(target) {
+  const prefix = 'manual_rate_';
+  const suffix = `_${target}`;
+  const out = {};
+  for (const row of db.prepare('SELECT key, value FROM settings').all()) {
+    if (row.key.startsWith(prefix) && row.key.endsWith(suffix)) {
+      const base = row.key.slice(prefix.length, row.key.length - suffix.length);
+      out[base] = Number(row.value);
+    }
+  }
+  return out;
+}
+
+module.exports = { get, set, remove, getAll, primaryCurrency, manualRateKey, manualRates };

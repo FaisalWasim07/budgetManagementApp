@@ -86,19 +86,24 @@ export default function AccountFormModal({ account, personId, personName, onClos
             <select value={type} onChange={(e) => setType(e.target.value)}>
               <option value="current">Spending</option>
               <option value="savings">Savings</option>
+              <option value="credit">Credit card</option>
             </select>
           </label>
         </div>
 
         <label className="field">
-          Starting balance ({currency})
+          {type === 'credit' ? `Already owed (${currency})` : `Starting balance (${currency})`}
           <input
             type="number"
             step="0.01"
             value={openingBalance}
             onChange={(e) => setOpeningBalance(e.target.value)}
           />
-          <span className="muted">What's already in the account before you record anything.</span>
+          <span className="muted">
+            {type === 'credit'
+              ? 'Enter what you currently owe as a negative number, e.g. −1500. Spending on the card pushes it further down; paying it off with a transfer brings it back toward zero.'
+              : "What's already in the account before you record anything."}
+          </span>
         </label>
 
         {error && <div className="error-text">{error}</div>}

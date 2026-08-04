@@ -15,6 +15,11 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const to = useMemo(() => accounts.find((a) => a.id === Number(toId)), [accounts, toId]);
   const crossCurrency = from && to && from.currency !== to.currency;
 
+  // Cards are allowed to go negative — that's borrowing, not an overdraft.
+  const fromIsCredit = from?.type === 'credit';
+  const available = from ? from.balance : 0;
+  const overdrawn = !fromIsCredit && Number(amount) > available;
+
   async function submit(e) {
     e.preventDefault();
     setError(null);
@@ -24,6 +29,13 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
     }
     if (!(Number(amount) > 0)) {
       setError('Enter an amount greater than zero.');
+      return;
+    }
+    if (overdrawn) {
+      setError(
+        `${from.name} only has ${formatCurrency(available, from.currency)} available. ` +
+          `Reduce the amount, or move money in first.`
+      );
       return;
     }
     if (crossCurrency && !(Number(toAmount) > 0)) {
@@ -84,6 +96,13 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             onChange={(e) => setAmount(e.target.value)}
             autoFocus
           />
+          {from && (
+            <span className={overdrawn ? 'error-text' : 'muted'}>
+              {fromIsCredit
+                ? 'Credit card — spending on it adds to what you owe.'
+                : `Available: ${formatCurrency(available, from.currency)}`}
+            </span>
+          )}
         </label>
 
         {crossCurrency && (
@@ -109,7 +128,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
           <button type="button" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className="primary" disabled={busy || overdrawn}>
             {busy ? 'Saving…' : 'Transfer'}
           </button>
         </div>

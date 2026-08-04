@@ -1,23 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from './Modal';
-import { updateSettings } from '../api/settings';
+import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates } from '../api/exchangeRates';
 import { CURRENCIES } from '../utils/currency';
 
+const SOURCE_LABELS = {
+  live: 'live',
+  manual: 'your fallback',
+  cache: 'cached',
+  none: 'unavailable',
+  same: '—',
+};
+
 export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved }) {
   const [currency, setCurrency] = useState(primaryCurrency);
+  const [manual, setManual] = useState({});
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
 
-  const rateRows = Object.entries(rates || {}).filter(([code]) => code !== primaryCurrency);
+  const otherCurrencies = Object.keys(rates || {}).filter((c) => c !== primaryCurrency);
+
+  useEffect(() => {
+    getSettings()
+      .then((s) => setManual(s.manualRates || {}))
+      .catch(() => {});
+  }, []);
 
   async function save(e) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await updateSettings({ primary_currency: currency });
-      onSaved();
+      await updateSettings({ primary_currency: currency, manualRates: manual });
+      await onSaved();
       onClose();
     } catch (err) {
       setError(err.message);
@@ -27,9 +43,19 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
 
   async function refresh() {
     setBusy(true);
+    setNote(null);
+    setError(null);
     try {
-      await refreshRates();
-      onSaved();
+      const result = await refreshRates();
+      const failed = Object.entries(result.rates || {})
+        .filter(([code, info]) => code !== result.primaryCurrency && info.source !== 'live')
+        .map(([code]) => code);
+      setNote(
+        failed.length
+          ? `Couldn't reach the rate service for ${failed.join(', ')}. Your fallback value is being used where set.`
+          : 'Rates updated.'
+      );
+      await onSaved();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -50,8 +76,8 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
             ))}
           </select>
           <span className="muted">
-            Every balance is converted into this for the household totals and charts. Accounts keep
-            their own currency.
+            Everything is converted into this for the household totals. Accounts keep their own
+            currency.
           </span>
         </label>
 
@@ -59,23 +85,52 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
           <div className="spread">
             <strong style={{ fontSize: '0.9rem' }}>Exchange rates</strong>
             <button type="button" className="tiny" onClick={refresh} disabled={busy}>
-              Refresh
+              {busy ? 'Checking…' : 'Refresh now'}
             </button>
           </div>
-          {rateRows.length === 0 && <span className="muted">No other currencies in use yet.</span>}
-          {rateRows.map(([code, info]) => (
-            <div key={code} className="spread" style={{ fontSize: '0.85rem' }}>
-              <span>
-                1 {code} → {primaryCurrency}
-              </span>
-              <span className={info.rate == null ? 'error-text' : ''}>
-                {info.rate == null ? 'unavailable' : info.rate.toFixed(4)}
-                {info.stale && info.rate != null ? ' (cached)' : ''}
-              </span>
-            </div>
-          ))}
+
+          {otherCurrencies.length === 0 && (
+            <span className="muted">No other currencies in use yet.</span>
+          )}
+
+          {otherCurrencies.map((code) => {
+            const info = rates[code] || {};
+            return (
+              <div key={code} className="stack-sm" style={{ gap: 4 }}>
+                <div className="spread" style={{ fontSize: '0.85rem' }}>
+                  <span>
+                    1 {code} → {primaryCurrency}
+                  </span>
+                  <span className={info.rate == null ? 'error-text' : ''}>
+                    {info.rate == null ? 'unavailable' : info.rate.toFixed(6)}
+                    <span className="muted"> ({SOURCE_LABELS[info.source] || info.source})</span>
+                  </span>
+                </div>
+                <label className="field">
+                  Fallback rate for {code}
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    placeholder="e.g. 0.0128"
+                    value={manual[code] ?? ''}
+                    onChange={(e) => setManual({ ...manual, [code]: e.target.value })}
+                  />
+                </label>
+              </div>
+            );
+          })}
+
+          {otherCurrencies.length > 0 && (
+            <span className="muted" style={{ fontSize: '0.8rem' }}>
+              Used whenever the live rate can't be fetched, so your totals still add up. Leave blank
+              to use the last known rate instead. Live lookups give up after 4 seconds rather than
+              holding up the page.
+            </span>
+          )}
         </div>
 
+        {note && <div className="secondary" style={{ fontSize: '0.85rem' }}>{note}</div>}
         {error && <div className="error-text">{error}</div>}
 
         <div className="row-tight" style={{ justifyContent: 'flex-end' }}>

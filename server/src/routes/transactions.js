@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const db = require('../db/connection');
+const summaryService = require('../services/summaryService');
 
 const router = express.Router();
 const ENTRY_KINDS = ['income', 'expense'];
@@ -98,6 +99,19 @@ router.post('/transfer', (req, res) => {
   }
   if (!(toAmount > 0)) {
     return res.status(400).json({ error: 'to_amount must be a positive number' });
+  }
+
+  // You can only move money you actually have. A credit card is exempt: going
+  // negative there is borrowing, which is what a card is for.
+  if (from.type !== 'credit') {
+    const available = summaryService.accountBalance(from, month);
+    if (amount > available) {
+      return res.status(400).json({
+        error: `${from.name} only has ${available.toFixed(2)} ${from.currency} available in this month.`,
+        available,
+        currency: from.currency,
+      });
+    }
   }
 
   const transferId = crypto.randomUUID();

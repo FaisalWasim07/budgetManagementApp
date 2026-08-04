@@ -36,6 +36,14 @@ export default function Overview({ summary }) {
           tone={household.leftover < 0 ? 'neg' : 'pos'}
           sub="income − spending − subs"
         />
+        {household.debt > 0 && (
+          <Tile
+            label="Owed on cards"
+            value={fmt(household.debt)}
+            tone="neg"
+            sub="already subtracted from net worth"
+          />
+        )}
       </div>
 
       {household.unconvertedCurrencies?.length > 0 && (

@@ -12,15 +12,15 @@ CREATE TABLE IF NOT EXISTS persons (
 );
 
 -- Free-form accounts: any number per person, each in its own currency.
--- `type` only distinguishes money set aside from money to spend, so the
--- dashboard can report savings separately; it does not constrain what the
--- account can do.
+-- `type` drives how a balance is read: 'savings' is reported separately,
+-- and 'credit' is a card, where a negative balance is money owed rather
+-- than an overdraft, so it subtracts from net worth and may go below zero.
 CREATE TABLE IF NOT EXISTS accounts (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   person_id       INTEGER NOT NULL REFERENCES persons(id),
   name            TEXT NOT NULL,
   currency        TEXT NOT NULL DEFAULT 'AED',
-  type            TEXT NOT NULL DEFAULT 'current' CHECK (type IN ('current','savings')),
+  type            TEXT NOT NULL DEFAULT 'current' CHECK (type IN ('current','savings','credit')),
   opening_balance REAL NOT NULL DEFAULT 0,
   is_active       INTEGER NOT NULL DEFAULT 1,
   sort_order      INTEGER NOT NULL DEFAULT 0,

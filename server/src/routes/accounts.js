@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db/connection');
 
 const router = express.Router();
-const VALID_TYPES = ['current', 'savings'];
+const VALID_TYPES = ['current', 'savings', 'credit'];
 
 router.get('/', (req, res) => {
   const { personId } = req.query;

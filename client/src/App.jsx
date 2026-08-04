@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
+import Stats from './pages/Stats';
 import Subscriptions from './pages/Subscriptions';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { currentMonth } from './utils/month';
+
+const PAGES = [
+  ['dashboard', 'Dashboard'],
+  ['stats', 'Stats'],
+  ['subscriptions', 'Subscriptions'],
+];
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -13,17 +20,23 @@ export default function App() {
   const [trend, setTrend] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // The summary is what every page reads, so it loads first and the heavier
+  // chart queries follow — the dashboard is usable without waiting for them.
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const [s, t, c] = await Promise.all([getSummary(month), getTrend(12), getCategories(month)]);
-      setSummary(s);
+      setSummary(await getSummary(month));
+      setError(null);
+      const [t, c] = await Promise.all([getTrend(12), getCategories(month)]);
       setTrend(t);
       setCategories(c);
-      setError(null);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [month]);
 
@@ -37,36 +50,44 @@ export default function App() {
         <h1>Household Budget</h1>
         <div className="row-tight">
           <nav className="nav">
-            <button
-              className={page === 'dashboard' ? 'active' : ''}
-              onClick={() => setPage('dashboard')}
-            >
-              Dashboard
-            </button>
-            <button
-              className={page === 'subscriptions' ? 'active' : ''}
-              onClick={() => setPage('subscriptions')}
-            >
-              Subscriptions
-            </button>
+            {PAGES.map(([key, label]) => (
+              <button
+                key={key}
+                className={page === key ? 'active' : ''}
+                onClick={() => setPage(key)}
+              >
+                {label}
+              </button>
+            ))}
           </nav>
           <button onClick={() => setShowSettings(true)}>Settings</button>
         </div>
       </div>
 
-      <MonthSelector month={month} onChange={setMonth} />
+      <div className="spread">
+        <MonthSelector month={month} onChange={setMonth} />
+        {loading && (
+          <span className="loading" aria-live="polite">
+            <span className="spinner" aria-hidden="true" /> Updating…
+          </span>
+        )}
+      </div>
 
       {error && <div className="card error-text">Couldn’t load: {error}</div>}
-      {!summary && !error && <p className="muted">Loading…</p>}
+
+      {!summary && !error && (
+        <div className="card row-tight">
+          <span className="spinner" aria-hidden="true" />
+          <span className="secondary">Loading your budget…</span>
+        </div>
+      )}
 
       {summary && page === 'dashboard' && (
-        <Dashboard
-          summary={summary}
-          trend={trend}
-          categories={categories}
-          month={month}
-          onChanged={load}
-        />
+        <Dashboard summary={summary} month={month} onChanged={load} />
+      )}
+
+      {summary && page === 'stats' && (
+        <Stats summary={summary} trend={trend} categories={categories} month={month} />
       )}
 
       {summary && page === 'subscriptions' && (

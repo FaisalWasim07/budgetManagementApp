@@ -11,12 +11,19 @@ in one number.
 
 **Subscriptions** are defined once on their own page and then charged
 automatically every month from the account you choose — monthly or yearly —
-without re-entering them.
+without re-entering them. That account can be a **credit card**, whose balance
+goes negative to show what you owe; paying the card off is just a transfer into
+it.
 
-The dashboard gives the household view first (net worth, income, spending,
-subscriptions, what's left over), then each person's accounts, then charts for
-money in vs out, net worth over time, per-account balances, and where the money
-actually went.
+You can only move money you actually have — transfers are blocked if the source
+account doesn't cover them. Credit cards are the exception, since going negative
+there is the point.
+
+The **Dashboard** gives the household view first (net worth, income, spending,
+subscriptions, what's left over, anything owed on cards), then each person's
+accounts, then every transaction for the month as a filterable table. **Stats**
+is a separate tab with charts for money in vs out, net worth over time,
+per-account balances, and where the money actually went.
 
 - No login — a single shared app, with data recorded per person
 - Money is never stored as a balance; every total is derived from the entries
@@ -126,6 +133,11 @@ If the API can't be reached, the app falls back to the last cached rate (shown a
 "cached"). With no cached rate at all, those accounts are listed as unconverted
 and left out of the household totals rather than silently counted as zero — a
 banner on the dashboard says which currencies are affected.
+
+A lookup gives up after **4 seconds** and a failure is remembered for a minute,
+so an unreachable rate service slows a page load slightly instead of hanging it.
+If a currency matters to you, set a **fallback rate** for it in Settings — that
+value is used whenever the live one can't be had, so your totals still add up.
 
 Two things worth knowing:
 

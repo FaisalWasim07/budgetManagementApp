@@ -19,6 +19,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
   const [busy, setBusy] = useState(false);
 
   const isForeign = account.currency !== primaryCurrency;
+  const isCredit = account.type === 'credit';
   const { activity } = account;
 
   useEffect(() => {
@@ -72,8 +73,14 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
             <h3>{account.name}</h3>
             <span className="badge">{account.currency}</span>
             {account.type === 'savings' && <span className="badge">Savings</span>}
+            {isCredit && <span className="badge">Credit card</span>}
           </div>
-          <div className="account-balance">{formatCurrency(account.balance, account.currency)}</div>
+          {/* A card's negative balance is money owed, so show it that way round. */}
+          <div className="account-balance" style={isCredit && account.balance < 0 ? { color: 'var(--danger)' } : undefined}>
+            {isCredit && account.balance < 0
+              ? `${formatCurrency(-account.balance, account.currency)} owed`
+              : formatCurrency(account.balance, account.currency)}
+          </div>
           {isForeign && (
             <div className="account-converted">
               {account.balancePrimary != null

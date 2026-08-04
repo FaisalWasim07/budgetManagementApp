@@ -3,12 +3,9 @@ import Overview from '../components/Overview';
 import PersonSection from '../components/PersonSection';
 import AccountFormModal from '../components/AccountFormModal';
 import TransferModal from '../components/TransferModal';
-import IncomeExpenseChart from '../components/charts/IncomeExpenseChart';
-import NetWorthTrendChart from '../components/charts/NetWorthTrendChart';
-import AccountBalancesChart from '../components/charts/AccountBalancesChart';
-import CategoryChart from '../components/charts/CategoryChart';
+import TransactionsTable from '../components/TransactionsTable';
 
-export default function Dashboard({ summary, trend, categories, month, onChanged }) {
+export default function Dashboard({ summary, month, onChanged }) {
   const [accountModal, setAccountModal] = useState(null);
   const [showTransfer, setShowTransfer] = useState(false);
 
@@ -16,6 +13,8 @@ export default function Dashboard({ summary, trend, categories, month, onChanged
   const allAccounts = summary.persons.flatMap((p) =>
     p.accounts.map((a) => ({ ...a, personName: p.name }))
   );
+  const accountsById = Object.fromEntries(allAccounts.map((a) => [a.id, a]));
+  const personsById = Object.fromEntries(summary.persons.map((p) => [p.id, p]));
 
   return (
     <div className="stack">
@@ -42,13 +41,12 @@ export default function Dashboard({ summary, trend, categories, month, onChanged
         ))}
       </div>
 
-      <h2>Stats</h2>
-      <div className="charts">
-        <IncomeExpenseChart trend={trend} currency={primaryCurrency} />
-        <NetWorthTrendChart trend={trend} currency={primaryCurrency} />
-        <AccountBalancesChart persons={summary.persons} currency={primaryCurrency} />
-        <CategoryChart categories={categories} currency={primaryCurrency} />
-      </div>
+      <TransactionsTable
+        month={month}
+        accountsById={accountsById}
+        personsById={personsById}
+        onChanged={onChanged}
+      />
 
       {accountModal && (
         <AccountFormModal

@@ -231,6 +231,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 .error-text { color: var(--danger); font-size: 0.84rem; }
+
+.loading { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--gridline);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+}
 .warn-banner {
   background: var(--surface-2);
   border: 1px solid var(--border);
