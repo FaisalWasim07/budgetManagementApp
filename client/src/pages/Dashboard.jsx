@@ -1,70 +1,73 @@
-import { useCallback, useEffect, useState } from 'react';
-import { getSummary, getTrend } from '../api/summary';
-import MonthSelector from '../components/MonthSelector';
-import HouseholdSummary from '../components/HouseholdSummary';
+import { useState } from 'react';
+import Overview from '../components/Overview';
 import PersonSection from '../components/PersonSection';
+import AccountFormModal from '../components/AccountFormModal';
+import TransferModal from '../components/TransferModal';
 import IncomeExpenseChart from '../components/charts/IncomeExpenseChart';
 import NetWorthTrendChart from '../components/charts/NetWorthTrendChart';
-import BalanceBreakdownChart from '../components/charts/BalanceBreakdownChart';
-import CurrencyCompositionChart from '../components/charts/CurrencyCompositionChart';
-import { currentMonth } from '../utils/month';
+import AccountBalancesChart from '../components/charts/AccountBalancesChart';
+import CategoryChart from '../components/charts/CategoryChart';
 
-export default function Dashboard() {
-  const [month, setMonth] = useState(currentMonth());
-  const [summary, setSummary] = useState(null);
-  const [trend, setTrend] = useState([]);
-  const [error, setError] = useState(null);
+export default function Dashboard({ summary, trend, categories, month, onChanged }) {
+  const [accountModal, setAccountModal] = useState(null);
+  const [showTransfer, setShowTransfer] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const [summaryData, trendData] = await Promise.all([getSummary(month), getTrend(12)]);
-      setSummary(summaryData);
-      setTrend(trendData);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    }
-  }, [month]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (error) {
-    return (
-      <div className="stack">
-        <h1>Household Monthly Budget</h1>
-        <div className="card error-text">Failed to load: {error}</div>
-      </div>
-    );
-  }
-
-  if (!summary) {
-    return (
-      <div className="stack">
-        <h1>Household Monthly Budget</h1>
-        <p className="muted">Loading…</p>
-      </div>
-    );
-  }
+  const primaryCurrency = summary.primaryCurrency;
+  const allAccounts = summary.persons.flatMap((p) =>
+    p.accounts.map((a) => ({ ...a, personName: p.name }))
+  );
 
   return (
     <div className="stack">
-      <h1>Household Monthly Budget</h1>
-      <MonthSelector month={month} onChange={setMonth} />
-      <HouseholdSummary summary={summary} onRefresh={load} />
-      <div className="grid-2">
+      <Overview summary={summary} />
+
+      <div className="spread">
+        <h2>Accounts</h2>
+        <button onClick={() => setShowTransfer(true)} disabled={allAccounts.length < 2}>
+          Move money
+        </button>
+      </div>
+
+      <div className="columns">
         {summary.persons.map((person) => (
-          <PersonSection key={person.id} person={person} month={month} onRefresh={load} />
+          <PersonSection
+            key={person.id}
+            person={person}
+            month={month}
+            primaryCurrency={primaryCurrency}
+            onChanged={onChanged}
+            onAddAccount={(p) => setAccountModal({ personId: p.id, personName: p.name })}
+            onEditAccount={(account) => setAccountModal({ account })}
+          />
         ))}
       </div>
+
       <h2>Stats</h2>
-      <div className="grid-2">
-        <IncomeExpenseChart trend={trend} />
-        <NetWorthTrendChart trend={trend} />
-        <BalanceBreakdownChart persons={summary.persons} />
-        <CurrencyCompositionChart composition={summary.household.currencyComposition} />
+      <div className="charts">
+        <IncomeExpenseChart trend={trend} currency={primaryCurrency} />
+        <NetWorthTrendChart trend={trend} currency={primaryCurrency} />
+        <AccountBalancesChart persons={summary.persons} currency={primaryCurrency} />
+        <CategoryChart categories={categories} currency={primaryCurrency} />
       </div>
+
+      {accountModal && (
+        <AccountFormModal
+          account={accountModal.account}
+          personId={accountModal.personId}
+          personName={accountModal.personName}
+          onClose={() => setAccountModal(null)}
+          onSaved={onChanged}
+        />
+      )}
+
+      {showTransfer && (
+        <TransferModal
+          accounts={allAccounts}
+          month={month}
+          onClose={() => setShowTransfer(false)}
+          onSaved={onChanged}
+        />
+      )}
     </div>
   );
 }

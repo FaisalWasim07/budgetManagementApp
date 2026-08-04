@@ -2,20 +2,25 @@
 
 A monthly budget tracker for two people sharing a household.
 
-Each person has a **primary account** that receives their salary and transfers a
-portion to a **rent/savings account** and a **monthly expense account**, keeping
-whatever is left. Each person can optionally add a **multi-currency account**
-(e.g. PKR) that accumulates monthly contributions and is converted into the
-primary currency (AED) using a live exchange rate, so it counts toward total
-household net worth.
+Each person can have **any number of accounts, each in its own currency**. You
+record salary as income into an account, then log spending against it and move
+money between accounts; every account keeps a running total. Balances in other
+currencies are converted to your **primary currency** (AED by default, changed
+in Settings) using live exchange rates, so the household totals cover everything
+in one number.
 
-The dashboard shows per-person accounts side by side, a combined household
-summary, and charts for income vs expenses, net worth trend, account balances,
-and currency composition.
+**Subscriptions** are defined once on their own page and then charged
+automatically every month from the account you choose — monthly or yearly —
+without re-entering them.
 
-- Primary currency: **AED**
-- Secondary currency: **PKR** (more can be added — see [Adding another currency](#adding-another-currency))
-- No login — it's a single shared app, with data tagged per person
+The dashboard gives the household view first (net worth, income, spending,
+subscriptions, what's left over), then each person's accounts, then charts for
+money in vs out, net worth over time, per-account balances, and where the money
+actually went.
+
+- No login — a single shared app, with data recorded per person
+- Money is never stored as a balance; every total is derived from the entries
+  behind it, so nothing can silently drift out of sync
 
 ## Prerequisites
 
@@ -106,24 +111,37 @@ This file is gitignored on purpose — it's your financial data and shouldn't go
 to GitHub. It's also your **only backup**, so copy it somewhere safe from time
 to time. To start completely fresh, delete it and re-run `npm run db:init`.
 
+If you're coming from an older version of the app, `npm run db:init` notices the
+previous database layout, saves a copy next to it as
+`budget.sqlite3.old-<timestamp>`, and builds a fresh one. Nothing is deleted, but
+the old data isn't carried across — the structure changed too much.
+
 ## Exchange rates
 
 Rates come from [Frankfurter](https://frankfurter.dev), a free API that needs no
-key or account. A rate is fetched at most once per day and cached in the
-database; the **Refresh rate** button in the household summary forces an update.
+key or account. Each currency pair is fetched at most once per day and cached in
+the database; **Refresh** in Settings forces an update.
 
-If the API can't be reached, the app falls back to the last cached rate (labelled
-"cached") or shows "rate unavailable" — it won't break the dashboard.
+If the API can't be reached, the app falls back to the last cached rate (shown as
+"cached"). With no cached rate at all, those accounts are listed as unconverted
+and left out of the household totals rather than silently counted as zero — a
+banner on the dashboard says which currencies are affected.
 
-Note that conversion uses the *current* rate against the whole accumulated
-balance, not a historical rate per contribution. That's fine for a household
-dashboard, but it means past months' converted values shift as the rate moves.
+Two things worth knowing:
+
+- Conversion uses the *current* rate against the whole balance, not a historical
+  rate per entry. Fine for a household dashboard, but past months' converted
+  figures shift as rates move.
+- **Transfers between accounts in different currencies ask for both amounts** —
+  what left one account and what arrived in the other. That records what your
+  bank actually did, including its spread and fees, instead of an estimate.
 
 ### Adding another currency
 
-Currencies aren't hardcoded to PKR. Adding one needs no schema change — create
-another `multi_currency` account with a different `currency` code, and the rate
-lookup and AED conversion follow automatically.
+Pick it from the currency list when creating or editing an account. No schema
+change and no configuration — the rate lookup and conversion follow
+automatically, and you can change which currency is "primary" in Settings at any
+time.
 
 ## Troubleshooting
 

@@ -37,18 +37,17 @@ async function fetchLiveRate(base, target) {
   return rate;
 }
 
-// Returns the cached rate, refreshing it first if it's missing or stale (not from today).
-// Degrades to { rate: null, stale: true } on any failure instead of throwing, so a bad
-// network call never takes down the whole summary/dashboard.
+// Returns the cached rate, refreshing when missing or not from today.
+// Never throws: on failure it returns the stale cached rate if there is one,
+// otherwise { rate: null }, so a network problem degrades the currency display
+// instead of taking down the dashboard.
 async function getRate(base, target) {
   if (base === target) {
-    return { rate: 1, fetchedAt: todayUTC(), stale: false };
+    return { rate: 1, fetchedAt: null, stale: false };
   }
 
   const cached = getCachedRate(base, target);
-  const isFresh = cached && cached.fetched_at.slice(0, 10) === todayUTC();
-
-  if (isFresh) {
+  if (cached && cached.fetched_at.slice(0, 10) === todayUTC()) {
     return { rate: cached.rate, fetchedAt: cached.fetched_at, stale: false };
   }
 
@@ -58,18 +57,13 @@ async function getRate(base, target) {
     upsertRate(base, target, rate, fetchedAt);
     return { rate, fetchedAt, stale: false };
   } catch (err) {
-    if (cached) {
-      return { rate: cached.rate, fetchedAt: cached.fetched_at, stale: true };
-    }
+    if (cached) return { rate: cached.rate, fetchedAt: cached.fetched_at, stale: true };
     return { rate: null, fetchedAt: null, stale: true };
   }
 }
 
-// Bypasses the "is it today" freshness check — used by the manual refresh button.
 async function refreshRate(base, target) {
-  if (base === target) {
-    return { rate: 1, fetchedAt: todayUTC(), stale: false };
-  }
+  if (base === target) return { rate: 1, fetchedAt: null, stale: false };
   try {
     const rate = await fetchLiveRate(base, target);
     const fetchedAt = new Date().toISOString();
@@ -77,11 +71,25 @@ async function refreshRate(base, target) {
     return { rate, fetchedAt, stale: false };
   } catch (err) {
     const cached = getCachedRate(base, target);
-    if (cached) {
-      return { rate: cached.rate, fetchedAt: cached.fetched_at, stale: true };
-    }
+    if (cached) return { rate: cached.rate, fetchedAt: cached.fetched_at, stale: true };
     return { rate: null, fetchedAt: null, stale: true };
   }
 }
 
-module.exports = { getRate, refreshRate };
+// Builds a { currency: rateInfo } map for every currency given, so a summary
+// fetches each distinct pair once rather than per account.
+async function getRateMap(currencies, target) {
+  const unique = [...new Set(currencies)];
+  const entries = await Promise.all(
+    unique.map(async (c) => [c, await getRate(c, target)])
+  );
+  return Object.fromEntries(entries);
+}
+
+async function refreshAll(currencies, target) {
+  const unique = [...new Set(currencies)].filter((c) => c !== target);
+  await Promise.all(unique.map((c) => refreshRate(c, target)));
+  return getRateMap(currencies, target);
+}
+
+module.exports = { getRate, refreshRate, getRateMap, refreshAll };

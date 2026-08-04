@@ -1,207 +1,283 @@
 const db = require('../db/connection');
 const exchangeRateService = require('./exchangeRateService');
+const settingsService = require('./settingsService');
 
-const PRIMARY_CURRENCY = 'AED';
+// --- month helpers -------------------------------------------------------
+// 'YYYY-MM' is turned into a single integer so range maths stays trivial.
 
-function primaryBalance(personId, month) {
-  const row = db
-    .prepare(
-      `SELECT COALESCE(SUM(salary_amount - transfer_to_savings - transfer_to_expense), 0) AS total
-       FROM monthly_entries WHERE person_id = ? AND month <= ?`
-    )
-    .get(personId, month);
-  return row.total;
+function monthIndex(month) {
+  const [y, m] = month.split('-').map(Number);
+  return y * 12 + (m - 1);
 }
 
-function savingsBalance(personId, month) {
-  const row = db
-    .prepare(
-      `SELECT COALESCE(SUM(transfer_to_savings), 0) AS total
-       FROM monthly_entries WHERE person_id = ? AND month <= ?`
-    )
-    .get(personId, month);
-  return row.total;
+function monthFromIndex(index) {
+  const y = Math.floor(index / 12);
+  const m = (index % 12) + 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
 }
 
-function expenseAccountBalance(accountId, personId, month) {
-  const transfersIn = db
-    .prepare(
-      `SELECT COALESCE(SUM(transfer_to_expense), 0) AS total
-       FROM monthly_entries WHERE person_id = ? AND month <= ?`
-    )
-    .get(personId, month).total;
-  const spent = db
-    .prepare(
-      `SELECT COALESCE(SUM(amount), 0) AS total
-       FROM expense_entries WHERE account_id = ? AND month <= ?`
-    )
-    .get(accountId, month).total;
-  return transfersIn - spent;
-}
-
-function contributionBalance(accountId, month) {
-  const row = db
-    .prepare(
-      `SELECT COALESCE(SUM(amount), 0) AS total
-       FROM multi_currency_contributions WHERE account_id = ? AND month <= ?`
-    )
-    .get(accountId, month);
-  return row.total;
-}
-
-function nativeBalanceForAccount(account, month) {
-  switch (account.type) {
-    case 'primary':
-      return primaryBalance(account.person_id, month);
-    case 'savings':
-      return savingsBalance(account.person_id, month);
-    case 'expense':
-      return expenseAccountBalance(account.id, account.person_id, month);
-    case 'multi_currency':
-      return contributionBalance(account.id, month);
-    default:
-      return 0;
-  }
-}
-
-async function buildAccountSummary(account, month) {
-  const balance = nativeBalanceForAccount(account, month);
-
-  let balanceAED = balance;
-  let rateInfo = { rate: 1, fetchedAt: null, stale: false };
-  if (account.currency !== PRIMARY_CURRENCY) {
-    rateInfo = await exchangeRateService.getRate(account.currency, PRIMARY_CURRENCY);
-    balanceAED = rateInfo.rate != null ? balance * rateInfo.rate : null;
-  }
-
-  return {
-    id: account.id,
-    personId: account.person_id,
-    type: account.type,
-    name: account.name,
-    currency: account.currency,
-    balance,
-    balanceAED,
-    rate: rateInfo,
-  };
-}
-
-async function getSummary(month) {
-  const persons = db.prepare('SELECT id, name FROM persons ORDER BY id').all();
-
-  let totalIncome = 0;
-  let totalExpenses = 0;
-  let netWorthAED = 0;
-  let aedComposition = 0;
-  let foreignComposition = 0;
-
-  const personSummaries = [];
-
-  for (const person of persons) {
-    const accounts = db
-      .prepare('SELECT * FROM accounts WHERE person_id = ? AND is_active = 1 ORDER BY id')
-      .all(person.id);
-
-    const accountSummaries = [];
-    for (const account of accounts) {
-      const summary = await buildAccountSummary(account, month);
-      accountSummaries.push(summary);
-      if (summary.balanceAED != null) {
-        netWorthAED += summary.balanceAED;
-        if (account.currency === PRIMARY_CURRENCY) {
-          aedComposition += summary.balanceAED;
-        } else {
-          foreignComposition += summary.balanceAED;
-        }
-      }
-    }
-
-    const monthlyEntry = db
-      .prepare(
-        'SELECT salary_amount, transfer_to_savings, transfer_to_expense, notes FROM monthly_entries WHERE person_id = ? AND month = ?'
-      )
-      .get(person.id, month) || { salary_amount: 0, transfer_to_savings: 0, transfer_to_expense: 0, notes: null };
-
-    const expenseAccountIds = accounts.filter((a) => a.type === 'expense').map((a) => a.id);
-    let expenses = 0;
-    if (expenseAccountIds.length) {
-      const placeholders = expenseAccountIds.map(() => '?').join(',');
-      const row = db
-        .prepare(
-          `SELECT COALESCE(SUM(amount), 0) AS total FROM expense_entries WHERE month = ? AND account_id IN (${placeholders})`
-        )
-        .get(month, ...expenseAccountIds);
-      expenses = row.total;
-    }
-
-    totalIncome += monthlyEntry.salary_amount;
-    totalExpenses += expenses;
-
-    personSummaries.push({
-      id: person.id,
-      name: person.name,
-      accounts: accountSummaries,
-      monthlyEntry,
-      income: monthlyEntry.salary_amount,
-      expenses,
-    });
-  }
-
-  return {
-    month,
-    persons: personSummaries,
-    household: {
-      totalIncome,
-      totalExpenses,
-      netWorthAED,
-      currencyComposition: {
-        AED: aedComposition,
-        foreignAED: foreignComposition,
-      },
-    },
-  };
-}
-
-function currentMonthString() {
+function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function shiftMonth(month, delta) {
-  const [year, mon] = month.split('-').map(Number);
-  const date = new Date(Date.UTC(year, mon - 1 + delta, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  return monthFromIndex(monthIndex(month) + delta);
 }
 
-function monthRange(endMonth, count) {
-  const months = [];
-  for (let i = count - 1; i >= 0; i -= 1) {
-    months.push(shiftMonth(endMonth, -i));
+// --- subscriptions -------------------------------------------------------
+// Subscriptions are applied on the fly rather than written into the ledger,
+// so editing or ending one corrects every month at once.
+
+function billingMonthOf(sub) {
+  return sub.billing_month || Number(sub.start_month.split('-')[1]);
+}
+
+function subscriptionDueIn(sub, month) {
+  const i = monthIndex(month);
+  if (i < monthIndex(sub.start_month)) return false;
+  if (sub.end_month && i > monthIndex(sub.end_month)) return false;
+  if (sub.cycle === 'yearly') return (i % 12) + 1 === billingMonthOf(sub);
+  return true;
+}
+
+// How many times the subscription has been charged from its start through `month`.
+function subscriptionChargesThrough(sub, month) {
+  const start = monthIndex(sub.start_month);
+  let end = monthIndex(month);
+  if (sub.end_month) end = Math.min(end, monthIndex(sub.end_month));
+  if (end < start) return 0;
+
+  if (sub.cycle !== 'yearly') return end - start + 1;
+
+  const billing = billingMonthOf(sub);
+  let count = 0;
+  for (let i = start; i <= end; i += 1) {
+    if ((i % 12) + 1 === billing) count += 1;
   }
-  return months;
+  return count;
+}
+
+function activeSubscriptionsFor(accountId) {
+  return db
+    .prepare('SELECT * FROM subscriptions WHERE account_id = ? AND is_active = 1')
+    .all(accountId);
+}
+
+// --- balances ------------------------------------------------------------
+
+const LEDGER_THROUGH = db.prepare(
+  `SELECT
+     COALESCE(SUM(CASE WHEN kind IN ('income','transfer_in')  THEN amount ELSE 0 END), 0) AS credits,
+     COALESCE(SUM(CASE WHEN kind IN ('expense','transfer_out') THEN amount ELSE 0 END), 0) AS debits
+   FROM transactions WHERE account_id = ? AND month <= ?`
+);
+
+const LEDGER_IN_MONTH = db.prepare(
+  `SELECT kind, COALESCE(SUM(amount), 0) AS total
+   FROM transactions WHERE account_id = ? AND month = ? GROUP BY kind`
+);
+
+// Cumulative balance: opening + credits - debits - subscription charges to date.
+function accountBalance(account, month) {
+  const { credits, debits } = LEDGER_THROUGH.get(account.id, month);
+  const subs = activeSubscriptionsFor(account.id).reduce(
+    (sum, s) => sum + s.amount * subscriptionChargesThrough(s, month),
+    0
+  );
+  return account.opening_balance + credits - debits - subs;
+}
+
+function accountMonthActivity(account, month) {
+  const rows = LEDGER_IN_MONTH.all(account.id, month);
+  const by = Object.fromEntries(rows.map((r) => [r.kind, r.total]));
+  const subscriptions = activeSubscriptionsFor(account.id)
+    .filter((s) => subscriptionDueIn(s, month))
+    .reduce((sum, s) => sum + s.amount, 0);
+
+  return {
+    income: by.income || 0,
+    expense: by.expense || 0,
+    transferIn: by.transfer_in || 0,
+    transferOut: by.transfer_out || 0,
+    subscriptions,
+  };
+}
+
+// --- summary -------------------------------------------------------------
+
+function convert(amount, rateInfo) {
+  if (amount == null) return null;
+  if (!rateInfo || rateInfo.rate == null) return null;
+  return amount * rateInfo.rate;
+}
+
+async function getSummary(month) {
+  const primary = settingsService.primaryCurrency();
+  const persons = db.prepare('SELECT id, name FROM persons ORDER BY id').all();
+  const allAccounts = db
+    .prepare('SELECT * FROM accounts WHERE is_active = 1 ORDER BY person_id, sort_order, id')
+    .all();
+
+  const rates = await exchangeRateService.getRateMap(
+    allAccounts.map((a) => a.currency),
+    primary
+  );
+
+  const household = {
+    netWorth: 0,
+    savings: 0,
+    income: 0,
+    expenses: 0,
+    subscriptions: 0,
+    unconvertedCurrencies: [],
+  };
+  const byCurrency = {};
+
+  const personSummaries = persons.map((person) => {
+    const accounts = allAccounts.filter((a) => a.person_id === person.id);
+
+    const accountSummaries = accounts.map((account) => {
+      const balance = accountBalance(account, month);
+      const activity = accountMonthActivity(account, month);
+      const rate = rates[account.currency];
+      const balancePrimary = convert(balance, rate);
+
+      if (balancePrimary == null) {
+        if (!household.unconvertedCurrencies.includes(account.currency)) {
+          household.unconvertedCurrencies.push(account.currency);
+        }
+      } else {
+        household.netWorth += balancePrimary;
+        if (account.type === 'savings') household.savings += balancePrimary;
+        byCurrency[account.currency] = (byCurrency[account.currency] || 0) + balancePrimary;
+      }
+
+      household.income += convert(activity.income, rate) || 0;
+      household.expenses += convert(activity.expense, rate) || 0;
+      household.subscriptions += convert(activity.subscriptions, rate) || 0;
+
+      return {
+        id: account.id,
+        personId: account.person_id,
+        name: account.name,
+        currency: account.currency,
+        type: account.type,
+        openingBalance: account.opening_balance,
+        balance,
+        balancePrimary,
+        rate,
+        activity,
+      };
+    });
+
+    const sumPrimary = (key) =>
+      accountSummaries.reduce((s, a) => s + (convert(a.activity[key], a.rate) || 0), 0);
+
+    return {
+      id: person.id,
+      name: person.name,
+      accounts: accountSummaries,
+      income: sumPrimary('income'),
+      expenses: sumPrimary('expense'),
+      subscriptions: sumPrimary('subscriptions'),
+      netWorth: accountSummaries.reduce((s, a) => s + (a.balancePrimary || 0), 0),
+    };
+  });
+
+  return {
+    month,
+    primaryCurrency: primary,
+    persons: personSummaries,
+    household: {
+      ...household,
+      leftover: household.income - household.expenses - household.subscriptions,
+      byCurrency,
+    },
+    rates,
+  };
 }
 
 async function getTrend(count = 12, endMonth) {
-  const end = endMonth || currentMonthString();
-  const months = monthRange(end, count);
+  const end = endMonth || currentMonth();
+  const primary = settingsService.primaryCurrency();
+  const accounts = db.prepare('SELECT * FROM accounts WHERE is_active = 1').all();
+  const rates = await exchangeRateService.getRateMap(
+    accounts.map((a) => a.currency),
+    primary
+  );
 
   const trend = [];
-  for (const month of months) {
-    const incomeRow = db
-      .prepare('SELECT COALESCE(SUM(salary_amount), 0) AS total FROM monthly_entries WHERE month = ?')
-      .get(month);
-    const expenseRow = db
-      .prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM expense_entries WHERE month = ?')
-      .get(month);
-    const summary = await getSummary(month);
-    trend.push({
-      month,
-      income: incomeRow.total,
-      expenses: expenseRow.total,
-      netWorthAED: summary.household.netWorthAED,
-    });
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const month = shiftMonth(end, -i);
+    let income = 0;
+    let expenses = 0;
+    let subscriptions = 0;
+    let netWorth = 0;
+
+    for (const account of accounts) {
+      const rate = rates[account.currency];
+      const activity = accountMonthActivity(account, month);
+      income += convert(activity.income, rate) || 0;
+      expenses += convert(activity.expense, rate) || 0;
+      subscriptions += convert(activity.subscriptions, rate) || 0;
+      netWorth += convert(accountBalance(account, month), rate) || 0;
+    }
+
+    trend.push({ month, income, expenses, subscriptions, netWorth });
   }
   return trend;
 }
 
-module.exports = { getSummary, getTrend, PRIMARY_CURRENCY, currentMonthString, shiftMonth };
+// Spend grouped by category for a month, in the primary currency.
+async function getCategoryBreakdown(month) {
+  const primary = settingsService.primaryCurrency();
+  const accounts = db.prepare('SELECT * FROM accounts WHERE is_active = 1').all();
+  const rates = await exchangeRateService.getRateMap(
+    accounts.map((a) => a.currency),
+    primary
+  );
+  const byAccount = Object.fromEntries(accounts.map((a) => [a.id, a]));
+  const totals = {};
+
+  const rows = db
+    .prepare(
+      `SELECT account_id, category, COALESCE(SUM(amount), 0) AS total
+       FROM transactions WHERE month = ? AND kind = 'expense'
+       GROUP BY account_id, category`
+    )
+    .all(month);
+
+  for (const row of rows) {
+    const account = byAccount[row.account_id];
+    if (!account) continue;
+    const value = convert(row.total, rates[account.currency]);
+    if (value == null) continue;
+    const key = row.category || 'Uncategorised';
+    totals[key] = (totals[key] || 0) + value;
+  }
+
+  for (const account of accounts) {
+    for (const sub of activeSubscriptionsFor(account.id)) {
+      if (!subscriptionDueIn(sub, month)) continue;
+      const value = convert(sub.amount, rates[account.currency]);
+      if (value == null) continue;
+      const key = sub.category || 'Subscriptions';
+      totals[key] = (totals[key] || 0) + value;
+    }
+  }
+
+  return Object.entries(totals)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+module.exports = {
+  getSummary,
+  getTrend,
+  getCategoryBreakdown,
+  currentMonth,
+  shiftMonth,
+  subscriptionDueIn,
+  subscriptionChargesThrough,
+};

@@ -4,9 +4,9 @@ const cors = require('cors');
 
 const personsRouter = require('./routes/persons');
 const accountsRouter = require('./routes/accounts');
-const monthlyEntriesRouter = require('./routes/monthlyEntries');
-const expenseEntriesRouter = require('./routes/expenseEntries');
-const contributionsRouter = require('./routes/contributions');
+const transactionsRouter = require('./routes/transactions');
+const subscriptionsRouter = require('./routes/subscriptions');
+const settingsRouter = require('./routes/settings');
 const exchangeRatesRouter = require('./routes/exchangeRates');
 const summaryRouter = require('./routes/summary');
 
@@ -18,9 +18,9 @@ app.use(express.json());
 
 app.use('/api/persons', personsRouter);
 app.use('/api/accounts', accountsRouter);
-app.use('/api/monthly-entries', monthlyEntriesRouter);
-app.use('/api/expense-entries', expenseEntriesRouter);
-app.use('/api/contributions', contributionsRouter);
+app.use('/api/transactions', transactionsRouter);
+app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api/settings', settingsRouter);
 app.use('/api/exchange-rates', exchangeRatesRouter);
 app.use('/api/summary', summaryRouter);
 

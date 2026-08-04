@@ -1,83 +1,67 @@
 import { useState } from 'react';
-import { renamePerson } from '../api/persons';
-import { createAccount } from '../api/accounts';
 import AccountCard from './AccountCard';
-import SalaryTransferForm from './SalaryTransferForm';
-import ExpenseEntryForm from './ExpenseEntryForm';
-import MultiCurrencyForm from './MultiCurrencyForm';
+import { renamePerson } from '../api/persons';
+import { formatCurrency } from '../utils/currency';
 
-export default function PersonSection({ person, month, onRefresh }) {
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(person.name);
-  const [addingCurrency, setAddingCurrency] = useState(false);
-
-  const primary = person.accounts.find((a) => a.type === 'primary');
-  const savings = person.accounts.find((a) => a.type === 'savings');
-  const expense = person.accounts.find((a) => a.type === 'expense');
-  const multiCurrency = person.accounts.find((a) => a.type === 'multi_currency');
+export default function PersonSection({ person, month, primaryCurrency, onChanged, onAddAccount, onEditAccount }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(person.name);
 
   async function saveName() {
-    if (nameDraft.trim() && nameDraft !== person.name) {
-      await renamePerson(person.id, nameDraft.trim());
-      onRefresh();
+    const name = draft.trim();
+    if (name && name !== person.name) {
+      await renamePerson(person.id, name);
+      onChanged();
     }
-    setEditingName(false);
-  }
-
-  async function addMultiCurrencyAccount() {
-    setAddingCurrency(true);
-    try {
-      await createAccount({
-        person_id: person.id,
-        type: 'multi_currency',
-        name: 'PKR Savings',
-        currency: 'PKR',
-      });
-      onRefresh();
-    } finally {
-      setAddingCurrency(false);
-    }
+    setEditing(false);
   }
 
   return (
     <section className="card stack">
-      {editingName ? (
-        <div className="row" style={{ alignItems: 'center' }}>
-          <input type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} style={{ maxWidth: 200 }} />
-          <button className="primary" onClick={saveName}>
-            Save
-          </button>
-        </div>
-      ) : (
-        <h2 onClick={() => setEditingName(true)} style={{ cursor: 'pointer' }} title="Click to rename">
-          {person.name}
-        </h2>
-      )}
-
-      <div className="grid-2">
-        {primary && <AccountCard account={primary} />}
-        {savings && <AccountCard account={savings} />}
-        {expense && <AccountCard account={expense} />}
-        {multiCurrency && <AccountCard account={multiCurrency} />}
+      <div className="spread">
+        {editing ? (
+          <div className="row-tight grow">
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveName()}
+              style={{ maxWidth: 220 }}
+              autoFocus
+            />
+            <button className="primary tiny" onClick={saveName}>
+              Save
+            </button>
+          </div>
+        ) : (
+          <div>
+            <h2 onClick={() => setEditing(true)} style={{ cursor: 'pointer' }} title="Click to rename">
+              {person.name}
+            </h2>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
+              {formatCurrency(person.netWorth, primaryCurrency, { compact: true })} across{' '}
+              {person.accounts.length} account{person.accounts.length === 1 ? '' : 's'}
+            </span>
+          </div>
+        )}
+        <button className="tiny" onClick={() => onAddAccount(person)}>
+          + Account
+        </button>
       </div>
 
-      {primary && (
-        <SalaryTransferForm
-          personId={person.id}
+      {person.accounts.map((account) => (
+        <AccountCard
+          key={account.id}
+          account={account}
           month={month}
-          monthlyEntry={person.monthlyEntry}
-          onSaved={onRefresh}
+          primaryCurrency={primaryCurrency}
+          onChanged={onChanged}
+          onEdit={onEditAccount}
         />
-      )}
+      ))}
 
-      {expense && <ExpenseEntryForm accountId={expense.id} month={month} onSaved={onRefresh} />}
-
-      {multiCurrency ? (
-        <MultiCurrencyForm account={multiCurrency} month={month} onSaved={onRefresh} />
-      ) : (
-        <button onClick={addMultiCurrencyAccount} disabled={addingCurrency}>
-          {addingCurrency ? 'Adding…' : '+ Add multi-currency account (PKR)'}
-        </button>
+      {person.accounts.length === 0 && (
+        <p className="muted">No accounts yet — add one to start recording salary and spending.</p>
       )}
     </section>
   );

@@ -1,21 +1,34 @@
 const express = require('express');
+const db = require('../db/connection');
 const exchangeRateService = require('../services/exchangeRateService');
+const settingsService = require('../services/settingsService');
 
 const router = express.Router();
 
-router.get('/:base/:target', async (req, res) => {
-  const { base, target } = req.params;
-  const result = await exchangeRateService.getRate(base.toUpperCase(), target.toUpperCase());
-  res.json(result);
+const currenciesInUse = () =>
+  db.prepare('SELECT DISTINCT currency FROM accounts WHERE is_active = 1').all().map((r) => r.currency);
+
+// Every rate the app currently needs, keyed by currency.
+router.get('/', async (req, res) => {
+  const primary = settingsService.primaryCurrency();
+  res.json({
+    primaryCurrency: primary,
+    rates: await exchangeRateService.getRateMap(currenciesInUse(), primary),
+  });
 });
 
+router.get('/:base/:target', async (req, res) => {
+  const { base, target } = req.params;
+  res.json(await exchangeRateService.getRate(base.toUpperCase(), target.toUpperCase()));
+});
+
+// Forces a refetch of every in-use currency, ignoring the daily cache.
 router.post('/refresh', async (req, res) => {
-  const { base, target } = req.body;
-  if (!base || !target) {
-    return res.status(400).json({ error: 'base and target are required' });
-  }
-  const result = await exchangeRateService.refreshRate(base.toUpperCase(), target.toUpperCase());
-  res.json(result);
+  const primary = settingsService.primaryCurrency();
+  res.json({
+    primaryCurrency: primary,
+    rates: await exchangeRateService.refreshAll(currenciesInUse(), primary),
+  });
 });
 
 module.exports = router;

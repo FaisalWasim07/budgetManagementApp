@@ -5,13 +5,15 @@ const router = express.Router();
 
 router.get('/trend', async (req, res) => {
   const months = req.query.months ? Number(req.query.months) : 12;
-  const trend = await summaryService.getTrend(months, req.query.endMonth);
-  res.json(trend);
+  res.json(await summaryService.getTrend(months, req.query.endMonth));
+});
+
+router.get('/categories/:month', async (req, res) => {
+  res.json(await summaryService.getCategoryBreakdown(req.params.month));
 });
 
 router.get('/:month', async (req, res) => {
-  const summary = await summaryService.getSummary(req.params.month);
-  res.json(summary);
+  res.json(await summaryService.getSummary(req.params.month));
 });
 
 module.exports = router;
