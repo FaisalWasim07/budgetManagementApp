@@ -4,8 +4,11 @@ import Stats from './pages/Stats';
 import Subscriptions from './pages/Subscriptions';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
+import TopBarToggles from './components/TopBarToggles';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { currentMonth } from './utils/month';
+import { DisplayContext } from './utils/display';
+import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
 const PAGES = [
   ['dashboard', 'Dashboard'],
@@ -22,6 +25,19 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [amountsHidden, setAmountsHidden] = useState(
+    () => localStorage.getItem('budget.amountsHidden') === '1'
+  );
+  const [theme, setTheme] = useState(loadTheme);
+
+  useEffect(() => {
+    applyTheme(theme);
+    saveTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('budget.amountsHidden', amountsHidden ? '1' : '0');
+  }, [amountsHidden]);
 
   // The summary is what every page reads, so it loads first and the heavier
   // chart queries follow — the dashboard is usable without waiting for them.
@@ -45,6 +61,7 @@ export default function App() {
   }, [load]);
 
   return (
+    <DisplayContext.Provider value={{ amountsHidden }}>
     <div className="stack">
       <div className="appbar">
         <h1>Household Budget</h1>
@@ -60,6 +77,12 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <TopBarToggles
+            amountsHidden={amountsHidden}
+            onToggleAmounts={() => setAmountsHidden((v) => !v)}
+            theme={theme}
+            onCycleTheme={() => setTheme(nextTheme)}
+          />
           <button onClick={() => setShowSettings(true)}>Settings</button>
         </div>
       </div>
@@ -103,5 +126,6 @@ export default function App() {
         />
       )}
     </div>
+    </DisplayContext.Provider>
   );
 }

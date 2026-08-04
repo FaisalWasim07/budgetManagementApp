@@ -1,4 +1,4 @@
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 
 function Tile({ label, value, sub, tone, hero, small }) {
   return (
@@ -34,7 +34,8 @@ function PersonTiles({ person, primaryCurrency, fmt }) {
 
 export default function Overview({ summary }) {
   const { household, primaryCurrency, persons } = summary;
-  const fmt = (v) => formatCurrency(v, primaryCurrency, { compact: true });
+  const { money } = useDisplay();
+  const fmt = (v) => money(v, primaryCurrency, { compact: true });
 
   return (
     <div className="stack">

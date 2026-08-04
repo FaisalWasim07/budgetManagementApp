@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import Modal from './Modal';
 import { createTransfer } from '../api/transactions';
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 
 export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const [fromId, setFromId] = useState(accounts[0]?.id ?? '');
@@ -10,6 +10,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const [toAmount, setToAmount] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { money } = useDisplay();
 
   const from = useMemo(() => accounts.find((a) => a.id === Number(fromId)), [accounts, fromId]);
   const to = useMemo(() => accounts.find((a) => a.id === Number(toId)), [accounts, toId]);
@@ -33,7 +34,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
     }
     if (overdrawn) {
       setError(
-        `${from.name} only has ${formatCurrency(available, from.currency)} available. ` +
+        `${from.name} only has ${money(available, from.currency)} available. ` +
           `Reduce the amount, or move money in first.`
       );
       return;
@@ -59,7 +60,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
     }
   }
 
-  const label = (a) => `${a.personName} · ${a.name} (${a.currency}) — ${formatCurrency(a.balance, a.currency, { compact: true })}`;
+  const label = (a) => `${a.personName} · ${a.name} (${a.currency}) — ${money(a.balance, a.currency, { compact: true })}`;
 
   return (
     <Modal title="Move money between accounts" onClose={onClose}>
@@ -100,7 +101,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             <span className={overdrawn ? 'error-text' : 'muted'}>
               {fromIsCredit
                 ? 'Credit card — spending on it adds to what you owe.'
-                : `Available: ${formatCurrency(available, from.currency)}`}
+                : `Available: ${money(available, from.currency)}`}
             </span>
           )}
         </label>

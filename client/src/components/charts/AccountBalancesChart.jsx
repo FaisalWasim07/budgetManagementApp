@@ -1,12 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer } from 'recharts';
 import { categoricalColors, chrome } from '../../utils/palette';
-import { formatCurrency } from '../../utils/currency';
+import { useDisplay } from '../../utils/display';
 
 // One bar per account, all converted to the primary currency so accounts in
 // different currencies can be compared directly.
 export default function AccountBalancesChart({ persons, currency }) {
   const colors = categoricalColors();
   const c = chrome();
+  const { money, amountsHidden } = useDisplay();
 
   const data = persons.flatMap((person, personIndex) =>
     person.accounts
@@ -33,7 +34,13 @@ export default function AccountBalancesChart({ persons, currency }) {
       <ResponsiveContainer width="100%" height={Math.max(220, data.length * 42)}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
           <CartesianGrid stroke={c.gridline} horizontal={false} />
-          <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} axisLine={{ stroke: c.baseline }} tickLine={false} />
+          <XAxis
+            type="number"
+            tick={{ fill: c.muted, fontSize: 12 }}
+            axisLine={{ stroke: c.baseline }}
+            tickLine={false}
+            tickFormatter={amountsHidden ? () => '•••' : undefined}
+          />
           <YAxis
             type="category"
             dataKey="name"
@@ -43,7 +50,7 @@ export default function AccountBalancesChart({ persons, currency }) {
             tickLine={false}
           />
           <Tooltip
-            formatter={(v) => formatCurrency(v, currency)}
+            formatter={(v) => money(v, currency)}
             contentStyle={{ background: c.surface, border: `1px solid ${c.gridline}`, color: c.textPrimary }}
           />
           <Bar dataKey="value" radius={[0, 4, 4, 0]}>

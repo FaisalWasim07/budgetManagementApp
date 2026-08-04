@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createTransaction, deleteTransaction, listTransactions } from '../api/transactions';
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 
 const KIND_LABELS = {
   income: 'Income',
@@ -18,6 +18,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const { money } = useDisplay();
   const isForeign = account.currency !== primaryCurrency;
   const isCredit = account.type === 'credit';
   const { activity } = account;
@@ -78,13 +79,13 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
           {/* A card's negative balance is money owed, so show it that way round. */}
           <div className="account-balance" style={isCredit && account.balance < 0 ? { color: 'var(--danger)' } : undefined}>
             {isCredit && account.balance < 0
-              ? `${formatCurrency(-account.balance, account.currency)} owed`
-              : formatCurrency(account.balance, account.currency)}
+              ? `${money(-account.balance, account.currency)} owed`
+              : money(account.balance, account.currency)}
           </div>
           {isForeign && (
             <div className="account-converted">
               {account.balancePrimary != null
-                ? `≈ ${formatCurrency(account.balancePrimary, primaryCurrency)}`
+                ? `≈ ${money(account.balancePrimary, primaryCurrency)}`
                 : `Not converted — no ${account.currency}→${primaryCurrency} rate`}
             </div>
           )}
@@ -95,11 +96,11 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
       </div>
 
       <div className="row-tight secondary" style={{ fontSize: '0.8rem' }}>
-        <span>In {formatCurrency(activity.income + activity.transferIn, account.currency, { compact: true })}</span>
+        <span>In {money(activity.income + activity.transferIn, account.currency, { compact: true })}</span>
         <span>·</span>
         <span>
           Out{' '}
-          {formatCurrency(
+          {money(
             activity.expense + activity.transferOut + activity.subscriptions,
             account.currency,
             { compact: true }
@@ -108,7 +109,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
         {activity.subscriptions > 0 && (
           <>
             <span>·</span>
-            <span>Subs {formatCurrency(activity.subscriptions, account.currency, { compact: true })}</span>
+            <span>Subs {money(activity.subscriptions, account.currency, { compact: true })}</span>
           </>
         )}
       </div>
@@ -155,7 +156,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
               </span>
               <span>
                 {['income', 'transfer_in'].includes(t.kind) ? '+' : '−'}
-                {formatCurrency(t.amount, account.currency)}
+                {money(t.amount, account.currency)}
               </span>
               <button className="subtle tiny danger" onClick={() => remove(t.id)}>
                 Delete

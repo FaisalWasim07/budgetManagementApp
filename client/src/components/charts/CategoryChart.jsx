@@ -1,12 +1,13 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { categoricalColors, chrome } from '../../utils/palette';
-import { formatCurrency } from '../../utils/currency';
+import { useDisplay } from '../../utils/display';
 
 const MAX_SLICES = 6;
 
 export default function CategoryChart({ categories, currency }) {
   const colors = categoricalColors();
   const c = chrome();
+  const { money } = useDisplay();
 
   if (!categories || categories.length === 0) {
     return (
@@ -34,7 +35,7 @@ export default function CategoryChart({ categories, currency }) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(v) => formatCurrency(v, currency)}
+            formatter={(v) => money(v, currency)}
             contentStyle={{ background: c.surface, border: `1px solid ${c.gridline}`, color: c.textPrimary }}
           />
           <Legend wrapperStyle={{ color: c.textSecondary, fontSize: 12 }} />

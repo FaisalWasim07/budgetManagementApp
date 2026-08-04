@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import AccountCard from './AccountCard';
 import { renamePerson } from '../api/persons';
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 
 export default function PersonSection({ person, month, primaryCurrency, onChanged, onAddAccount, onEditAccount }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
+  const { money } = useDisplay();
 
   async function saveName() {
     const name = draft.trim();
@@ -39,7 +40,7 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
               {person.name}
             </h2>
             <span className="muted" style={{ fontSize: '0.85rem' }}>
-              {formatCurrency(person.netWorth, primaryCurrency, { compact: true })} across{' '}
+              {money(person.netWorth, primaryCurrency, { compact: true })} across{' '}
               {person.accounts.length} account{person.accounts.length === 1 ? '' : 's'}
             </span>
           </div>

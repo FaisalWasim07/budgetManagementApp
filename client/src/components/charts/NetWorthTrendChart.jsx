@@ -1,10 +1,12 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sequentialBlue, chrome } from '../../utils/palette';
-import { formatCurrency } from '../../utils/currency';
+import { useDisplay } from '../../utils/display';
 
 export default function NetWorthTrendChart({ trend, currency }) {
   const color = sequentialBlue();
   const c = chrome();
+  const { money, amountsHidden } = useDisplay();
+  const hideTicks = amountsHidden ? () => '•••' : undefined;
 
   return (
     <div className="card">
@@ -13,9 +15,9 @@ export default function NetWorthTrendChart({ trend, currency }) {
         <LineChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={c.gridline} vertical={false} />
           <XAxis dataKey="month" tick={{ fill: c.muted, fontSize: 12 }} axisLine={{ stroke: c.baseline }} tickLine={false} />
-          <YAxis tick={{ fill: c.muted, fontSize: 12 }} axisLine={{ stroke: c.baseline }} tickLine={false} />
+          <YAxis tick={{ fill: c.muted, fontSize: 12 }} axisLine={{ stroke: c.baseline }} tickLine={false} tickFormatter={hideTicks} />
           <Tooltip
-            formatter={(v) => formatCurrency(v, currency)}
+            formatter={(v) => money(v, currency)}
             contentStyle={{ background: c.surface, border: `1px solid ${c.gridline}`, color: c.textPrimary }}
           />
           <Line type="monotone" dataKey="netWorth" name="Net worth" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} />

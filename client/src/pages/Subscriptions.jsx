@@ -5,7 +5,7 @@ import {
   updateSubscription,
   deleteSubscription,
 } from '../api/subscriptions';
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 import { formatMonth } from '../utils/month';
 
 const MONTH_NAMES = [
@@ -28,6 +28,7 @@ export default function Subscriptions({ summary, month, onChanged }) {
   const [form, setForm] = useState(emptyForm(month));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { money } = useDisplay();
 
   const accounts = summary.persons.flatMap((p) =>
     p.accounts.map((a) => ({ ...a, personName: p.name }))
@@ -193,7 +194,7 @@ export default function Subscriptions({ summary, month, onChanged }) {
                   else acc.push({ currency: s.currency, total: s.amount });
                   return acc;
                 }, [])
-                .map((x) => formatCurrency(x.total, x.currency))
+                .map((x) => money(x.total, x.currency))
                 .join(' + ')}`}
           </span>
         </div>
@@ -221,13 +222,13 @@ export default function Subscriptions({ summary, month, onChanged }) {
                   <td>
                     {s.person_name} · {s.account_name}
                   </td>
-                  <td className="num">{formatCurrency(s.amount, s.currency)}</td>
+                  <td className="num">{money(s.amount, s.currency)}</td>
                   <td>
                     {s.cycle === 'yearly'
                       ? `Yearly (${MONTH_NAMES[(s.billing_month || 1) - 1]})`
                       : 'Monthly'}
                   </td>
-                  <td className="num muted">{formatCurrency(monthlyEquivalent(s), s.currency)}</td>
+                  <td className="num muted">{money(monthlyEquivalent(s), s.currency)}</td>
                   <td>
                     {!s.is_active ? (
                       <span className="badge">paused</span>

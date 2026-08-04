@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
-import { formatCurrency } from '../utils/currency';
+import { useDisplay } from '../utils/display';
 
 const KIND_LABELS = {
   income: 'Income',
@@ -15,6 +15,7 @@ export default function TransactionsTable({ month, accountsById, personsById, on
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const { money } = useDisplay();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -89,7 +90,7 @@ export default function TransactionsTable({ month, accountsById, personsById, on
                 <td>{r.account_name}</td>
                 <td className="num" style={{ color: isCredit(r.kind) ? 'var(--success)' : undefined }}>
                   {isCredit(r.kind) ? '+' : '−'}
-                  {formatCurrency(r.amount, r.currency)}
+                  {money(r.amount, r.currency)}
                 </td>
                 <td>
                   <button className="subtle tiny danger" onClick={() => remove(r)}>
