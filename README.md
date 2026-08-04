@@ -30,7 +30,9 @@ If either is missing:
 
 - **Node.js** — install the **LTS** version from [nodejs.org](https://nodejs.org).
   Use LTS specifically: the database library ships prebuilt binaries for LTS
-  releases, so you won't need a C++ compiler.
+  releases, so you won't need a C++ compiler. `node -v` should show an **even**
+  major version (22, 24) — odd ones (23, 25) are short-lived "Current" builds
+  that native libraries often skip, and `npm install` will fail on them.
 - **Git** — [git-scm.com](https://git-scm.com/downloads).
 
 Reopen your terminal after installing, then re-run the checks above.
@@ -130,11 +132,24 @@ lookup and AED conversion follow automatically.
 
 Dependencies weren't installed. Run `npm run install:all`, then try again.
 
-**`npm install` fails with `node-gyp`, `MSBuild`, or `Visual Studio` errors**
+**`npm install` fails with `node-gyp`, `Could not find any Python installation`, `MSBuild`, or `Visual Studio` errors**
 
-Your Node version has no matching prebuilt binary for `better-sqlite3`.
-Install the **LTS** version of Node, delete the `node_modules` folders, and run
-`npm install` again. You don't need to install a compiler.
+Look near the top of the output for a line like:
+
+```
+prebuild-install warn install No prebuilt binaries found (target=25.9.0 ...)
+```
+
+You're on a Node version that `better-sqlite3` has no prebuilt binary for, so it
+fell back to compiling from source — which needs Python and C++ build tools.
+
+**Don't install Python or a compiler.** Install an **LTS** version of Node
+instead. Run `node -v`: the major version should be an **even** number (22, 24).
+Odd-numbered releases (23, 25) are short-lived "Current" builds that native
+libraries frequently skip.
+
+Fix: install the LTS build from [nodejs.org](https://nodejs.org), then delete the
+`node_modules` folders and run `npm install` again.
 
 **PowerShell: `running scripts is disabled on this system`**
 
