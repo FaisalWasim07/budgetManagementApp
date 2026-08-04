@@ -28,11 +28,10 @@ git --version
 
 If either is missing:
 
-- **Node.js** — install the **LTS** version from [nodejs.org](https://nodejs.org).
-  Use LTS specifically: the database library ships prebuilt binaries for LTS
-  releases, so you won't need a C++ compiler. `node -v` should show an **even**
-  major version (22, 24) — odd ones (23, 25) are short-lived "Current" builds
-  that native libraries often skip, and `npm install` will fail on them.
+- **Node.js 24 or newer** — install the **LTS** build from
+  [nodejs.org](https://nodejs.org). The app stores data using Node's own
+  built-in SQLite, which needs Node 24+. Nothing here compiles native code, so
+  you do **not** need Python, Visual Studio, or any build tools.
 - **Git** — [git-scm.com](https://git-scm.com/downloads).
 
 Reopen your terminal after installing, then re-run the checks above.
@@ -132,24 +131,18 @@ lookup and AED conversion follow automatically.
 
 Dependencies weren't installed. Run `npm run install:all`, then try again.
 
+**`This app needs Node.js 24 or newer`**
+
+Run `node -v`. If it's below 24, install the LTS build from
+[nodejs.org](https://nodejs.org), close and reopen your terminal, and check
+again.
+
 **`npm install` fails with `node-gyp`, `Could not find any Python installation`, `MSBuild`, or `Visual Studio` errors**
 
-Look near the top of the output for a line like:
-
-```
-prebuild-install warn install No prebuilt binaries found (target=25.9.0 ...)
-```
-
-You're on a Node version that `better-sqlite3` has no prebuilt binary for, so it
-fell back to compiling from source — which needs Python and C++ build tools.
-
-**Don't install Python or a compiler.** Install an **LTS** version of Node
-instead. Run `node -v`: the major version should be an **even** number (22, 24).
-Odd-numbered releases (23, 25) are short-lived "Current" builds that native
-libraries frequently skip.
-
-Fix: install the LTS build from [nodejs.org](https://nodejs.org), then delete the
-`node_modules` folders and run `npm install` again.
+This shouldn't happen any more — nothing in the project compiles native code.
+If you see it, you're on an old checkout that still used `better-sqlite3`. Run
+`git pull`, delete the `node_modules` folders, and run `npm install` again.
+Don't install Python or a compiler.
 
 **PowerShell: `running scripts is disabled on this system`**
 
@@ -171,7 +164,9 @@ with `PORT=5001 npm start`.
 
 ## Tech stack
 
-React + Vite, Express, SQLite (`better-sqlite3`), Recharts.
+React + Vite, Express, Recharts, and Node's built-in `node:sqlite` for storage
+(chosen over `better-sqlite3` so there is no native compilation step, which was
+a recurring setup failure on Windows).
 
 ```
 client/   React frontend — components, charts, API wrappers

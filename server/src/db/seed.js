@@ -18,12 +18,20 @@ function seed() {
     'INSERT INTO accounts (person_id, type, name, currency) VALUES (?, ?, ?, ?)'
   );
 
-  const seedPerson = db.transaction((name) => {
-    const { lastInsertRowid: personId } = insertPerson.run(name);
-    for (const account of DEFAULT_ACCOUNTS) {
-      insertAccount.run(personId, account.type, account.name, account.currency);
+  // node:sqlite has no transaction() helper, so the statements are wrapped by hand
+  const seedPerson = (name) => {
+    db.exec('BEGIN');
+    try {
+      const { lastInsertRowid: personId } = insertPerson.run(name);
+      for (const account of DEFAULT_ACCOUNTS) {
+        insertAccount.run(personId, account.type, account.name, account.currency);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
     }
-  });
+  };
 
   seedPerson('Husband');
   seedPerson('Wife');
