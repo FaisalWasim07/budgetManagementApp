@@ -144,19 +144,32 @@ the old data isn't carried across — the structure changed too much.
 
 ## Exchange rates
 
-Rates come from [Frankfurter](https://frankfurter.dev), a free API that needs no
-key or account. Each currency pair is fetched at most once per day and cached in
-the database; **Refresh** in Settings forces an update.
+Rates are tried against several free, no-key providers in turn, and the first
+one that answers wins:
+
+1. **open.er-api.com** — 160+ currencies
+2. **currency-api** — static JSON on a CDN, 200+ currencies, with its own mirror
+3. **Frankfurter** — European Central Bank rates
+
+Frankfurter is last deliberately. It was the original and only source, and it
+publishes ECB reference rates, which cover about 30 major currencies —
+**neither AED nor PKR among them**. It could never price the pair this app was
+built around, which is why live rates appeared broken regardless of the network.
+It stays in the list because it is a good source for the majors it does cover.
+
+Each currency pair is fetched at most once per day and cached; **Refresh now** in
+Settings forces an update, and **Test connection** reports what each provider
+returned, so a missing rate can be traced rather than guessed at.
 
 If the API can't be reached, the app falls back to the last cached rate (shown as
 "cached"). With no cached rate at all, those accounts are listed as unconverted
 and left out of the household totals rather than silently counted as zero — a
 banner on the dashboard says which currencies are affected.
 
-A lookup gives up after **4 seconds** and a failure is remembered for a minute,
-so an unreachable rate service slows a page load slightly instead of hanging it.
-If a currency matters to you, set a **fallback rate** for it in Settings — that
-value is used whenever the live one can't be had, so your totals still add up.
+Each provider gets **2.5 seconds** and a failure is remembered for a minute, so
+unreachable services slow a page load slightly instead of hanging it. If a
+currency matters to you, set a **fallback rate** for it in Settings — that value
+is used whenever no live rate can be had, so your totals still add up.
 
 Two things worth knowing:
 

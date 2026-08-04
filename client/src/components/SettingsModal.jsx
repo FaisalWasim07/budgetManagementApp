@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import { getSettings, updateSettings } from '../api/settings';
-import { refreshRates } from '../api/exchangeRates';
+import { refreshRates, diagnoseRates } from '../api/exchangeRates';
 import { CURRENCIES } from '../utils/currency';
 
 const SOURCE_LABELS = {
@@ -18,6 +18,7 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
+  const [diagnosis, setDiagnosis] = useState(null);
 
   const otherCurrencies = Object.keys(rates || {}).filter((c) => c !== primaryCurrency);
 
@@ -56,6 +57,19 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
           : 'Rates updated.'
       );
       await onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runDiagnosis() {
+    setBusy(true);
+    setDiagnosis(null);
+    setError(null);
+    try {
+      setDiagnosis(await diagnoseRates());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -123,10 +137,45 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
 
           {otherCurrencies.length > 0 && (
             <span className="muted" style={{ fontSize: '0.8rem' }}>
-              Used whenever the live rate can't be fetched, so your totals still add up. Leave blank
-              to use the last known rate instead. Live lookups give up after 4 seconds rather than
-              holding up the page.
+              Used whenever no live rate can be fetched, so your totals still add up. Leave blank to
+              use the last known rate instead.
             </span>
+          )}
+
+          {otherCurrencies.length > 0 && (
+            <>
+              <div className="spread">
+                <strong style={{ fontSize: '0.9rem' }}>Rate sources</strong>
+                <button type="button" className="tiny" onClick={runDiagnosis} disabled={busy}>
+                  Test connection
+                </button>
+              </div>
+
+              {!diagnosis && (
+                <span className="muted" style={{ fontSize: '0.8rem' }}>
+                  Rates are tried against several providers in turn. Test them if a rate isn't
+                  showing, to see which one is at fault.
+                </span>
+              )}
+
+              {diagnosis?.results.map((r) => (
+                <div key={r.base} className="stack-sm" style={{ gap: 2 }}>
+                  <span style={{ fontSize: '0.85rem' }}>
+                    <strong>
+                      {r.base} → {r.target}
+                    </strong>
+                  </span>
+                  {r.providers.map((p) => (
+                    <div key={p.provider} className="spread" style={{ fontSize: '0.8rem' }}>
+                      <span className="muted">{p.provider}</span>
+                      <span className={p.ok ? '' : 'muted'}>
+                        {p.ok ? `${p.rate} · ${p.ms}ms` : p.reason}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </>
           )}
         </div>
 
