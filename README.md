@@ -112,11 +112,30 @@ blocks this.
 
 ## Your data
 
-Everything lives in a single file: **`server/src/data/budget.sqlite3`**
+Everything lives in a single file on your own machine:
+**`server/src/data/budget.sqlite3`**
 
-This file is gitignored on purpose — it's your financial data and shouldn't go
-to GitHub. It's also your **only backup**, so copy it somewhere safe from time
-to time. To start completely fresh, delete it and re-run `npm run db:init`.
+Nothing is ever sent anywhere. There is no cloud account, no analytics and no
+external service — the only outbound request the app makes is to fetch exchange
+rates, which sends nothing but a currency code.
+
+**None of it goes to GitHub.** The whole `server/src/data/` directory is
+gitignored — the directory rather than a filename pattern, so migration backups
+(`budget.sqlite3.old-<timestamp>`) and SQLite's `-wal`/`-shm` side files are all
+covered too. To confirm this yourself at any time:
+
+```
+git status --short server/src/data/    # should print nothing
+git ls-files | grep sqlite             # should print nothing
+```
+
+Because it never leaves your machine, that file is your **only copy** — back it
+up somewhere safe once you've entered real figures. To start completely fresh,
+delete it and re-run `npm run db:init`.
+
+If you ever publish this repository, only the code above is published. But note
+that anyone who can reach the running app on your network can see the data —
+there is no login, by design.
 
 If you're coming from an older version of the app, `npm run db:init` notices the
 previous database layout, saves a copy next to it as
@@ -203,7 +222,8 @@ client/   React frontend — components, charts, API wrappers
 server/   Express API — routes, services, SQLite schema and seed
 ```
 
-Balances are never stored; they're computed by summing entries up to the
-selected month. A person's primary balance is always
-`salary − transfer_to_savings − transfer_to_expense`, so the displayed remainder
-can't drift out of sync with the numbers it comes from.
+Balances are never stored. An account's balance is computed as its opening
+balance, plus income and incoming transfers, minus spending, outgoing transfers
+and any subscriptions charged to it, over every month up to the one selected. So
+a figure on screen can't drift away from the entries behind it — correcting an
+entry corrects every total that depends on it.

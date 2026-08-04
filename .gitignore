@@ -1,5 +1,14 @@
 node_modules/
 client/dist/
-server/src/data/*.sqlite3
 .env
 *.log
+
+# Your financial data. Never commit any of this.
+# The whole data directory is ignored rather than a filename pattern, so
+# migration backups (budget.sqlite3.old-<timestamp>) and SQLite's own -wal/-shm
+# side files can't slip through.
+server/src/data/
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.*
+*.db
