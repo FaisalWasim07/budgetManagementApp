@@ -1,11 +1,33 @@
 import { formatCurrency } from '../utils/currency';
 
-function Tile({ label, value, sub, tone, hero }) {
+function Tile({ label, value, sub, tone, hero, small }) {
   return (
-    <div className={`tile${hero ? ' hero' : ''}`}>
+    <div className={`tile${hero ? ' hero' : ''}${small ? ' sm' : ''}`}>
       <span className="label">{label}</span>
       <span className={`value${tone ? ` ${tone}` : ''}`}>{value}</span>
       {sub && <span className="sub">{sub}</span>}
+    </div>
+  );
+}
+
+// Each person's own month, broken down the same way as the household row above
+// so the two read consistently.
+function PersonTiles({ person, primaryCurrency, fmt }) {
+  const leftover = person.income - person.expenses - person.subscriptions;
+
+  return (
+    <div className="person-summary">
+      <div className="person-summary-head">
+        <span className="label">{person.name}</span>
+        <span className="value">{fmt(person.netWorth)}</span>
+        <span className="sub">net worth ({primaryCurrency})</span>
+      </div>
+      <div className="tiles tiles-sm">
+        <Tile small label="Income" value={fmt(person.income)} tone={person.income > 0 ? 'pos' : undefined} />
+        <Tile small label="Spent" value={fmt(person.expenses)} />
+        <Tile small label="Subscriptions" value={fmt(person.subscriptions)} />
+        <Tile small label="Left over" value={fmt(leftover)} tone={leftover < 0 ? 'neg' : 'pos'} />
+      </div>
     </div>
   );
 }
@@ -54,14 +76,9 @@ export default function Overview({ summary }) {
         </div>
       )}
 
-      <div className="tiles">
+      <div className="person-summaries">
         {persons.map((p) => (
-          <Tile
-            key={p.id}
-            label={p.name}
-            value={fmt(p.netWorth)}
-            sub={`+${fmt(p.income)} in · −${fmt(p.expenses + p.subscriptions)} out`}
-          />
+          <PersonTiles key={p.id} person={p} primaryCurrency={primaryCurrency} fmt={fmt} />
         ))}
       </div>
     </div>
