@@ -124,9 +124,9 @@ async function main() {
 }
 
 main()
-  .then(() => db.pool.end())
+  .then(() => db.end())
   .catch(async (err) => {
     console.error(`\n${err.message}\n`);
-    await db.pool.end().catch(() => {});
+    await db.end().catch(() => {});
     process.exit(1);
   });

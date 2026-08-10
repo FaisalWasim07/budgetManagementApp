@@ -2,15 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "client/dist",
-  "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
-  ],
   "functions": {
-    "api/[[...path]].js": {
-      "maxDuration": 15
+    "api/**": {
+      "maxDuration": 15,
+      "includeFiles": "server/src/db/*.sql"
     }
-  }
+  },
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }

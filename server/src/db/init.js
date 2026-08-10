@@ -14,7 +14,7 @@ async function main() {
 }
 
 main()
-  .then(() => db.pool.end())
+  .then(() => db.end())
   .catch((err) => {
     console.error('\nCould not prepare the database.\n');
     console.error(err.message);

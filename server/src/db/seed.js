@@ -41,7 +41,7 @@ module.exports = seed;
 
 if (require.main === module) {
   seed()
-    .then(() => db.pool.end())
+    .then(() => db.end())
     .catch((err) => {
       console.error(err);
       process.exit(1);

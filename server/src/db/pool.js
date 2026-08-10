@@ -6,41 +6,52 @@ const { Pool, types } = require('pg');
 // `count === 0` and `count > 0` in the app, so bigint is parsed as a number.
 types.setTypeParser(types.builtins.INT8, (value) => Number(value));
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error(
-    'DATABASE_URL is not set. Copy .env.example to .env and put your Postgres ' +
-      'connection string in it (see README, "Database").'
-  );
-}
-
-const isLocal = /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(connectionString);
-
 // Certificates are verified by default. Supabase's pooler presents a publicly
 // trusted certificate, so this should just work; the escape hatch exists
-// because a corporate network doing TLS interception would otherwise be an
-// unexplained connection failure.
-function sslOption() {
-  if (isLocal) return false;
+// because a network doing TLS interception would otherwise be an unexplained
+// connection failure.
+function sslOption(connectionString) {
+  if (/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(connectionString)) return false;
   if (process.env.DATABASE_SSL_NO_VERIFY === 'true') return { rejectUnauthorized: false };
   return { rejectUnauthorized: true };
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: sslOption(),
-  // Each serverless invocation gets its own short-lived pool, so it wants a
-  // small ceiling and a quick idle timeout: connections are a shared resource
-  // across every concurrent invocation, not something this process owns.
-  max: process.env.VERCEL ? 2 : 10,
-  idleTimeoutMillis: process.env.VERCEL ? 5_000 : 30_000,
-  connectionTimeoutMillis: 10_000,
-});
+let created = null;
 
-pool.on('error', (err) => {
-  // An idle client dropped by the pooler must not take the process down.
-  console.error('Idle Postgres client error:', err.message);
-});
+// Built on first use rather than on import. A missing DATABASE_URL is a
+// configuration mistake that should surface as a failed query the health check
+// can report, not as a module that throws while loading and takes the whole
+// function down before it can answer anything.
+function getPool() {
+  if (created) return created;
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      'DATABASE_URL is not set. Locally: copy .env.example to .env and put your ' +
+        'Postgres connection string in it. On a host: set it as an environment ' +
+        'variable and redeploy (see README, "Database").'
+    );
+  }
+
+  created = new Pool({
+    connectionString,
+    ssl: sslOption(connectionString),
+    // Each serverless invocation gets its own short-lived pool, so it wants a
+    // small ceiling and a quick idle timeout: connections are a shared resource
+    // across every concurrent invocation, not something this process owns.
+    max: process.env.VERCEL ? 2 : 10,
+    idleTimeoutMillis: process.env.VERCEL ? 5_000 : 30_000,
+    connectionTimeoutMillis: 10_000,
+  });
+
+  created.on('error', (err) => {
+    // An idle client dropped by the pooler must not take the process down.
+    console.error('Idle Postgres client error:', err.message);
+  });
+
+  return created;
+}
 
 // The app's SQL was written against SQLite's `?` placeholders. Rewriting all of
 // it to $1/$2 by hand would be a large diff of pure noise, so the numbering is
@@ -89,17 +100,18 @@ function api(runner) {
   };
 }
 
-const base = api(pool);
+// Resolves the pool at call time, so requiring this module never connects.
+const base = api({ query: (text, values) => getPool().query(text, values) });
 
 // Multiple statements in one go, for schema files. No parameters, so no
 // placeholder rewriting.
-const exec = (sql) => pool.query(sql);
+const exec = (sql) => getPool().query(sql);
 
 // Runs fn against a single connection wrapped in BEGIN/COMMIT. Anything thrown
 // rolls the whole thing back — used where two rows have to appear together or
 // not at all, like the two legs of a transfer.
 async function tx(fn) {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     const result = await fn(api(client));
@@ -113,4 +125,8 @@ async function tx(fn) {
   }
 }
 
-module.exports = { ...base, exec, tx, pool, toPositional };
+// `end` is a function rather than the pool itself so that scripts can close
+// cleanly without a bare require ever opening a connection.
+const end = () => (created ? created.end() : Promise.resolve());
+
+module.exports = { ...base, exec, tx, end, getPool, toPositional };

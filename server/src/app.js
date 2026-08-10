@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
+const db = require('./db/pool');
 const ensureSchema = require('./db/ensureSchema');
 const authRouter = require('./routes/auth');
 const personsRouter = require('./routes/persons');
@@ -26,6 +27,20 @@ app.use(express.json());
 // Express is told to read X-Forwarded-For, which would make the login rate
 // limit count every household as one client.
 if (process.env.TRUST_PROXY === 'true' || process.env.VERCEL) app.set('trust proxy', 1);
+
+// Answers before the schema check and before auth, so it can distinguish "the
+// API isn't wired up at all" (nothing answers, or the host's own 404) from
+// "the API is running but can't reach the database". Deliberately says nothing
+// beyond that — the reason for a failure goes to the logs, not to the caller.
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.get('SELECT 1 AS ok');
+    res.json({ api: true, database: true });
+  } catch (err) {
+    console.error('Health check failed to reach the database:', err);
+    res.status(503).json({ api: true, database: false });
+  }
+});
 
 // Serverless has no startup hook — the first request into a cold instance is
 // the earliest point anything can run. ensureSchema caches its own promise, so
