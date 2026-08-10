@@ -64,11 +64,6 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/exchange-rates', exchangeRatesRouter);
 app.use('/api/summary', summaryRouter);
 
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'internal server error' });
-});
-
 // Only used when the app runs as a single process serving both halves. On
 // Vercel the built client is served as static files and never reaches here.
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
@@ -78,6 +73,25 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(clientDist, 'index.html'), (err) => {
     if (err) next();
   });
+});
+
+// An unmatched /api path answers in JSON and says which path it actually saw.
+// A 404 is otherwise indistinguishable between "the host never routed this to
+// the app" and "the app got it but under a different path than it expects",
+// and those have completely different fixes.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'No such API route',
+    method: req.method,
+    seenPath: req.originalUrl,
+    hint: 'This came from the application, so routing to it is working.',
+  });
+});
+
+// Last, so it also catches failures thrown by the middleware above it.
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'internal server error' });
 });
 
 module.exports = app;
