@@ -13,10 +13,12 @@ const ensureSchema = require('./ensureSchema');
 // inserted with explicit ids don't advance them, and the next insert would
 // otherwise collide with id 1.
 //
-//   node server/src/db/migrateFromSqlite.js [path-to-budget.sqlite3]
+//   node server/src/db/migrateFromSqlite.js [path-to-budget.sqlite3] [--replace]
 //
 // Refuses to run against a database that already holds a budget, so it can't
-// quietly duplicate everything when run twice.
+// quietly duplicate everything when run twice. --replace clears the budget
+// first, for the common case of a fresh deployment that seeded its two default
+// people before the import. Logins are never touched by either path.
 
 const DEFAULT_SQLITE = path.join(__dirname, '..', 'data', 'budget.sqlite3');
 
@@ -65,7 +67,10 @@ function openSqlite(file) {
 }
 
 async function main() {
-  const file = process.argv[2] || DEFAULT_SQLITE;
+  const args = process.argv.slice(2);
+  const replace = args.includes('--replace');
+  const file = args.find((a) => !a.startsWith('--')) || DEFAULT_SQLITE;
+
   if (!fs.existsSync(file)) {
     throw new Error(
       `No SQLite database at ${file}\n` +
@@ -76,11 +81,23 @@ async function main() {
 
   await ensureSchema();
 
-  const existing = await db.get('SELECT COUNT(*) AS count FROM transactions');
-  if (existing.count > 0) {
+  // Ids are copied verbatim, so anything already occupying them collides. That
+  // includes the two people and four accounts a fresh database seeds itself
+  // with, which hold no transactions and would otherwise slip past a check that
+  // only looked at those.
+  const present = [];
+  for (const name of ['persons', 'accounts', 'transactions', 'subscriptions']) {
+    const { count } = await db.get(`SELECT COUNT(*) AS count FROM ${name}`);
+    if (count > 0) present.push(`${count} ${name}`);
+  }
+
+  if (present.length > 0 && !replace) {
     throw new Error(
-      `The Postgres database already has ${existing.count} transactions in it. ` +
-        'Refusing to import on top of existing data — empty it first if that is really what you want.'
+      `The target database is not empty — it already has ${present.join(', ')}.\n\n` +
+        'If that is just the default people and accounts a new database creates for\n' +
+        'itself, clear them and import over the top with:\n\n' +
+        '  npm run migrate:sqlite -- --replace\n\n' +
+        'That deletes the existing budget. Logins are kept either way.'
     );
   }
 
@@ -88,6 +105,14 @@ async function main() {
   const counts = {};
 
   await db.tx(async (t) => {
+    if (replace) {
+      // Children before parents, or the foreign keys refuse. Users and sessions
+      // are deliberately absent: whoever can already sign in, still can.
+      for (const name of ['transactions', 'subscriptions', 'accounts', 'persons', 'settings', 'exchange_rates']) {
+        await t.run(`DELETE FROM ${name}`);
+      }
+    }
+
     for (const table of TABLES) {
       const rows = sqlite.prepare(`SELECT * FROM ${table.name}`).all();
       counts[table.name] = rows.length;

@@ -180,6 +180,23 @@ to something alphanumeric.
 `.env` is gitignored and must stay that way — it is the one file in the project
 that holds a credential.
 
+### TLS
+
+Supabase's poolers present a certificate signed by their own authority rather
+than a publicly trusted one, so verifying against the usual root certificates
+fails with `SELF_SIGNED_CERT_IN_CHAIN`. Pick one of two answers — neither is the
+default, because quietly skipping verification is how an encrypted connection
+becomes an interceptable one:
+
+| Setting | Effect |
+| --- | --- |
+| `DATABASE_CA_CERT` | Encrypted **and** verified. Download the certificate from Supabase under Settings → Database → SSL Configuration and paste its contents in. |
+| `DATABASE_SSL_NO_VERIFY=true` | Encrypted, server not verified. Simpler, and what most deployments settle for. |
+
+Both are set the same way locally (in `.env`) and on a host (as an environment
+variable). Newlines in the certificate may be written either literally or as
+`\n`. Local connections don't use TLS at all and need neither.
+
 ### Use a separate database for development
 
 `npm run dev` talks to whatever `DATABASE_URL` names. If that's the same
@@ -203,10 +220,23 @@ npm run migrate:sqlite -- "D:\path\to\budget.sqlite3"
 ```
 
 It copies people, accounts, transactions, subscriptions, settings and cached
-rates, keeping every id so the links between them survive. It refuses to run
-against a database that already holds transactions, so it can't duplicate
-everything by being run twice. Logins aren't copied — the app will ask you to
-create one.
+rates, keeping every id so the links between them survive.
+
+Because ids are preserved, the target has to be empty — and a database that has
+been started up once is not, since it seeds itself with two people and their
+default accounts. To clear those and import over the top:
+
+```
+npm run migrate:sqlite -- --replace
+```
+
+That deletes the existing budget, so it refuses to happen by accident: without
+the flag the script stops and tells you what is in the way. Logins are left
+alone by both paths, and aren't copied either — password hashes stay with the
+machine that made them, so the app will ask you to create one.
+
+The whole import runs in a single transaction. If anything fails, nothing is
+written.
 
 Nothing about your figures is ever committed to Git: the database is remote, and
 `.env`, which is the only thing that can reach it, is ignored. To confirm:
@@ -277,11 +307,28 @@ The connection string is wrong. The most common cause by far is leaving the
 `[YOUR-PASSWORD]` placeholder in it, or a password containing characters that
 need URL-encoding — see [Database](#database).
 
-**`self-signed certificate in certificate chain` when connecting**
+**`SELF_SIGNED_CERT_IN_CHAIN` / `UNABLE_TO_VERIFY_LEAF_SIGNATURE`**
 
-Something on your network is intercepting TLS. Add `DATABASE_SSL_NO_VERIFY=true`
-to `.env`. The connection stays encrypted; only the certificate check is
-relaxed.
+The database's certificate can't be verified against the usual roots, which is
+normal for Supabase. See [TLS](#tls) — set either `DATABASE_CA_CERT` or
+`DATABASE_SSL_NO_VERIFY=true`.
+
+**A 500 with a code in brackets**
+
+Errors show a short code so you don't have to read the host's logs to find out
+what broke:
+
+| Code | Meaning |
+| --- | --- |
+| `ENOTFOUND` / `ECONNREFUSED` | wrong host in `DATABASE_URL`, or the database is unreachable |
+| `28P01` | password rejected — usually the `[YOUR-PASSWORD]` placeholder left in |
+| `3D000` | that database name doesn't exist |
+| `42P01` | a table is missing; run `npm run db:init` |
+| `SELF_SIGNED_CERT_IN_CHAIN` | see [TLS](#tls) |
+
+`GET /api/health` reports the same codes and needs no login, so it's the
+quickest way to tell "the app isn't running" from "the app can't reach the
+database".
 
 **`npm install` fails with `node-gyp`, `Could not find any Python installation`, `MSBuild`, or `Visual Studio` errors**
 

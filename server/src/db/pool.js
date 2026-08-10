@@ -6,12 +6,30 @@ const { Pool, types } = require('pg');
 // `count === 0` and `count > 0` in the app, so bigint is parsed as a number.
 types.setTypeParser(types.builtins.INT8, (value) => Number(value));
 
-// Certificates are verified by default. Supabase's pooler presents a publicly
-// trusted certificate, so this should just work; the escape hatch exists
-// because a network doing TLS interception would otherwise be an unexplained
-// connection failure.
+// Supabase's poolers present a certificate from their own authority rather than
+// a publicly trusted one, so verifying against the system roots fails with
+// SELF_SIGNED_CERT_IN_CHAIN. There are two honest answers, in order of
+// preference:
+//
+//   DATABASE_CA_CERT       the provider's CA certificate, downloadable from
+//                          Supabase under Settings -> Database -> SSL. The
+//                          connection is encrypted *and* the server is proven
+//                          to be the one you meant.
+//   DATABASE_SSL_NO_VERIFY encrypted, but the server is not verified. Simpler,
+//                          and what most deployments settle for.
+//
+// Neither is the default: silently skipping verification is how an encrypted
+// connection quietly becomes an interceptable one.
 function sslOption(connectionString) {
   if (/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(connectionString)) return false;
+
+  const ca = process.env.DATABASE_CA_CERT;
+  if (ca && ca.trim()) {
+    // Somewhere between a dashboard text box and here, real newlines often
+    // arrive as the two characters \ and n.
+    return { ca: ca.replace(/\\n/g, '\n'), rejectUnauthorized: true };
+  }
+
   if (process.env.DATABASE_SSL_NO_VERIFY === 'true') return { rejectUnauthorized: false };
   return { rejectUnauthorized: true };
 }
