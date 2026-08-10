@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const db = require('../db/connection');
+const db = require('../db/pool');
 
 // scrypt comes with Node, so adding logins costs no new dependency — and in
 // particular nothing that has to compile, which is what made installing hard
@@ -23,58 +23,59 @@ function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(actual, expectedBuf);
 }
 
-const userCount = () => db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
+const userCount = async () => (await db.get('SELECT COUNT(*) AS count FROM users')).count;
 
-function createUser(username, password) {
+async function createUser(username, password) {
   const hash = hashPassword(password);
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
-    .run(username.trim(), hash);
-  return db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(lastInsertRowid);
+  return db.get(
+    `INSERT INTO users (username, password_hash) VALUES (?, ?)
+     RETURNING id, username, created_at`,
+    [username.trim(), hash]
+  );
 }
 
+// Matched on the lowered value to line up with the unique index, so usernames
+// are case-insensitive the way they were under SQLite's NOCASE collation.
 function findUser(username) {
-  return db.prepare('SELECT * FROM users WHERE username = ?').get(String(username).trim());
+  return db.get('SELECT * FROM users WHERE lower(username) = lower(?)', [String(username).trim()]);
 }
 
-function setPassword(userId, password) {
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), userId);
+async function setPassword(userId, password) {
+  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), userId]);
   // Changing a password ends every other session for that user.
-  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  await db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
 }
 
-function createSession(userId) {
+async function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000).toISOString();
-  db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(
+  await db.run('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)', [
     token,
     userId,
-    expiresAt
-  );
+    expiresAt,
+  ]);
   return { token, expiresAt };
 }
 
-function getSessionUser(token) {
+async function getSessionUser(token) {
   if (!token) return null;
-  const row = db
-    .prepare(
-      `SELECT s.token, s.expires_at, u.id, u.username
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ?`
-    )
-    .get(token);
+  const row = await db.get(
+    `SELECT s.token, s.expires_at, u.id, u.username
+     FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token = ?`,
+    [token]
+  );
   if (!row) return null;
   if (new Date(row.expires_at) < new Date()) {
-    destroySession(token);
+    await destroySession(token);
     return null;
   }
   return { id: row.id, username: row.username };
 }
 
-const destroySession = (token) => db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+const destroySession = (token) => db.run('DELETE FROM sessions WHERE token = ?', [token]);
 
-const purgeExpiredSessions = () =>
-  db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+const purgeExpiredSessions = () => db.run('DELETE FROM sessions WHERE expires_at < now()');
 
 module.exports = {
   hashPassword,

@@ -41,13 +41,16 @@ git --version
 
 If either is missing:
 
-- **Node.js 24 or newer** — install the **LTS** build from
-  [nodejs.org](https://nodejs.org). The app stores data using Node's own
-  built-in SQLite, which needs Node 24+. Nothing here compiles native code, so
-  you do **not** need Python, Visual Studio, or any build tools.
+- **Node.js 20 or newer** — install the **LTS** build from
+  [nodejs.org](https://nodejs.org). Nothing here compiles native code, so you do
+  **not** need Python, Visual Studio, or any build tools.
 - **Git** — [git-scm.com](https://git-scm.com/downloads).
 
 Reopen your terminal after installing, then re-run the checks above.
+
+You also need a **PostgreSQL database**. The free tier of
+[Supabase](https://supabase.com) is enough; so is a local Postgres if you
+prefer. See [Database](#database) below.
 
 ## Setup
 
@@ -57,15 +60,26 @@ Run these once:
 git clone https://github.com/FaisalWasim07/budgetManagementApp.git
 cd budgetManagementApp
 npm install
-npm run db:init
 ```
 
 `npm install` installs the frontend and backend dependencies too, via a
 `postinstall` hook — you don't need a second install command.
 
-`npm run db:init` creates the database and seeds two people ("Husband" and
-"Wife", both renamable in the app) with their three default accounts each. Run
-it **once**; it won't overwrite existing data if you run it again.
+Then create a `.env` file in the project root, copying `.env.example`:
+
+```
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
+
+and prepare the database:
+
+```
+npm run db:init
+```
+
+That creates the tables and seeds two people ("Husband" and "Wife", both
+renamable in the app) with two default accounts each. It's safe to run again —
+it won't overwrite anything that's already there.
 
 ## Running it
 
@@ -116,7 +130,7 @@ blocks this.
 The first time you open the app it asks you to choose a username and password.
 That creates the only account that exists — there is nothing to register for
 anywhere, and the password is stored (hashed with scrypt) in your own database
-file alongside everything else.
+alongside everything else.
 
 After that:
 
@@ -130,47 +144,76 @@ After that:
   minutes.
 
 Every API route except signing in requires a session, so the data isn't reachable
-by anyone on your network who doesn't have a login.
+by anyone without a login — on your network or on the open internet once it's
+deployed.
 
 **There is no password reset** — nothing knows your email address, so there is
 nowhere to send one. If you lock yourself out completely, clear the logins
 directly and the app will offer first-run setup again next time you open it:
 
 ```
-node -e "require('./server/src/db/connection').exec('DELETE FROM sessions; DELETE FROM users')"
+node -e "require('./server/src/db/pool').exec('DELETE FROM sessions; DELETE FROM users')"
 ```
 
 Your budget data is untouched by that; only the logins are.
 
-## Your data
+## Database
 
-Everything lives in a single file on your own machine:
-**`server/src/data/budget.sqlite3`**
-
-Nothing is ever sent anywhere. There is no cloud account, no analytics and no
-external service — the only outbound request the app makes is to fetch exchange
-rates, which sends nothing but a currency code.
-
-**None of it goes to GitHub.** The whole `server/src/data/` directory is
-gitignored — the directory rather than a filename pattern, so migration backups
-(`budget.sqlite3.old-<timestamp>`) and SQLite's `-wal`/`-shm` side files are all
-covered too. To confirm this yourself at any time:
+The app keeps everything in PostgreSQL, pointed at by one environment variable:
 
 ```
-git status --short server/src/data/    # should print nothing
-git ls-files | grep sqlite             # should print nothing
+DATABASE_URL=postgresql://user:password@host:5432/database
 ```
 
-Because it never leaves your machine, that file is your **only copy** — back it
-up somewhere safe once you've entered real figures. To start completely fresh,
-delete it and re-run `npm run db:init`.
+With [Supabase](https://supabase.com), take the connection string from
+Project Settings → Database. Which one depends on where the app is running:
 
-If you ever publish this repository, only the code above is published.
+| Connection | Port | Use it for |
+| --- | --- | --- |
+| Transaction pooler | 6543 | the deployed app — serverless opens a connection per request and would exhaust a direct limit |
+| Direct connection | 5432 | migrations and one-off scripts run from your own machine |
 
-If you're coming from an older version of the app, `npm run db:init` notices the
-previous database layout, saves a copy next to it as
-`budget.sqlite3.old-<timestamp>`, and builds a fresh one. Nothing is deleted, but
-the old data isn't carried across — the structure changed too much.
+Replace the `[YOUR-PASSWORD]` placeholder with the database password. If the
+password contains `@ : / #` it has to be URL-encoded, so it's easier to reset it
+to something alphanumeric.
+
+`.env` is gitignored and must stay that way — it is the one file in the project
+that holds a credential.
+
+### Use a separate database for development
+
+`npm run dev` talks to whatever `DATABASE_URL` names. If that's the same
+database the deployed app uses, then testing locally edits your real budget.
+Point your local `.env` at a second database — a second free Supabase project
+does fine — and keep the live one only in the host's environment variables.
+
+### Coming from the SQLite version
+
+Earlier versions kept everything in `server/src/data/budget.sqlite3` on one
+machine. To carry that data across:
+
+```
+npm run migrate:sqlite
+```
+
+or, if the file is somewhere else:
+
+```
+npm run migrate:sqlite -- "D:\path\to\budget.sqlite3"
+```
+
+It copies people, accounts, transactions, subscriptions, settings and cached
+rates, keeping every id so the links between them survive. It refuses to run
+against a database that already holds transactions, so it can't duplicate
+everything by being run twice. Logins aren't copied — the app will ask you to
+create one.
+
+Nothing about your figures is ever committed to Git: the database is remote, and
+`.env`, which is the only thing that can reach it, is ignored. To confirm:
+
+```
+git ls-files | grep -E "\.env$|sqlite"    # should print nothing
+```
 
 ## Exchange rates
 
@@ -223,11 +266,22 @@ time.
 
 Dependencies weren't installed. Run `npm run install:all`, then try again.
 
-**`This app needs Node.js 24 or newer`**
+**`DATABASE_URL is not set`**
 
-Run `node -v`. If it's below 24, install the LTS build from
-[nodejs.org](https://nodejs.org), close and reopen your terminal, and check
-again.
+There's no `.env` file, or it doesn't have the line in it. Copy `.env.example`
+to `.env` in the project root and put your connection string in it.
+
+**`password authentication failed` or `getaddrinfo ENOTFOUND`**
+
+The connection string is wrong. The most common cause by far is leaving the
+`[YOUR-PASSWORD]` placeholder in it, or a password containing characters that
+need URL-encoding — see [Database](#database).
+
+**`self-signed certificate in certificate chain` when connecting**
+
+Something on your network is intercepting TLS. Add `DATABASE_SSL_NO_VERIFY=true`
+to `.env`. The connection stays encrypted; only the certificate check is
+relaxed.
 
 **`npm install` fails with `node-gyp`, `Could not find any Python installation`, `MSBuild`, or `Visual Studio` errors**
 
@@ -254,16 +308,45 @@ firewall prompt, and that you're not on a guest network.
 Something else is on port 5000 or 5173. Stop it, or set a different API port
 with `PORT=5001 npm start`.
 
+## Deploying
+
+The repository is set up for Vercel with a Supabase database, and needs no
+manual configuration in the dashboard beyond three environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | the Supabase **transaction pooler** string, port 6543 |
+| `COOKIE_SECURE` | `true` — the session cookie then only travels over HTTPS |
+| `TRUST_PROXY` | `true` — so the login rate limit sees the real client address |
+
+`vercel.json` supplies the rest: the build produces `client/dist`, which is
+served as static files, and everything under `/api/` goes to a single serverless
+function that runs the Express app (`api/[[...path]].js`). One function rather
+than one per endpoint, so a request doesn't pay for its own cold start and its
+own connection pool.
+
+The schema is applied on boot, guarded by an advisory lock so simultaneous cold
+starts can't collide, which means a release that adds a table needs no separate
+migration step. Changing an *existing* table still does.
+
+To deploy: push. Vercel builds the branch, publishes it if the build succeeds,
+and leaves the previous version up if it doesn't. Any branch other than the
+production one gets its own preview URL instead.
+
 ## Tech stack
 
-React + Vite, Express, Recharts, and Node's built-in `node:sqlite` for storage
-(chosen over `better-sqlite3` so there is no native compilation step, which was
-a recurring setup failure on Windows).
+React + Vite, Express, Recharts, and PostgreSQL via `pg`.
 
 ```
+api/      Vercel entry point — hands requests to the Express app
 client/   React frontend — components, charts, API wrappers
-server/   Express API — routes, services, SQLite schema and seed
+server/   Express API — routes, services, schema, seed and migrations
 ```
+
+The SQL is written with `?` placeholders and rewritten to `$1`-style in
+`server/src/db/pool.js`. Balances are never stored: every total is derived from
+the ledger, and the whole ledger is read in two pre-aggregated queries so the
+number of round trips doesn't grow with the number of accounts or months shown.
 
 Balances are never stored. An account's balance is computed as its opening
 balance, plus income and incoming transfers, minus spending, outgoing transfers

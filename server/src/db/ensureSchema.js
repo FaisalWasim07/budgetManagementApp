@@ -1,17 +1,39 @@
 const fs = require('fs');
 const path = require('path');
-const db = require('./connection');
+const db = require('./pool');
 
-// Every statement in schema.sql is CREATE ... IF NOT EXISTS, so running it is a
-// no-op against an up-to-date database and creates anything a new version of
-// the app added. The server calls this on start, which is what makes "git pull
-// and run" work — otherwise a release that adds a table crashes on the first
-// query until `npm run db:init` is run by hand.
+const schema = () => fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+
+// An arbitrary but fixed key, so every instance of the app contends for the
+// same lock.
+const LOCK_KEY = 826_411_907;
+
+let applied = null;
+
+// Applying the schema is a no-op once the tables exist, so it runs on boot and
+// a release that adds a table needs no separate migrate step.
 //
-// Reshaping an existing table is a different job and stays in init.js. This is
-// deliberately not done inside connection.js: init.js has to be able to open
-// the database in order to migrate it, so opening must never depend on the
-// schema already being right.
-module.exports = function ensureSchema() {
-  db.exec(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
-};
+// Two things make that safe on a serverless host, where many instances can
+// cold-start at the same moment:
+//   * an advisory lock, because concurrent CREATE TABLE IF NOT EXISTS can still
+//     collide in the system catalogue and raise a duplicate-key error;
+//   * the cached promise, so repeated calls in one process do no work.
+async function ensureSchema() {
+  if (!applied) {
+    applied = (async () => {
+      await db.exec(`SELECT pg_advisory_lock(${LOCK_KEY})`);
+      try {
+        await db.exec(schema());
+      } finally {
+        await db.exec(`SELECT pg_advisory_unlock(${LOCK_KEY})`);
+      }
+    })().catch((err) => {
+      // Don't cache a failure: the next request should get to try again.
+      applied = null;
+      throw err;
+    });
+  }
+  return applied;
+}
+
+module.exports = ensureSchema;

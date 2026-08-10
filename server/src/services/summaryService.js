@@ -1,4 +1,4 @@
-const db = require('../db/connection');
+const db = require('../db/pool');
 const exchangeRateService = require('./exchangeRateService');
 const settingsService = require('./settingsService');
 
@@ -58,50 +58,111 @@ function subscriptionChargesThrough(sub, month) {
   return count;
 }
 
-function activeSubscriptionsFor(accountId) {
-  return db
-    .prepare('SELECT * FROM subscriptions WHERE account_id = ? AND is_active = 1')
-    .all(accountId);
+// --- the ledger snapshot -------------------------------------------------
+
+// Balances used to be computed with a query per account, and activity with
+// another — inside loops, and in getTrend inside a second loop over twelve
+// months. Against a local file that was free. Against a database across the
+// network it was dozens of round trips for one dashboard, which is the whole
+// difference between the app feeling instant and feeling broken.
+//
+// So the ledger is read in two queries, pre-aggregated by the database, and
+// every balance below is arithmetic over that snapshot. A household's ledger
+// is thousands of rows at the very most, and it collapses to one row per
+// account/month/kind before it crosses the wire.
+async function loadLedger() {
+  const [rows, subscriptions] = await Promise.all([
+    db.all(
+      `SELECT account_id, month, kind, COALESCE(SUM(amount), 0) AS total
+       FROM transactions
+       GROUP BY account_id, month, kind`
+    ),
+    db.all('SELECT * FROM subscriptions WHERE is_active = 1'),
+  ]);
+
+  // account_id -> month -> kind -> total
+  const byAccount = new Map();
+  for (const row of rows) {
+    let months = byAccount.get(row.account_id);
+    if (!months) byAccount.set(row.account_id, (months = new Map()));
+    let kinds = months.get(row.month);
+    if (!kinds) months.set(row.month, (kinds = {}));
+    kinds[row.kind] = row.total;
+  }
+
+  const subsByAccount = new Map();
+  for (const sub of subscriptions) {
+    const list = subsByAccount.get(sub.account_id);
+    if (list) list.push(sub);
+    else subsByAccount.set(sub.account_id, [sub]);
+  }
+
+  return new Ledger(byAccount, subsByAccount);
 }
 
-// --- balances ------------------------------------------------------------
+class Ledger {
+  constructor(byAccount, subsByAccount) {
+    this.byAccount = byAccount;
+    this.subsByAccount = subsByAccount;
+  }
 
-const LEDGER_THROUGH = db.prepare(
-  `SELECT
-     COALESCE(SUM(CASE WHEN kind IN ('income','transfer_in')  THEN amount ELSE 0 END), 0) AS credits,
-     COALESCE(SUM(CASE WHEN kind IN ('expense','transfer_out') THEN amount ELSE 0 END), 0) AS debits
-   FROM transactions WHERE account_id = ? AND month <= ?`
-);
+  subscriptionsFor(accountId) {
+    return this.subsByAccount.get(accountId) || [];
+  }
 
-const LEDGER_IN_MONTH = db.prepare(
-  `SELECT kind, COALESCE(SUM(amount), 0) AS total
-   FROM transactions WHERE account_id = ? AND month = ? GROUP BY kind`
-);
+  // Cumulative balance: opening + credits - debits - subscription charges to date.
+  balance(account, month) {
+    const months = this.byAccount.get(account.id);
+    let credits = 0;
+    let debits = 0;
 
-// Cumulative balance: opening + credits - debits - subscription charges to date.
-function accountBalance(account, month) {
-  const { credits, debits } = LEDGER_THROUGH.get(account.id, month);
-  const subs = activeSubscriptionsFor(account.id).reduce(
-    (sum, s) => sum + s.amount * subscriptionChargesThrough(s, month),
-    0
-  );
-  return account.opening_balance + credits - debits - subs;
+    if (months) {
+      for (const [m, kinds] of months) {
+        if (m > month) continue;
+        credits += (kinds.income || 0) + (kinds.transfer_in || 0);
+        debits += (kinds.expense || 0) + (kinds.transfer_out || 0);
+      }
+    }
+
+    const subs = this.subscriptionsFor(account.id).reduce(
+      (sum, s) => sum + s.amount * subscriptionChargesThrough(s, month),
+      0
+    );
+    return account.opening_balance + credits - debits - subs;
+  }
+
+  activity(account, month) {
+    const kinds = this.byAccount.get(account.id)?.get(month) || {};
+    const subscriptions = this.subscriptionsFor(account.id)
+      .filter((s) => subscriptionDueIn(s, month))
+      .reduce((sum, s) => sum + s.amount, 0);
+
+    return {
+      income: kinds.income || 0,
+      expense: kinds.expense || 0,
+      transferIn: kinds.transfer_in || 0,
+      transferOut: kinds.transfer_out || 0,
+      subscriptions,
+    };
+  }
 }
 
-function accountMonthActivity(account, month) {
-  const rows = LEDGER_IN_MONTH.all(account.id, month);
-  const by = Object.fromEntries(rows.map((r) => [r.kind, r.total]));
-  const subscriptions = activeSubscriptionsFor(account.id)
-    .filter((s) => subscriptionDueIn(s, month))
-    .reduce((sum, s) => sum + s.amount, 0);
+// Balance of one account, for callers that need it on its own — the overdraft
+// check on a transfer. Reads only that account's rows.
+async function accountBalance(account, month) {
+  const [row, subs] = await Promise.all([
+    db.get(
+      `SELECT
+         COALESCE(SUM(CASE WHEN kind IN ('income','transfer_in')   THEN amount ELSE 0 END), 0) AS credits,
+         COALESCE(SUM(CASE WHEN kind IN ('expense','transfer_out') THEN amount ELSE 0 END), 0) AS debits
+       FROM transactions WHERE account_id = ? AND month <= ?`,
+      [account.id, month]
+    ),
+    db.all('SELECT * FROM subscriptions WHERE account_id = ? AND is_active = 1', [account.id]),
+  ]);
 
-  return {
-    income: by.income || 0,
-    expense: by.expense || 0,
-    transferIn: by.transfer_in || 0,
-    transferOut: by.transfer_out || 0,
-    subscriptions,
-  };
+  const subTotal = subs.reduce((sum, s) => sum + s.amount * subscriptionChargesThrough(s, month), 0);
+  return account.opening_balance + row.credits - row.debits - subTotal;
 }
 
 // --- summary -------------------------------------------------------------
@@ -113,11 +174,12 @@ function convert(amount, rateInfo) {
 }
 
 async function getSummary(month) {
-  const primary = settingsService.primaryCurrency();
-  const persons = db.prepare('SELECT id, name FROM persons ORDER BY id').all();
-  const allAccounts = db
-    .prepare('SELECT * FROM accounts WHERE is_active = 1 ORDER BY person_id, sort_order, id')
-    .all();
+  const [primary, persons, allAccounts, ledger] = await Promise.all([
+    settingsService.primaryCurrency(),
+    db.all('SELECT id, name FROM persons ORDER BY id'),
+    db.all('SELECT * FROM accounts WHERE is_active = 1 ORDER BY person_id, sort_order, id'),
+    loadLedger(),
+  ]);
 
   const rates = await exchangeRateService.getRateMap(
     allAccounts.map((a) => a.currency),
@@ -139,8 +201,8 @@ async function getSummary(month) {
     const accounts = allAccounts.filter((a) => a.person_id === person.id);
 
     const accountSummaries = accounts.map((account) => {
-      const balance = accountBalance(account, month);
-      const activity = accountMonthActivity(account, month);
+      const balance = ledger.balance(account, month);
+      const activity = ledger.activity(account, month);
       const rate = rates[account.currency];
       const balancePrimary = convert(balance, rate);
 
@@ -203,8 +265,11 @@ async function getSummary(month) {
 
 async function getTrend(count = 12, endMonth) {
   const end = endMonth || currentMonth();
-  const primary = settingsService.primaryCurrency();
-  const accounts = db.prepare('SELECT * FROM accounts WHERE is_active = 1').all();
+  const [primary, accounts, ledger] = await Promise.all([
+    settingsService.primaryCurrency(),
+    db.all('SELECT * FROM accounts WHERE is_active = 1'),
+    loadLedger(),
+  ]);
   const rates = await exchangeRateService.getRateMap(
     accounts.map((a) => a.currency),
     primary
@@ -220,11 +285,11 @@ async function getTrend(count = 12, endMonth) {
 
     for (const account of accounts) {
       const rate = rates[account.currency];
-      const activity = accountMonthActivity(account, month);
+      const activity = ledger.activity(account, month);
       income += convert(activity.income, rate) || 0;
       expenses += convert(activity.expense, rate) || 0;
       subscriptions += convert(activity.subscriptions, rate) || 0;
-      netWorth += convert(accountBalance(account, month), rate) || 0;
+      netWorth += convert(ledger.balance(account, month), rate) || 0;
     }
 
     trend.push({ month, income, expenses, subscriptions, netWorth });
@@ -234,22 +299,24 @@ async function getTrend(count = 12, endMonth) {
 
 // Spend grouped by category for a month, in the primary currency.
 async function getCategoryBreakdown(month) {
-  const primary = settingsService.primaryCurrency();
-  const accounts = db.prepare('SELECT * FROM accounts WHERE is_active = 1').all();
+  const [primary, accounts, ledger, rows] = await Promise.all([
+    settingsService.primaryCurrency(),
+    db.all('SELECT * FROM accounts WHERE is_active = 1'),
+    loadLedger(),
+    db.all(
+      `SELECT account_id, category, COALESCE(SUM(amount), 0) AS total
+       FROM transactions WHERE month = ? AND kind = 'expense'
+       GROUP BY account_id, category`,
+      [month]
+    ),
+  ]);
+
   const rates = await exchangeRateService.getRateMap(
     accounts.map((a) => a.currency),
     primary
   );
   const byAccount = Object.fromEntries(accounts.map((a) => [a.id, a]));
   const totals = {};
-
-  const rows = db
-    .prepare(
-      `SELECT account_id, category, COALESCE(SUM(amount), 0) AS total
-       FROM transactions WHERE month = ? AND kind = 'expense'
-       GROUP BY account_id, category`
-    )
-    .all(month);
 
   for (const row of rows) {
     const account = byAccount[row.account_id];
@@ -261,7 +328,7 @@ async function getCategoryBreakdown(month) {
   }
 
   for (const account of accounts) {
-    for (const sub of activeSubscriptionsFor(account.id)) {
+    for (const sub of ledger.subscriptionsFor(account.id)) {
       if (!subscriptionDueIn(sub, month)) continue;
       const value = convert(sub.amount, rates[account.currency]);
       if (value == null) continue;

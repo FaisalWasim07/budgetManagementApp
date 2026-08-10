@@ -37,8 +37,13 @@ function clearSessionCookie(res) {
 
 // Attaches req.user when the request carries a valid session; never rejects.
 function attachUser(req, res, next) {
-  req.user = authService.getSessionUser(readSessionToken(req));
-  next();
+  authService
+    .getSessionUser(readSessionToken(req))
+    .then((user) => {
+      req.user = user;
+      next();
+    })
+    .catch(next);
 }
 
 function requireAuth(req, res, next) {
@@ -46,4 +51,11 @@ function requireAuth(req, res, next) {
   next();
 }
 
-module.exports = { attachUser, requireAuth, setSessionCookie, clearSessionCookie, COOKIE_NAME };
+module.exports = {
+  attachUser,
+  requireAuth,
+  setSessionCookie,
+  clearSessionCookie,
+  readSessionToken,
+  COOKIE_NAME,
+};

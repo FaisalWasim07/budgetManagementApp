@@ -1,4 +1,4 @@
-const db = require('../db/connection');
+const db = require('../db/pool');
 const settingsService = require('./settingsService');
 const rateProviders = require('./rateProviders');
 
@@ -15,33 +15,33 @@ function todayUTC() {
 const pairKey = (base, target) => `${base}->${target}`;
 
 function getCachedRate(base, target) {
-  return db
-    .prepare(
-      'SELECT rate, fetched_at FROM exchange_rates WHERE base_currency = ? AND target_currency = ?'
-    )
-    .get(base, target);
+  return db.get(
+    'SELECT rate, fetched_at FROM exchange_rates WHERE base_currency = ? AND target_currency = ?',
+    [base, target]
+  );
 }
 
 function upsertRate(base, target, rate, fetchedAt) {
-  db.prepare(
+  return db.run(
     `INSERT INTO exchange_rates (base_currency, target_currency, rate, fetched_at)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(base_currency, target_currency)
-     DO UPDATE SET rate = excluded.rate, fetched_at = excluded.fetched_at`
-  ).run(base, target, rate, fetchedAt);
+     ON CONFLICT (base_currency, target_currency)
+     DO UPDATE SET rate = excluded.rate, fetched_at = excluded.fetched_at`,
+    [base, target, rate, fetchedAt]
+  );
 }
 
 const fetchLiveRate = (base, target) => rateProviders.fetchRate(base, target);
 
 // A rate the user typed in Settings, used when the live lookup can't be had.
-function manualRate(base, target) {
-  const value = Number(settingsService.get(`manual_rate_${base}_${target}`));
+async function manualRate(base, target) {
+  const value = Number(await settingsService.get(`manual_rate_${base}_${target}`));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function fallback(base, target, cached) {
+async function fallback(base, target, cached) {
   const reason = lastFailure.get(pairKey(base, target)) || null;
-  const manual = manualRate(base, target);
+  const manual = await manualRate(base, target);
   if (manual != null) {
     return { rate: manual, fetchedAt: null, source: 'manual', stale: false, reason };
   }
@@ -56,7 +56,7 @@ function fallback(base, target, cached) {
 async function getRate(base, target, { force = false } = {}) {
   if (base === target) return { rate: 1, fetchedAt: null, source: 'same', stale: false };
 
-  const cached = getCachedRate(base, target);
+  const cached = await getCachedRate(base, target);
   if (!force && cached && cached.fetched_at.slice(0, 10) === todayUTC()) {
     return { rate: cached.rate, fetchedAt: cached.fetched_at, source: 'live', stale: false };
   }
@@ -69,7 +69,7 @@ async function getRate(base, target, { force = false } = {}) {
   try {
     const { rate, provider } = await fetchLiveRate(base, target);
     const fetchedAt = new Date().toISOString();
-    upsertRate(base, target, rate, fetchedAt);
+    await upsertRate(base, target, rate, fetchedAt);
     failedUntil.delete(key);
     lastFailure.delete(key);
     return { rate, fetchedAt, source: 'live', provider, stale: false };

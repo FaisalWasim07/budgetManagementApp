@@ -8,9 +8,13 @@
     "db:init": "node server/src/db/init.js",
     "dev": "concurrently -n server,client -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix client",
-    "start": "node server/src/index.js"
+    "start": "node server/src/index.js",
+    "migrate:sqlite": "node server/src/db/migrateFromSqlite.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
