@@ -38,7 +38,7 @@ app.get('/api/health', async (req, res) => {
     res.json({ api: true, database: true });
   } catch (err) {
     console.error('Health check failed to reach the database:', err);
-    res.status(503).json({ api: true, database: false });
+    res.status(503).json({ api: true, database: false, code: err.code ?? null });
   }
 });
 
@@ -89,9 +89,15 @@ app.use('/api', (req, res) => {
 });
 
 // Last, so it also catches failures thrown by the middleware above it.
+//
+// The message stays out of the response — it can carry host names and query
+// text — but the error *code* goes in. Codes are short and non-sensitive
+// (ENOENT, ENOTFOUND, 28P01 for a bad password, 42P01 for a missing table) and
+// turn "internal server error" into something you can act on without hunting
+// through logs. The full error is logged either way.
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: 'internal server error' });
+  res.status(500).json({ error: 'internal server error', code: err.code ?? null });
 });
 
 module.exports = app;

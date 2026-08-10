@@ -15,23 +15,28 @@ let applied = null;
 //
 // Two things make that safe on a serverless host, where many instances can
 // cold-start at the same moment:
-//   * an advisory lock, because concurrent CREATE TABLE IF NOT EXISTS can still
-//     collide in the system catalogue and raise a duplicate-key error;
+//   * a lock, because concurrent CREATE TABLE IF NOT EXISTS can still collide
+//     in the system catalogue and raise a duplicate-key error;
 //   * the cached promise, so repeated calls in one process do no work.
+//
+// The lock is transaction-scoped and taken on the same connection as the DDL.
+// A session-level pg_advisory_lock would be wrong here: through a transaction
+// pooler each statement can be handed a different backend connection, so the
+// lock would be taken on one, the schema applied on another, and the unlock
+// aimed at a third. pg_advisory_xact_lock is released by COMMIT, so there is
+// nothing to leak and nothing to unlock by hand.
 async function ensureSchema() {
   if (!applied) {
-    applied = (async () => {
-      await db.exec(`SELECT pg_advisory_lock(${LOCK_KEY})`);
-      try {
-        await db.exec(schema());
-      } finally {
-        await db.exec(`SELECT pg_advisory_unlock(${LOCK_KEY})`);
-      }
-    })().catch((err) => {
-      // Don't cache a failure: the next request should get to try again.
-      applied = null;
-      throw err;
-    });
+    applied = db
+      .tx(async (t) => {
+        await t.run('SELECT pg_advisory_xact_lock(?)', [LOCK_KEY]);
+        await t.exec(schema());
+      })
+      .catch((err) => {
+        // Don't cache a failure: the next request should get to try again.
+        applied = null;
+        throw err;
+      });
   }
   return applied;
 }

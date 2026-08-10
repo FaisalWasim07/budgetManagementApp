@@ -97,15 +97,14 @@ function api(runner) {
       const result = await query(runner, sql, params);
       return { rowCount: result.rowCount, rows: result.rows };
     },
+    // Several statements at once, for schema files. No parameters, so no
+    // placeholder rewriting.
+    exec: (sql) => runner.query(sql),
   };
 }
 
 // Resolves the pool at call time, so requiring this module never connects.
 const base = api({ query: (text, values) => getPool().query(text, values) });
-
-// Multiple statements in one go, for schema files. No parameters, so no
-// placeholder rewriting.
-const exec = (sql) => getPool().query(sql);
 
 // Runs fn against a single connection wrapped in BEGIN/COMMIT. Anything thrown
 // rolls the whole thing back — used where two rows have to appear together or
@@ -129,4 +128,4 @@ async function tx(fn) {
 // cleanly without a bare require ever opening a connection.
 const end = () => (created ? created.end() : Promise.resolve());
 
-module.exports = { ...base, exec, tx, end, getPool, toPositional };
+module.exports = { ...base, tx, end, getPool, toPositional };

@@ -18,6 +18,9 @@ async function request(path, options = {}) {
     try {
       const body = await response.json();
       if (body.error) message = body.error;
+      // Server errors carry a short code (ENOTFOUND, 28P01, …). Showing it
+      // saves digging through host logs to find out what actually broke.
+      if (body.code) message += ` (${body.code})`;
     } catch {
       // ignore parse failure, keep default message
     }
