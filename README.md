@@ -25,7 +25,8 @@ accounts, then every transaction for the month as a filterable table. **Stats**
 is a separate tab with charts for money in vs out, net worth over time,
 per-account balances, and where the money actually went.
 
-- No login — a single shared app, with data recorded per person
+- A login each, sharing one budget — data is recorded per person regardless of
+  who entered it
 - Money is never stored as a balance; every total is derived from the entries
   behind it, so nothing can silently drift out of sync
 
@@ -110,6 +111,37 @@ Type that Network URL into your phone's browser. Requirements:
 Guest and public WiFi networks often isolate devices from each other, which
 blocks this.
 
+## Signing in
+
+The first time you open the app it asks you to choose a username and password.
+That creates the only account that exists — there is nothing to register for
+anywhere, and the password is stored (hashed with scrypt) in your own database
+file alongside everything else.
+
+After that:
+
+- **Settings → Logins → Add another login** creates a second account, so you and
+  your partner each sign in as yourselves. Both see the same budget.
+- **Settings → Logins → Change my password** replaces yours and signs every
+  device out, so a password change actually locks out anything you've forgotten
+  about.
+- Staying signed in lasts 30 days per device.
+- Ten wrong passwords in a row locks further attempts from that device for 15
+  minutes.
+
+Every API route except signing in requires a session, so the data isn't reachable
+by anyone on your network who doesn't have a login.
+
+**There is no password reset** — nothing knows your email address, so there is
+nowhere to send one. If you lock yourself out completely, clear the logins
+directly and the app will offer first-run setup again next time you open it:
+
+```
+node -e "require('./server/src/db/connection').exec('DELETE FROM sessions; DELETE FROM users')"
+```
+
+Your budget data is untouched by that; only the logins are.
+
 ## Your data
 
 Everything lives in a single file on your own machine:
@@ -133,9 +165,7 @@ Because it never leaves your machine, that file is your **only copy** — back i
 up somewhere safe once you've entered real figures. To start completely fresh,
 delete it and re-run `npm run db:init`.
 
-If you ever publish this repository, only the code above is published. But note
-that anyone who can reach the running app on your network can see the data —
-there is no login, by design.
+If you ever publish this repository, only the code above is published.
 
 If you're coming from an older version of the app, `npm run db:init` notices the
 previous database layout, saves a copy next to it as

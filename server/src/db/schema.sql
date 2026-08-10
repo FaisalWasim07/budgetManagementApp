@@ -5,6 +5,25 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- Who can sign in. Separate from `persons`: a person is whose money an account
+-- holds, a user is someone who can open the app. They usually line up, but the
+-- app never assumes it.
+CREATE TABLE IF NOT EXISTS users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  password_hash TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- The token is the credential — it's random and stored as-is, so there is no
+-- signing secret to manage or leak. Deleting a row logs that session out.
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS persons (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT NOT NULL,
@@ -70,6 +89,7 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
   PRIMARY KEY (base_currency, target_currency)
 );
 
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_person ON accounts(person_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_account_month ON transactions(account_id, month);
 CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(month);

@@ -26,9 +26,12 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    listTransactions({ accountId: account.id, month }).then((data) => {
-      if (!cancelled) setEntries(data);
-    });
+    listTransactions({ accountId: account.id, month }).then(
+      (data) => {
+        if (!cancelled) setEntries(data);
+      },
+      () => {}
+    );
     return () => {
       cancelled = true;
     };

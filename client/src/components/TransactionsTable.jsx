@@ -20,7 +20,7 @@ export default function TransactionsTable({ month, accountsById, personsById, on
   const load = useCallback(() => {
     setLoading(true);
     listTransactions({ month })
-      .then(setRows)
+      .then(setRows, () => {})
       .finally(() => setLoading(false));
   }, [month]);
 

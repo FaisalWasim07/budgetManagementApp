@@ -35,7 +35,9 @@ export default function Subscriptions({ summary, month, onChanged }) {
   );
 
   const load = useCallback(() => {
-    listSubscriptions(month).then(setSubs);
+    // Left as-is on failure: App already reports a load error, and a lapsed
+    // session is caught centrally by the auth gate.
+    listSubscriptions(month).then(setSubs, () => {});
   }, [month]);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
 import TopBarToggles from './components/TopBarToggles';
 import { getSummary, getTrend, getCategories } from './api/summary';
+import { logout } from './api/auth';
 import { currentMonth } from './utils/month';
 import { DisplayContext } from './utils/display';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
@@ -16,7 +17,7 @@ const PAGES = [
   ['subscriptions', 'Subscriptions'],
 ];
 
-export default function App() {
+export default function App({ user, onSignedOut }) {
   const [page, setPage] = useState('dashboard');
   const [month, setMonth] = useState(currentMonth());
   const [summary, setSummary] = useState(null);
@@ -84,6 +85,16 @@ export default function App() {
             onCycleTheme={() => setTheme(nextTheme)}
           />
           <button onClick={() => setShowSettings(true)}>Settings</button>
+          <button
+            className="subtle"
+            title={`Signed in as ${user.username}`}
+            onClick={async () => {
+              await logout().catch(() => {});
+              onSignedOut();
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
@@ -121,6 +132,8 @@ export default function App() {
         <SettingsModal
           primaryCurrency={summary.primaryCurrency}
           rates={summary.rates}
+          user={user}
+          onSignedOut={onSignedOut}
           onClose={() => setShowSettings(false)}
           onSaved={load}
         />

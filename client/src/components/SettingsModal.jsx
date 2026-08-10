@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
+import LoginSettings from './LoginSettings';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
 import { CURRENCIES } from '../utils/currency';
@@ -12,7 +13,14 @@ const SOURCE_LABELS = {
   same: '—',
 };
 
-export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved }) {
+export default function SettingsModal({
+  primaryCurrency,
+  rates,
+  user,
+  onSignedOut,
+  onClose,
+  onSaved,
+}) {
   const [currency, setCurrency] = useState(primaryCurrency);
   const [manual, setManual] = useState({});
   const [busy, setBusy] = useState(false);
@@ -191,6 +199,11 @@ export default function SettingsModal({ primaryCurrency, rates, onClose, onSaved
           </button>
         </div>
       </form>
+
+      {/* Outside the form on purpose: pressing Enter in a password field
+          shouldn't save currency settings. */}
+      <hr className="divider" />
+      <LoginSettings user={user} onSignedOut={onSignedOut} />
     </Modal>
   );
 }
