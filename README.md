@@ -321,7 +321,9 @@ what broke:
 | Code | Meaning |
 | --- | --- |
 | `ENOTFOUND` / `ECONNREFUSED` | wrong host in `DATABASE_URL`, or the database is unreachable |
-| `28P01` | password rejected — usually the `[YOUR-PASSWORD]` placeholder left in |
+| `28P01` | password rejected. Through a Supabase pooler the username must be `postgres.<project-ref>`, not plain `postgres` — mixing a direct-connection username with a pooler host fails exactly like a wrong password |
+| `PLACEHOLDER_PASSWORD` | `[YOUR-PASSWORD]` is still in the connection string |
+| `NO_DATABASE_URL` | the variable isn't set at all |
 | `3D000` | that database name doesn't exist |
 | `42P01` | a table is missing; run `npm run db:init` |
 | `SELF_SIGNED_CERT_IN_CHAIN` | see [TLS](#tls) |
@@ -329,6 +331,14 @@ what broke:
 `GET /api/health` reports the same codes and needs no login, so it's the
 quickest way to tell "the app isn't running" from "the app can't reach the
 database".
+
+To see which connection is actually being used, set `DEBUG_CONNECTION=true` and
+call `/api/health` again — it then also returns the username, host, port and
+database name, along with the password's length and whether it looks like a
+placeholder or picked up stray quotes. The password itself is never included.
+The same detail always goes to the logs, so the variable is only needed when
+reading logs is inconvenient. **Turn it off once you're done** — the endpoint is
+public, and the username and host are infrastructure detail.
 
 **`npm install` fails with `node-gyp`, `Could not find any Python installation`, `MSBuild`, or `Visual Studio` errors**
 

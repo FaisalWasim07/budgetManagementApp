@@ -37,8 +37,18 @@ app.get('/api/health', async (req, res) => {
     await db.get('SELECT 1 AS ok');
     res.json({ api: true, database: true });
   } catch (err) {
+    // Always logged; only returned when explicitly asked for, because the
+    // username and host are infrastructure detail and this endpoint is public.
+    const connection = db.describeConnection();
     console.error('Health check failed to reach the database:', err);
-    res.status(503).json({ api: true, database: false, code: err.code ?? null });
+    console.error('Connection in use (password omitted):', connection);
+
+    res.status(503).json({
+      api: true,
+      database: false,
+      code: err.code ?? null,
+      connection: process.env.DEBUG_CONNECTION === 'true' ? connection : undefined,
+    });
   }
 });
 

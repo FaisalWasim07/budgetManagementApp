@@ -34,6 +34,39 @@ function sslOption(connectionString) {
   return { rejectUnauthorized: true };
 }
 
+// Configuration mistakes get a code of their own, so they read the same way as
+// a driver error and reach the caller through the same path.
+function configError(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+// Everything about the connection except the password, for diagnosing a
+// rejected login without anyone having to read the connection string aloud.
+// The password is reported only as a length and a couple of yes/no facts.
+function describeConnection() {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return { configured: false };
+
+  try {
+    const url = new URL(raw);
+    const password = decodeURIComponent(url.password || '');
+    return {
+      configured: true,
+      user: decodeURIComponent(url.username || ''),
+      host: url.hostname,
+      port: url.port || '5432',
+      database: url.pathname.replace(/^\//, ''),
+      passwordLength: password.length,
+      passwordLooksLikePlaceholder: /^\[.*\]$/.test(password) || /your.?password/i.test(password),
+      passwordHasSurroundingQuotes: /^["'].*["']$/.test(password),
+    };
+  } catch {
+    return { configured: true, parseable: false };
+  }
+}
+
 let created = null;
 
 // Built on first use rather than on import. A missing DATABASE_URL is a
@@ -45,10 +78,23 @@ function getPool() {
 
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error(
+    throw configError(
+      'NO_DATABASE_URL',
       'DATABASE_URL is not set. Locally: copy .env.example to .env and put your ' +
         'Postgres connection string in it. On a host: set it as an environment ' +
         'variable and redeploy (see README, "Database").'
+    );
+  }
+
+  // Caught here rather than left to come back as a bare "password
+  // authentication failed", which sends you looking at the password itself
+  // instead of at the fact that it was never filled in.
+  const described = describeConnection();
+  if (described.passwordLooksLikePlaceholder) {
+    throw configError(
+      'PLACEHOLDER_PASSWORD',
+      'DATABASE_URL still contains the password placeholder from the dashboard. ' +
+        'Replace [YOUR-PASSWORD], square brackets and all, with the real database password.'
     );
   }
 
@@ -146,4 +192,4 @@ async function tx(fn) {
 // cleanly without a bare require ever opening a connection.
 const end = () => (created ? created.end() : Promise.resolve());
 
-module.exports = { ...base, tx, end, getPool, toPositional };
+module.exports = { ...base, tx, end, getPool, describeConnection, toPositional };
