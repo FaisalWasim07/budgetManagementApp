@@ -34,24 +34,57 @@ async function main() {
     console.log(`  ${key.padEnd(28)} ${value}`);
   }
 
-  const client = new Client({
-    connectionString,
-    ssl: sslFor(connectionString),
-    connectionTimeoutMillis: 10_000,
-  });
+  const first = await attempt(connectionString, sslFor(connectionString));
+  if (first.ok) return report(first, false);
 
+  // A certificate this script can't verify would otherwise stop the diagnosis
+  // before it reached the thing being diagnosed. It retries without
+  // verification and says so — this is a throwaway connection that reads
+  // nothing, not how the app connects.
+  if (isCertificateProblem(first.err)) {
+    console.log(`\n  Certificate could not be verified: ${first.err.message}`);
+    console.log('  Retrying without verification, to get past it and test the credentials.\n');
+
+    const second = await attempt(connectionString, { rejectUnauthorized: false });
+    if (second.ok) {
+      report(second, true);
+      console.log('  The credentials are fine. What failed was the certificate check, so set');
+      console.log('  DATABASE_CA_CERT or DATABASE_SSL_NO_VERIFY=true — see README, "TLS".\n');
+      return;
+    }
+    return report(second, true);
+  }
+
+  return report(first, false);
+}
+
+async function attempt(connectionString, ssl) {
+  const client = new Client({ connectionString, ssl, connectionTimeoutMillis: 10_000 });
   try {
     await client.connect();
     const { rows } = await client.query('SELECT current_user, version()');
-    console.log(`\n  Connected as ${rows[0].current_user}`);
-    console.log(`  ${rows[0].version.split(',')[0]}\n`);
     await client.end();
+    return { ok: true, row: rows[0] };
   } catch (err) {
-    console.log(`\n  FAILED  ${err.code || '(no code)'}`);
-    console.log(`  ${err.message}\n`);
-    console.log(hint(err));
-    process.exitCode = 1;
+    await client.end().catch(() => {});
+    return { ok: false, err };
   }
+}
+
+const isCertificateProblem = (err) =>
+  /self.signed|unable to verify|CERT/i.test(`${err.code || ''} ${err.message || ''}`);
+
+function report(result, unverified) {
+  if (result.ok) {
+    console.log(`\n  Connected as ${result.row.current_user}${unverified ? ' (certificate not verified)' : ''}`);
+    console.log(`  ${result.row.version.split(',')[0]}\n`);
+    return;
+  }
+  console.log(`\n  FAILED  ${result.err.code || '(no code)'}`);
+  console.log(`  ${result.err.message}\n`);
+  const text = hint(result.err);
+  if (text) console.log(text + '\n');
+  process.exitCode = 1;
 }
 
 function hint(err) {
