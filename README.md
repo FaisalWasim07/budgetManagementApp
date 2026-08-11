@@ -339,8 +339,19 @@ npm run db:test                        # uses DATABASE_URL from .env
 npm run db:test -- "postgresql://..."  # tries the one you pass
 ```
 
-It connects once and prints what the driver said, with a note on what the
-common failures actually mean. The password is never printed.
+It reports which `.env` files were found and what came out of them, connects
+once, and prints what the driver said with a note on what the common failures
+actually mean. The password is never printed.
+
+The `.env` goes in the repository root, next to `package.json`. On Windows two
+things routinely go wrong with it, and both leave a file that looks perfectly
+correct in Explorer:
+
+- **Notepad appends `.txt`.** With known extensions hidden, `.env.txt` is
+  indistinguishable from `.env`. `Get-ChildItem -Force .env*` shows the truth.
+- **PowerShell's `>` and `Out-File` write UTF-16.** The file contains exactly
+  the right text and yields nothing. This one is handled — UTF-16 and a UTF-8
+  BOM are both decoded — but older checkouts will simply see no settings.
 
 That matters most for `28P01`, which Supabase's pooler returns both for a
 genuinely wrong password (*"password authentication failed"*) and for

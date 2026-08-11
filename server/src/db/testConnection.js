@@ -1,4 +1,4 @@
-require('../config/env');
+const env = require('../config/env');
 
 const { Client } = require('pg');
 const db = require('./pool');
@@ -19,10 +19,33 @@ function sslFor(connectionString) {
   return { rejectUnauthorized: true };
 }
 
+// Whether a .env was found, and what came out of it. Names only, never values.
+function reportEnvFiles() {
+  if (env.loaded.length === 0) {
+    console.log('\n  No .env file found.');
+    console.log('  Expected one at the repository root, next to package.json.');
+    return;
+  }
+  for (const entry of env.loaded) {
+    if (entry.error) {
+      console.log(`\n  ${entry.file} could not be read: ${entry.error}`);
+    } else if (entry.keys.length === 0) {
+      console.log(`\n  ${entry.file} was found but no settings could be read from it.`);
+      console.log('  Usually the file is saved in an encoding other than UTF-8, or every');
+      console.log('  line is commented out. Check it looks like KEY=value with no quotes.');
+    } else {
+      console.log(`\n  Read from ${entry.file}: ${entry.keys.join(', ')}`);
+    }
+  }
+}
+
 async function main() {
   const connectionString = process.argv[2] || process.env.DATABASE_URL;
+
+  reportEnvFiles();
+
   if (!connectionString) {
-    console.error('No connection string. Put DATABASE_URL in .env, or pass one as an argument.');
+    console.log('\n  No connection string. Put DATABASE_URL in .env, or pass one as an argument.\n');
     process.exit(1);
   }
 
