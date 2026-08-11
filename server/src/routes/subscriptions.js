@@ -5,6 +5,7 @@ const { h } = require('../util/route');
 
 const router = express.Router();
 const CYCLES = ['monthly', 'yearly'];
+const DIRECTIONS = ['expense', 'income'];
 
 // Includes the owning account so the page can show currency and person
 // without a second round trip. When ?month= is given, each row also reports
@@ -62,6 +63,9 @@ function validate(body, { partial = false } = {}) {
   if (cycle != null && !CYCLES.includes(cycle)) {
     return `cycle must be one of ${CYCLES.join(', ')}`;
   }
+  if (body.direction != null && !DIRECTIONS.includes(body.direction)) {
+    return `direction must be one of ${DIRECTIONS.join(', ')}`;
+  }
   if (billingMonth != null && (billingMonth < 1 || billingMonth > 12)) {
     return 'billing_month must be between 1 and 12';
   }
@@ -81,6 +85,7 @@ router.post(
       account_id: accountId,
       name,
       amount,
+      direction = 'expense',
       cycle = 'monthly',
       billing_month: billingMonth = null,
       start_month: startMonth,
@@ -102,11 +107,12 @@ router.post(
     }
 
     const row = await db.get(
-      `INSERT INTO subscriptions (account_id, name, amount, cycle, billing_month, start_month, end_month, category, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO subscriptions (account_id, name, direction, amount, cycle, billing_month, start_month, end_month, category, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
       [
         accountId,
         name.trim(),
+        direction,
         amount,
         cycle,
         cycle === 'yearly' ? billingMonth || Number(startMonth.split('-')[1]) : null,
@@ -150,13 +156,14 @@ router.patch(
 
     const row = await db.get(
       `UPDATE subscriptions
-       SET account_id = ?, name = ?, amount = ?, cycle = ?, billing_month = ?,
+       SET account_id = ?, name = ?, direction = ?, amount = ?, cycle = ?, billing_month = ?,
            start_month = ?, end_month = ?, category = ?, notes = ?, is_active = ?
        WHERE id = ? AND account_id IN (SELECT id FROM accounts WHERE household_id = ?)
        RETURNING *`,
       [
         merged.account_id,
         String(merged.name).trim(),
+        merged.direction,
         merged.amount,
         merged.cycle,
         merged.cycle === 'yearly'

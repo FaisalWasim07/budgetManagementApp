@@ -1,4 +1,4 @@
-import { get, post, del } from './client';
+import { get, post, patch, del } from './client';
 
 export function listTransactions({ accountId, month, personId } = {}) {
   const params = new URLSearchParams();
@@ -11,3 +11,5 @@ export function listTransactions({ accountId, month, personId } = {}) {
 export const createTransaction = (tx) => post('/transactions', tx);
 export const createTransfer = (transfer) => post('/transactions/transfer', transfer);
 export const deleteTransaction = (id) => del(`/transactions/${id}`);
+
+export const updateTransaction = (id, body) => patch(`/transactions/${id}`, body);

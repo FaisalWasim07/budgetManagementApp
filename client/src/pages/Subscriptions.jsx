@@ -17,6 +17,7 @@ const emptyForm = (month) => ({
   account_id: '',
   name: '',
   amount: '',
+  direction: 'expense',
   cycle: 'monthly',
   billing_month: String(Number(month.split('-')[1])),
   start_month: month,
@@ -72,6 +73,7 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
       await createSubscription({
         account_id: accountId,
         name: form.name.trim(),
+        direction: form.direction,
         amount,
         cycle: form.cycle,
         billing_month: form.cycle === 'yearly' ? Number(form.billing_month) : null,
@@ -102,9 +104,12 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
   }
 
   const monthlyEquivalent = (s) => (s.cycle === 'yearly' ? s.amount / 12 : s.amount);
-  const activeSubs = subs.filter((s) => s.is_active);
+  const spending = subs.filter((s) => s.direction !== 'income');
+  const earning = subs.filter((s) => s.direction === 'income');
+  const activeSubs = spending.filter((s) => s.is_active);
   const dueThisMonth = activeSubs.filter((s) => s.dueThisMonth);
   const dueTotal = dueThisMonth.reduce((sum, s) => sum + s.amount, 0);
+  const incomeThisMonth = earning.filter((s) => s.is_active && s.dueThisMonth);
 
   return (
     <div className="stack">
@@ -117,6 +122,26 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
           </span>
         </div>
         <div className="tile">
+          <span className="label">Coming in this month</span>
+          <span className="value">
+            {incomeThisMonth.length === 0
+              ? '—'
+              : [
+                  ...incomeThisMonth
+                    .reduce((acc, s) => {
+                      const found = acc.find((x) => x.currency === s.currency);
+                      if (found) found.total += s.amount;
+                      else acc.push({ currency: s.currency, total: s.amount });
+                      return acc;
+                    }, [])
+                    .map((x) => money(x.total, x.currency)),
+                ].join(' + ')}
+          </span>
+          <span className="sub">
+            {incomeThisMonth.length} recurring income item{incomeThisMonth.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <div className="tile">
           <span className="label">Mixed currencies</span>
           <span className="value" style={{ fontSize: '1rem' }}>
             {[...new Set(dueThisMonth.map((s) => s.currency))].join(', ') || '—'}
@@ -126,22 +151,36 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
       </div>
 
       <section className="card stack">
-        <h2>Add a subscription</h2>
+        <h2>Add a recurring item</h2>
         <p className="muted" style={{ margin: 0, fontSize: '0.86rem' }}>
-          These come out of the chosen account automatically every month — you don't re-enter them.
-          They show up in the dashboard totals and reduce that account's balance.
+          Money that repeats every month without being re-entered — subscriptions going out, salary
+          coming in. Both show up in the dashboard totals and move that account's balance. If the
+          amount changes for good, edit it here and it applies from that month on; a one-off
+          difference is an ordinary entry on the dashboard.
         </p>
         <form className="row" onSubmit={add}>
+          <label className="field">
+            Type
+            <select value={form.direction} onChange={set('direction')}>
+              <option value="expense">Going out</option>
+              <option value="income">Coming in</option>
+            </select>
+          </label>
           <label className="field grow">
             Name
-            <input type="text" placeholder="e.g. Netflix" value={form.name} onChange={set('name')} />
+            <input
+              type="text"
+              placeholder={form.direction === 'income' ? 'e.g. Salary' : 'e.g. Netflix'}
+              value={form.name}
+              onChange={set('name')}
+            />
           </label>
           <label className="field">
             Amount
             <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} />
           </label>
           <label className="field grow">
-            Paid from
+            {form.direction === 'income' ? 'Paid into' : 'Paid from'}
             <select value={form.account_id} onChange={set('account_id')}>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -186,7 +225,7 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
 
       <section className="card stack">
         <div className="spread">
-          <h2>Your subscriptions</h2>
+          <h2>Recurring money</h2>
           <span className="muted" style={{ fontSize: '0.85rem' }}>
             {dueThisMonth.length > 0 &&
               `Due this month: ${dueThisMonth
@@ -206,7 +245,8 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Paid from</th>
+                <th>Direction</th>
+                <th>Account</th>
                 <th className="num">Amount</th>
                 <th>Billing</th>
                 <th className="num">Per month</th>
@@ -222,9 +262,18 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
                     {s.category && <span className="muted"> · {s.category}</span>}
                   </td>
                   <td>
+                    <span className="badge">{s.direction === 'income' ? 'in' : 'out'}</span>
+                  </td>
+                  <td>
                     {s.person_name} · {s.account_name}
                   </td>
-                  <td className="num">{money(s.amount, s.currency)}</td>
+                  <td
+                    className="num"
+                    style={s.direction === 'income' ? { color: 'var(--success)' } : undefined}
+                  >
+                    {s.direction === 'income' ? '+' : '−'}
+                    {money(s.amount, s.currency)}
+                  </td>
                   <td>
                     {s.cycle === 'yearly'
                       ? `Yearly (${MONTH_NAMES[(s.billing_month || 1) - 1]})`
@@ -254,8 +303,8 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
               ))}
               {subs.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="muted">
-                    No subscriptions yet.
+                  <td colSpan={8} className="muted">
+                    Nothing recurring yet.
                   </td>
                 </tr>
               )}

@@ -187,6 +187,43 @@ router.post(
   })
 );
 
+// An owner setting a member's password for them. There is no email anywhere in
+// this app, so there is no reset link to send — and for a household, the person
+// who set the account up in the first place is the right person to fix it.
+//
+// Not permitted against another owner: co-owners would otherwise be able to
+// lock each other out of a shared budget, which is a fight the app shouldn't
+// hand anyone the tools for. The member's sessions all end, so a reset they
+// didn't ask for cannot pass unnoticed.
+router.post(
+  '/:id/members/:userId/password',
+  h(withMembership),
+  requireOwner,
+  h(async (req, res) => {
+    const target = Number(req.params.userId);
+    const { new_password: newPassword } = req.body;
+
+    const role = await householdService.roleOf(target, req.membership.id);
+    if (!role) return res.status(404).json({ error: 'That person is not in this household.' });
+    if (target === req.user.id) {
+      return res.status(400).json({
+        error: 'Use Settings to change your own password — it asks for your current one.',
+      });
+    }
+    if (role === 'owner') {
+      return res.status(403).json({
+        error: 'You cannot reset another owner’s password. Ask them to change it themselves.',
+      });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+
+    await authService.setPassword(target, newPassword);
+    res.json({ ok: true, signedOut: true });
+  })
+);
+
 router.patch(
   '/:id/members/:userId',
   h(withMembership),

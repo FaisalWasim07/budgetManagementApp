@@ -10,7 +10,10 @@
     "build": "npm run build --prefix client",
     "start": "node server/src/index.js",
     "migrate:sqlite": "node server/src/db/migrateFromSqlite.js",
-    "db:test": "node server/src/db/testConnection.js"
+    "db:test": "node server/src/db/testConnection.js",
+    "reset-password": "node server/src/db/resetPassword.js",
+    "test": "node test/run.js",
+    "test:browser": "node test/browser/run.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

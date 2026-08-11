@@ -189,15 +189,29 @@ Every API route except signing in requires a session, and every one that touches
 a budget is scoped to a household you are confirmed to belong to. Both checks are
 declared once, centrally, so a route added later cannot forget either.
 
-**There is no password reset** — nothing knows your email address, so there is
-nowhere to send one. If you lock yourself out completely, clear the logins
-directly and the app will offer first-run setup again next time you open it:
+### Forgotten passwords
 
-```
-node -e "require('./server/src/db/pool').exec('DELETE FROM sessions; DELETE FROM users')"
-```
+There is no reset email — nothing sends to an address, and adding that means a
+mail provider, a verified domain and DNS records, which is a lot of permanent
+machinery for something that happens once a year. Two ways back in instead:
 
-Your budget data is untouched by that; only the logins are.
+- **An owner sets it for them.** Household menu → People & sharing → Reset
+  password. The member is signed out everywhere and can change it once they're
+  back in. Not permitted against another owner, so co-owners can't lock each
+  other out.
+- **From the command line**, when the only owner is locked out:
+
+  ```
+  npm run reset-password -- <username>
+  ```
+
+  It prints a generated password, or takes one you supply. This needs
+  `DATABASE_URL`, which is the honest boundary anyway — anyone who can reach the
+  database can already change any row in it.
+
+Accounts can hold an **optional email address**. Nothing is sent to it today; it
+exists so that adding self-service reset later is a contained change rather than
+having to collect addresses from everyone first.
 
 ## Database
 
@@ -451,6 +465,33 @@ firewall prompt, and that you're not on a guest network.
 
 Something else is on port 5000 or 5173. Stop it, or set a different API port
 with `PORT=5001 npm start`.
+
+## Tests
+
+```
+TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
+```
+
+90 checks over the API: the money maths, editing entries and transfers,
+household isolation, roles and invites, and who may reset whose password. The
+runner starts and stops its own server, so nothing needs to be running first.
+
+`TEST_DATABASE_URL` is deliberately a different variable from `DATABASE_URL`.
+These suites create accounts, households and money — pointing them at the real
+database would be a bad afternoon, and requiring a separate name means it can't
+happen by having the wrong shell open.
+
+Browser tests drive the real app through Chromium and need Playwright, which is
+a big install for someone who only wants to check the arithmetic:
+
+```
+npm install --no-save playwright
+TEST_DATABASE_URL=... npm run test:browser
+```
+
+The isolation suite is the one worth keeping green. Households are kept apart by
+middleware plus several dozen correctly-scoped queries, and one careless `WHERE`
+clause would undo that quietly — the tests are what would notice.
 
 ## Deploying
 

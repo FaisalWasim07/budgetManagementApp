@@ -15,6 +15,9 @@ export const setMemberRole = (id, userId, role) =>
 
 export const removeMember = (id, userId) => del(`/households/${id}/members/${userId}`);
 
+export const resetMemberPassword = (id, userId, newPassword) =>
+  post(`/households/${id}/members/${userId}/password`, { new_password: newPassword });
+
 export const listInvites = (id) => get(`/households/${id}/invites`);
 
 export const createInvite = (id, role) => post(`/households/${id}/invites`, { role });

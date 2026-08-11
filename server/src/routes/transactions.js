@@ -155,6 +155,125 @@ router.post(
   })
 );
 
+// Editing an entry. A transfer is edited as one thing — both legs move
+// together, with their own amounts so a cross-currency pair stays truthful —
+// because updating one side alone would leave the books not balancing.
+//
+// What can't change: an ordinary entry cannot become a transfer, or the other
+// way round. That is a delete and a re-entry, and pretending otherwise is how
+// you end up with a half-formed transfer pointing at nothing.
+router.patch(
+  '/:id',
+  h(async (req, res) => {
+    const existing = await db.get(
+      `SELECT t.* FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE t.id = ? AND a.household_id = ?`,
+      [req.params.id, req.household.id]
+    );
+    if (!existing) return res.status(404).json({ error: 'transaction not found' });
+
+    const {
+      amount,
+      to_amount: toAmount,
+      month,
+      kind,
+      category,
+      description,
+      entry_date: entryDate,
+    } = req.body;
+
+    if (amount != null && (typeof amount !== 'number' || !(amount > 0))) {
+      return res.status(400).json({ error: 'amount must be a positive number' });
+    }
+    if (kind != null && !ENTRY_KINDS.includes(kind)) {
+      return res.status(400).json({ error: `kind must be ${ENTRY_KINDS.join(' or ')}` });
+    }
+    if (kind != null && existing.transfer_id) {
+      return res.status(400).json({
+        error: 'A transfer cannot become an income or expense entry. Delete it and add a new one.',
+      });
+    }
+
+    const nextMonth = month ?? existing.month;
+
+    // --- a transfer: both legs, one transaction --------------------------
+    if (existing.transfer_id) {
+      const legs = await db.all(
+        `SELECT t.*, a.type AS account_type, a.name AS account_name, a.currency, a.opening_balance,
+                a.household_id
+         FROM transactions t JOIN accounts a ON a.id = t.account_id
+         WHERE t.transfer_id = ? AND a.household_id = ?`,
+        [existing.transfer_id, req.household.id]
+      );
+      const out = legs.find((l) => l.kind === 'transfer_out');
+      const into = legs.find((l) => l.kind === 'transfer_in');
+      if (!out || !into) {
+        return res.status(409).json({ error: 'This transfer is missing one of its two sides.' });
+      }
+      if (toAmount != null && (typeof toAmount !== 'number' || !(toAmount > 0))) {
+        return res.status(400).json({ error: 'to_amount must be a positive number' });
+      }
+
+      const nextOut = amount ?? out.amount;
+      const nextIn = toAmount ?? (amount != null && out.amount === into.amount ? amount : into.amount);
+
+      // Raising the amount can overdraw the source just as creating it could,
+      // so the same guard applies. The existing leg is excluded from the
+      // balance first, or the money would be counted against itself.
+      if (out.account_type !== 'credit') {
+        const source = { id: out.account_id, opening_balance: out.opening_balance, household_id: req.household.id };
+        const available = (await summaryService.accountBalance(source, nextMonth)) + out.amount;
+        if (nextOut > available) {
+          return res.status(400).json({
+            error: `${out.account_name} only has ${available.toFixed(2)} ${out.currency} available in this month.`,
+            available,
+            currency: out.currency,
+          });
+        }
+      }
+
+      const updated = await db.tx(async (t) => {
+        const write = (leg, value) =>
+          t.get(
+            `UPDATE transactions SET amount = ?, month = ?, description = ?, entry_date = ?
+             WHERE id = ? RETURNING *`,
+            [
+              value,
+              nextMonth,
+              description !== undefined ? description : leg.description,
+              entryDate !== undefined ? entryDate : leg.entry_date,
+              leg.id,
+            ]
+          );
+        return [await write(out, nextOut), await write(into, nextIn)];
+      });
+
+      return res.json(updated);
+    }
+
+    // --- an ordinary entry -----------------------------------------------
+    const row = await db.get(
+      `UPDATE transactions
+       SET amount = ?, month = ?, kind = ?, category = ?, description = ?, entry_date = ?
+       WHERE id = ? AND account_id IN (SELECT id FROM accounts WHERE household_id = ?)
+       RETURNING *`,
+      [
+        amount ?? existing.amount,
+        nextMonth,
+        kind ?? existing.kind,
+        category !== undefined ? category : existing.category,
+        description !== undefined ? description : existing.description,
+        entryDate !== undefined ? entryDate : existing.entry_date,
+        req.params.id,
+        req.household.id,
+      ]
+    );
+
+    res.json(row);
+  })
+);
+
 // Deleting either leg of a transfer removes both, so the books stay balanced.
 router.delete(
   '/:id',

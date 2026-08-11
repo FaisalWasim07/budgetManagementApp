@@ -58,6 +58,24 @@ function subscriptionChargesThrough(sub, month) {
   return count;
 }
 
+// Recurring items sum in two directions. Kept as one helper so a balance and a
+// month's activity can never disagree about which way a given item points.
+function recurringTotals(items, month, { cumulative }) {
+  let out = 0;
+  let inn = 0;
+  for (const item of items) {
+    const times = cumulative
+      ? subscriptionChargesThrough(item, month)
+      : subscriptionDueIn(item, month)
+        ? 1
+        : 0;
+    if (times === 0) continue;
+    if (item.direction === 'income') inn += item.amount * times;
+    else out += item.amount * times;
+  }
+  return { out, in: inn };
+}
+
 // --- the ledger snapshot -------------------------------------------------
 
 // Balances used to be computed with a query per account, and activity with
@@ -132,25 +150,27 @@ class Ledger {
       }
     }
 
-    const subs = this.subscriptionsFor(account.id).reduce(
-      (sum, s) => sum + s.amount * subscriptionChargesThrough(s, month),
-      0
-    );
-    return account.opening_balance + credits - debits - subs;
+    const recurring = recurringTotals(this.subscriptionsFor(account.id), month, {
+      cumulative: true,
+    });
+    return account.opening_balance + credits + recurring.in - debits - recurring.out;
   }
 
   activity(account, month) {
     const kinds = this.byAccount.get(account.id)?.get(month) || {};
-    const subscriptions = this.subscriptionsFor(account.id)
-      .filter((s) => subscriptionDueIn(s, month))
-      .reduce((sum, s) => sum + s.amount, 0);
+    const recurring = recurringTotals(this.subscriptionsFor(account.id), month, {
+      cumulative: false,
+    });
 
     return {
-      income: kinds.income || 0,
+      // Recurring income is folded into income: from the dashboard's point of
+      // view salary is salary, whether it was typed in or arrives every month.
+      income: (kinds.income || 0) + recurring.in,
+      recurringIncome: recurring.in,
       expense: kinds.expense || 0,
       transferIn: kinds.transfer_in || 0,
       transferOut: kinds.transfer_out || 0,
-      subscriptions,
+      subscriptions: recurring.out,
     };
   }
 }
@@ -176,8 +196,8 @@ async function accountBalance(account, month) {
     ),
   ]);
 
-  const subTotal = subs.reduce((sum, s) => sum + s.amount * subscriptionChargesThrough(s, month), 0);
-  return account.opening_balance + row.credits - row.debits - subTotal;
+  const recurring = recurringTotals(subs, month, { cumulative: true });
+  return account.opening_balance + row.credits + recurring.in - row.debits - recurring.out;
 }
 
 // --- summary -------------------------------------------------------------
@@ -352,6 +372,7 @@ async function getCategoryBreakdown(householdId, month) {
 
   for (const account of accounts) {
     for (const sub of ledger.subscriptionsFor(account.id)) {
+      if (sub.direction === 'income') continue; // this chart is where money went
       if (!subscriptionDueIn(sub, month)) continue;
       const value = convert(sub.amount, rates[account.currency]);
       if (value == null) continue;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
 import { useDisplay } from '../utils/display';
+import TransactionEditModal from './TransactionEditModal';
 
 // Entries made before the app recorded an author have neither name nor a
 // meaningful time to show, so both fall back to a dash rather than to now().
@@ -22,6 +23,7 @@ const isCredit = (kind) => kind === 'income' || kind === 'transfer_in';
 
 export default function TransactionsTable({ month, accountsById, personsById, onChanged, readOnly = false }) {
   const [rows, setRows] = useState([]);
+  const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const { money } = useDisplay();
@@ -106,9 +108,26 @@ export default function TransactionsTable({ month, accountsById, personsById, on
                   {money(r.amount, r.currency)}
                 </td>
                 <td>
-                  {!readOnly && <button className="subtle tiny danger" onClick={() => remove(r)}>
-                    Delete
-                  </button>}
+                  {!readOnly && (
+                    <div className="row-tight" style={{ flexWrap: 'nowrap' }}>
+                      <button
+                        className="subtle tiny"
+                        onClick={() =>
+                          setEditing({
+                            ...r,
+                            legs: r.transfer_id
+                              ? rows.filter((x) => x.transfer_id === r.transfer_id)
+                              : null,
+                          })
+                        }
+                      >
+                        Edit
+                      </button>
+                      <button className="subtle tiny danger" onClick={() => remove(r)}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -122,6 +141,19 @@ export default function TransactionsTable({ month, accountsById, personsById, on
           </tbody>
         </table>
       </div>
+      {editing && (
+        <TransactionEditModal
+          entry={editing}
+          accountsById={accountsById}
+          month={month}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            load();
+            await onChanged();
+          }}
+        />
+      )}
+
       <span className="muted" style={{ fontSize: '0.8rem' }}>
         Subscriptions aren't listed here — they're charged automatically and live on the
         Subscriptions tab.

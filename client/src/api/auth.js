@@ -14,3 +14,5 @@ export const createUser = (username, password) => post('/auth/users', { username
 
 export const changePassword = (currentPassword, newPassword) =>
   post('/auth/password', { current_password: currentPassword, new_password: newPassword });
+
+export const setEmail = (email) => post('/auth/email', { email });

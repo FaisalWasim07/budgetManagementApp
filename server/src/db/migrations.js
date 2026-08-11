@@ -85,6 +85,21 @@ async function run() {
     added.push(table);
   }
 
+  if ((await tableExists('users')) && !(await columnExists('users', 'email'))) {
+    await db.exec('ALTER TABLE users ADD COLUMN email text');
+    notes.push('accounts can now hold an email address');
+  }
+
+  // Recurring items gained a direction when salary joined subscriptions.
+  // Everything that existed before was money going out.
+  if ((await tableExists('subscriptions')) && !(await columnExists('subscriptions', 'direction'))) {
+    await db.exec(
+      `ALTER TABLE subscriptions ADD COLUMN direction text NOT NULL DEFAULT 'expense'
+         CHECK (direction IN ('expense','income'))`
+    );
+    notes.push('recurring items can now be income as well as spending');
+  }
+
   // Who recorded a transaction. Stays nullable: entries made before this
   // existed genuinely have no author, and guessing at one would be a lie.
   if ((await tableExists('transactions')) && !(await columnExists('transactions', 'created_by'))) {
@@ -137,10 +152,15 @@ async function run() {
     );
   }
 
-  // Here rather than in schema.sql, which is applied before this and would be
-  // indexing a column that doesn't exist yet on a database predating households.
+  // Indexes over columns added above, rather than in schema.sql. That file is
+  // applied first, and would be indexing a column that does not exist yet on
+  // any database predating the migration that adds it.
   await db.exec('CREATE INDEX IF NOT EXISTS idx_persons_household ON persons(household_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_household ON accounts(household_id)');
+  await db.exec(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower
+       ON users (lower(email)) WHERE email IS NOT NULL`
+  );
 
   return notes;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listUsers, changePassword } from '../api/auth';
+import { listUsers, changePassword, setEmail } from '../api/auth';
 
 // Managing who can sign in. Deliberately separate from `persons` in the
 // budget — adding a login here does not create a person, because whose money
@@ -9,15 +9,19 @@ export default function LoginSettings({ user, onSignedOut }) {
   const [mode, setMode] = useState(null); // null | 'password'
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [email, setEmailValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     listUsers()
-      .then(setUsers)
+      .then((list) => {
+        setUsers(list);
+        setEmailValue(list.find((u) => u.id === user.id)?.email ?? '');
+      })
       .catch(() => {});
-  }, []);
+  }, [user.id]);
 
   function reset() {
     setMode(null);
@@ -61,6 +65,45 @@ export default function LoginSettings({ user, onSignedOut }) {
         household menu — that adds them to the household and gives them an account, which adding a
         bare login here would not.
       </span>
+
+      {/* Nothing is sent to this address today. It is here so that if
+          self-service password reset is ever added, the address already
+          exists rather than having to be collected from everyone first. */}
+      <label className="field">
+        Your email (optional)
+        <div className="row-tight">
+          <input
+            className="grow"
+            type="email"
+            placeholder="not used for anything yet"
+            value={email}
+            onChange={(e) => setEmailValue(e.target.value)}
+          />
+          <button
+            type="button"
+            className="tiny"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await setEmail(email);
+                setNote('Email saved.');
+              } catch (err) {
+                setError(err.message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Save
+          </button>
+        </div>
+        <span className="muted">
+          Stored only. No password reset by email exists — if you're locked out, another owner of
+          your household can set a new password for you.
+        </span>
+      </label>
 
       {mode === null && (
         <div className="row-tight">

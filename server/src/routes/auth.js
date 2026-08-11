@@ -15,18 +15,25 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_ATTEMPTS = 10;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
+// Signing up counts every account created, not just failures, so the ceiling
+// is about how many accounts one address may make rather than how many guesses
+// it may take. Ten in fifteen minutes is generous for a household and useless
+// for anyone filling the database; SIGNUP_MAX raises it where a test suite
+// legitimately creates many in a row.
+const SIGNUP_MAX = Number(process.env.SIGNUP_MAX) || 10;
+
 // A guess-rate limit, kept in memory: a couple of household users don't justify
 // a table, and a restart clearing it is an acceptable trade.
 const attempts = new Map();
 
-function tooManyAttempts(key) {
+function tooManyAttempts(key, limit = MAX_ATTEMPTS) {
   const record = attempts.get(key);
   if (!record) return false;
   if (Date.now() > record.until) {
     attempts.delete(key);
     return false;
   }
-  return record.count >= MAX_ATTEMPTS;
+  return record.count >= limit;
 }
 
 function recordFailure(key) {
@@ -65,8 +72,17 @@ router.get(
 // SIGNUP_CODE gates it: set it and only people you give the code to can sign
 // up. Leave it unset and registration is open.
 async function register(req, res) {
-  const { username, password, code } = req.body;
+  const { username, password, email, code } = req.body;
   const required = process.env.SIGNUP_CODE;
+
+  // Registration is open to anyone who finds the address, so it gets the same
+  // per-address limit as signing in. Without this an account can be created in
+  // a loop until the database is someone else's problem.
+  const key = `signup:${req.ip || 'unknown'}`;
+  if (tooManyAttempts(key, SIGNUP_MAX)) {
+    return res.status(429).json({ error: 'Too many accounts created. Try again in 15 minutes.' });
+  }
+  recordFailure(key);
 
   if (required && String(code || '').trim() !== required) {
     return res.status(403).json({ error: 'That signup code is not right.', code: 'BAD_SIGNUP_CODE' });
@@ -80,10 +96,17 @@ async function register(req, res) {
     return res.status(409).json({ error: 'That username is taken.' });
   }
 
-  const user = await authService.createUser(username, password);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) {
+    return res.status(400).json({ error: "That doesn't look like an email address." });
+  }
+  if (email && (await authService.findByEmail(email))) {
+    return res.status(409).json({ error: 'That email is already on another account.' });
+  }
+
+  const user = await authService.createUser(username, password, email);
   const { token, expiresAt } = await authService.createSession(user.id);
   setSessionCookie(res, token, expiresAt);
-  res.status(201).json({ user: { id: user.id, username: user.username } });
+  res.status(201).json({ user: { id: user.id, username: user.username, email: user.email } });
 }
 
 router.post('/signup', h(register));
@@ -128,7 +151,14 @@ router.post(
   })
 );
 
-router.get('/me', requireAuth, (req, res) => res.json({ user: req.user }));
+router.get(
+  '/me',
+  requireAuth,
+  h(async (req, res) => {
+    const row = await db.get('SELECT id, username, email FROM users WHERE id = ?', [req.user.id]);
+    res.json({ user: row });
+  })
+);
 
 // Everything below needs an existing session — these are for managing logins
 // once you're already in, not for getting in.
@@ -136,7 +166,7 @@ router.get(
   '/users',
   requireAuth,
   h(async (req, res) => {
-    res.json(await db.all('SELECT id, username, created_at FROM users ORDER BY id'));
+    res.json(await db.all('SELECT id, username, email, created_at FROM users ORDER BY id'));
   })
 );
 
@@ -155,6 +185,27 @@ router.post(
     }
     const user = await authService.createUser(username, password);
     res.status(201).json({ id: user.id, username: user.username });
+  })
+);
+
+router.post(
+  '/email',
+  requireAuth,
+  h(async (req, res) => {
+    const { email } = req.body;
+    const value = email == null || String(email).trim() === '' ? null : String(email).trim();
+
+    if (value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      return res.status(400).json({ error: "That doesn't look like an email address." });
+    }
+    if (value) {
+      const owner = await authService.findByEmail(value);
+      if (owner && owner.id !== req.user.id) {
+        return res.status(409).json({ error: 'That email is already on another account.' });
+      }
+    }
+
+    res.json(await authService.setEmail(req.user.id, value));
   })
 );
 

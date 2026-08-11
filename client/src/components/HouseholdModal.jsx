@@ -9,6 +9,7 @@ import {
   removeMember,
   renameHousehold,
   addMember,
+  resetMemberPassword,
 } from '../api/households';
 import { createPerson, deletePerson } from '../api/persons';
 
@@ -28,6 +29,9 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(null);
+  const [resetting, setResetting] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetDone, setResetDone] = useState(null);
 
   const isOwner = household.role === 'owner';
 
@@ -172,6 +176,24 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
                 ) : (
                   <span className="muted">{ROLES.find((r) => r[0] === member.role)?.[1]}</span>
                 )}
+                {/* No email exists anywhere in this app, so there is no reset
+                    link to send. An owner setting it for them is the honest
+                    substitute — and never against another owner, which would
+                    let co-owners lock each other out. */}
+                {isOwner && member.user_id !== user.id && member.role !== 'owner' && (
+                  <button
+                    type="button"
+                    className="tiny"
+                    disabled={busy}
+                    onClick={() => {
+                      setResetting(resetting === member.user_id ? null : member.user_id);
+                      setResetPassword('');
+                      setResetDone(null);
+                    }}
+                  >
+                    Reset password
+                  </button>
+                )}
                 {(isOwner || member.user_id === user.id) && (
                   <button
                     type="button"
@@ -190,6 +212,51 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
               </div>
             </div>
           ))}
+
+          {resetting != null && (
+            <div className="stack-sm" style={{ paddingLeft: 12 }}>
+              <label className="field">
+                New password for {members.find((m) => m.user_id === resetting)?.username}
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="At least 8 characters"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                />
+                <span className="muted">
+                  Shown as you type so you can read it out. They are signed out everywhere, and
+                  can change it once they're back in.
+                </span>
+              </label>
+              <div className="row-tight">
+                <button type="button" className="tiny" onClick={() => setResetting(null)} disabled={busy}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="tiny"
+                  disabled={busy || resetPassword.length < 8}
+                  onClick={() =>
+                    act(async () => {
+                      await resetMemberPassword(household.id, resetting, resetPassword);
+                      setResetDone(members.find((m) => m.user_id === resetting)?.username);
+                      setResetting(null);
+                      setResetPassword('');
+                    })
+                  }
+                >
+                  Set it
+                </button>
+              </div>
+            </div>
+          )}
+
+          {resetDone && (
+            <div className="secondary" style={{ fontSize: '0.85rem' }}>
+              Password for {resetDone} changed. Tell them the new one — they were signed out.
+            </div>
+          )}
         </div>
 
         {isOwner && (
