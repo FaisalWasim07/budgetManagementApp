@@ -67,18 +67,51 @@ async function main() {
     console.log(`  ${key.padEnd(28)} ${value}`);
   }
 
-  const first = await attempt(connectionString, sslFor(connectionString));
+  // Built the same way the app builds it, so this tests what actually runs —
+  // including DATABASE_PASSWORD when it's set.
+  const first = await attempt(db.connectionConfig(connectionString), sslFor(connectionString));
   if (first.ok) return report(first, false);
 
   // A certificate this script can't verify would otherwise stop the diagnosis
   // before it reached the thing being diagnosed. It retries without
   // verification and says so — this is a throwaway connection that reads
   // nothing, not how the app connects.
+  // A rejected password that went through percent-decoding is the signature of
+  // a literal % in it being eaten as an escape. Rather than describe that, try
+  // the password exactly as written and see.
+  if (first.err.code === '28P01' && described.passwordWasPercentEncoded) {
+    const url = new URL(connectionString);
+    const verbatim = await attempt(
+      {
+        user: decodeURIComponent(url.username),
+        password: url.password, // undecoded, exactly as it appears
+        host: url.hostname,
+        port: Number(url.port || 5432),
+        database: url.pathname.replace(/^\//, '') || 'postgres',
+      },
+      sslFor(connectionString)
+    );
+
+    if (verbatim.ok) {
+      report(verbatim, false);
+      console.log('  Your password contains a % that was being read as an escape sequence,');
+      console.log('  so the database was receiving a mangled version of it. Fix it by moving');
+      console.log('  the password out of the URL — it is then used exactly as written:\n');
+      console.log('    DATABASE_URL=<the same string, with the password removed>');
+      console.log('    DATABASE_PASSWORD=<the password, verbatim>\n');
+      console.log('  Set both the same way on the host. Or reset the password in Supabase to');
+      console.log('  something without a %.\n');
+      return;
+    }
+  }
+
   if (isCertificateProblem(first.err)) {
     console.log(`\n  Certificate could not be verified: ${first.err.message}`);
     console.log('  Retrying without verification, to get past it and test the credentials.\n');
 
-    const second = await attempt(connectionString, { rejectUnauthorized: false });
+    const second = await attempt(db.connectionConfig(connectionString), {
+      rejectUnauthorized: false,
+    });
     if (second.ok) {
       report(second, true);
       console.log('  The credentials are fine. What failed was the certificate check, so set');
@@ -91,8 +124,8 @@ async function main() {
   return report(first, false);
 }
 
-async function attempt(connectionString, ssl) {
-  const client = new Client({ connectionString, ssl, connectionTimeoutMillis: 10_000 });
+async function attempt(config, ssl) {
+  const client = new Client({ ...config, ssl, connectionTimeoutMillis: 10_000 });
   try {
     await client.connect();
     const { rows } = await client.query('SELECT current_user, version()');

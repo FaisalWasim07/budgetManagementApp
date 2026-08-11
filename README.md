@@ -173,9 +173,25 @@ Project Settings → Database. Which one depends on where the app is running:
 | Transaction pooler | 6543 | the deployed app — serverless opens a connection per request and would exhaust a direct limit |
 | Direct connection | 5432 | migrations and one-off scripts run from your own machine |
 
-Replace the `[YOUR-PASSWORD]` placeholder with the database password. If the
-password contains `@ : / #` it has to be URL-encoded, so it's easier to reset it
-to something alphanumeric.
+Replace the `[YOUR-PASSWORD]` placeholder with the database password.
+
+### Passwords with punctuation in them
+
+A password inside a URL is percent-decoded on the way out, so `@ : / # ?` have
+to be encoded — and a literal **`%`** is worse: it's read as the start of an
+escape, and the database silently receives a different password from the one
+you were given. `28P01` with everything apparently correct is usually this.
+
+Keep the password out of the URL instead, and it's used exactly as written:
+
+```
+DATABASE_URL=postgresql://postgres.abcdefgh@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+DATABASE_PASSWORD=whatever it is, verbatim
+```
+
+Note the string has no `:password` in it at all. Both go in `.env` locally and
+as environment variables on a host. `npm run db:test` detects this case and says
+so rather than leaving you to guess.
 
 `.env` is gitignored and must stay that way — it is the one file in the project
 that holds a credential.

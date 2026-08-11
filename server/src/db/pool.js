@@ -34,6 +34,30 @@ function sslOption(connectionString) {
   return { rejectUnauthorized: true };
 }
 
+// A password inside a URL goes through percent-decoding, so a literal % in it
+// is read as the start of an escape and what reaches the database is not what
+// you were given. Encoding it as %25 is the textbook answer and a poor one:
+// it depends on noticing, and on every place the string is pasted preserving
+// it. DATABASE_PASSWORD sidesteps the question — set it and the password is
+// used exactly as written, whatever it contains.
+//
+// It has to replace the connection string rather than accompany it: node-postgres
+// lets connectionString win over an explicit password, including when the string
+// carries no password at all. So the URL is taken apart and passed as fields.
+function connectionConfig(connectionString) {
+  const password = process.env.DATABASE_PASSWORD;
+  if (password == null || password === '') return { connectionString };
+
+  const url = new URL(connectionString);
+  return {
+    user: decodeURIComponent(url.username),
+    password,
+    host: url.hostname,
+    port: Number(url.port || 5432),
+    database: url.pathname.replace(/^\//, '') || 'postgres',
+  };
+}
+
 // Configuration mistakes get a code of their own, so they read the same way as
 // a driver error and reach the caller through the same path.
 function configError(code, message) {
@@ -106,7 +130,7 @@ function getPool() {
   }
 
   created = new Pool({
-    connectionString,
+    ...connectionConfig(connectionString),
     ssl: sslOption(connectionString),
     // Each serverless invocation gets its own short-lived pool, so it wants a
     // small ceiling and a quick idle timeout: connections are a shared resource
@@ -199,4 +223,4 @@ async function tx(fn) {
 // cleanly without a bare require ever opening a connection.
 const end = () => (created ? created.end() : Promise.resolve());
 
-module.exports = { ...base, tx, end, getPool, describeConnection, toPositional };
+module.exports = { ...base, tx, end, getPool, describeConnection, connectionConfig, toPositional };
