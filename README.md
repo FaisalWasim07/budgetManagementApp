@@ -332,10 +332,28 @@ what broke:
 quickest way to tell "the app isn't running" from "the app can't reach the
 database".
 
-To see which connection is actually being used, set `DEBUG_CONNECTION=true` and
-call `/api/health` again — it then also returns the username, host, port and
-database name, along with the password's length and whether it looks like a
-placeholder or picked up stray quotes. The password itself is never included.
+To check a connection string without deploying anything:
+
+```
+npm run db:test                        # uses DATABASE_URL from .env
+npm run db:test -- "postgresql://..."  # tries the one you pass
+```
+
+It connects once and prints what the driver said, with a note on what the
+common failures actually mean. The password is never printed.
+
+That matters most for `28P01`, which Supabase's pooler returns both for a
+genuinely wrong password (*"password authentication failed"*) and for
+**"Tenant or user not found"** — which is not about the password at all. That
+one means the pooler couldn't match the project: usually the region in the host
+is wrong, the project reference after `postgres.` belongs to another project, or
+the project is paused.
+
+To see which connection the deployed app is using, set `DEBUG_CONNECTION=true`
+and call `/api/health` again — it then also returns the username, host, port and
+database name, the driver's own error message, and the password's length and
+whether it picked up stray quotes or whitespace. The password itself is never
+included.
 The same detail always goes to the logs, so the variable is only needed when
 reading logs is inconvenient. **Turn it off once you're done** — the endpoint is
 public, and the username and host are infrastructure detail.

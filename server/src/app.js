@@ -43,11 +43,18 @@ app.get('/api/health', async (req, res) => {
     console.error('Health check failed to reach the database:', err);
     console.error('Connection in use (password omitted):', connection);
 
+    const debugging = process.env.DEBUG_CONNECTION === 'true';
+
     res.status(503).json({
       api: true,
       database: false,
       code: err.code ?? null,
-      connection: process.env.DEBUG_CONNECTION === 'true' ? connection : undefined,
+      // The message is the part that separates causes sharing one code —
+      // Supabase's pooler answers "Tenant or user not found" with the same
+      // 28P01 it uses for a genuinely wrong password, and those need opposite
+      // fixes. Included only when debugging is explicitly switched on.
+      message: debugging ? err.message : undefined,
+      connection: debugging ? connection : undefined,
     });
   }
 });
