@@ -61,6 +61,13 @@ function describeConnection() {
       passwordLength: password.length,
       passwordLooksLikePlaceholder: /^\[.*\]$/.test(password) || /your.?password/i.test(password),
       passwordHasSurroundingQuotes: /^["'].*["']$/.test(password),
+      // A space picked up either side of a paste is sent as part of the
+      // password and is invisible in a length alone.
+      passwordHasEdgeWhitespace: password !== password.trim(),
+      // Whether any %XX escapes were decoded. If you didn't encode anything
+      // yourself, this being true means a literal % in the password was read
+      // as the start of an escape and the password sent isn't what you typed.
+      passwordWasPercentEncoded: (url.password || '') !== password,
     };
   } catch {
     return { configured: true, parseable: false };
