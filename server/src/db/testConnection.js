@@ -24,6 +24,16 @@ function reportEnvFiles() {
   if (env.loaded.length === 0) {
     console.log('\n  No .env file found.');
     console.log('  Expected one at the repository root, next to package.json.');
+
+    const candidates = env.nearMisses();
+    if (candidates.length > 0) {
+      console.log('\n  These look like they were meant to be it:');
+      for (const file of candidates) console.log(`    ${file}`);
+      console.log('\n  The name has to be exactly ".env" — no prefix, no extension.');
+      console.log('  Windows Explorer will not create a name starting with a dot, so rename it');
+      console.log('  from a terminal instead:');
+      console.log(`    Rename-Item "${candidates[0]}" .env`);
+    }
     return;
   }
   for (const entry of env.loaded) {

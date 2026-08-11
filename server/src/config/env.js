@@ -48,4 +48,27 @@ for (const root of roots) {
   }
 }
 
-module.exports = { loaded };
+// Files that were probably meant to be the .env. Windows Explorer refuses to
+// create a name beginning with a dot and hides known extensions, so the file
+// routinely ends up as `env.txt`, `file.env` or similar — correct contents,
+// wrong name, and nothing to see from the outside.
+function nearMisses() {
+  const found = [];
+  for (const root of roots) {
+    let entries;
+    try {
+      entries = fs.readdirSync(root);
+    } catch {
+      continue;
+    }
+    for (const name of entries) {
+      if (name === '.env') continue;
+      if (/(^|[.\-_])env([.\-_]|$)/i.test(name) && !name.startsWith('.env.example')) {
+        found.push(path.join(root, name));
+      }
+    }
+  }
+  return found;
+}
+
+module.exports = { loaded, nearMisses };
