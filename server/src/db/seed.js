@@ -1,40 +1,58 @@
 require('../config/env');
 const db = require('./pool');
 
-const DEFAULT_PRIMARY_CURRENCY = 'AED';
-
-// A minimal starting point: one spending account and one savings account each.
-// Everything else (extra accounts, other currencies) is added from the UI.
-const DEFAULT_ACCOUNTS = [
-  { name: 'Main Account', currency: 'AED', type: 'current', sort_order: 0 },
-  { name: 'Savings', currency: 'AED', type: 'savings', sort_order: 1 },
-];
+// A starting household, so a brand new database isn't a screen with nothing on
+// it. Skipped entirely once anything exists — in normal use a household is
+// created by the first person to sign up, not by this.
+const DEFAULT_PEOPLE = ['Husband', 'Wife'];
 
 async function seed() {
-  await db.run(
-    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING',
-    ['primary_currency', DEFAULT_PRIMARY_CURRENCY]
-  );
-
-  const { count } = await db.get('SELECT COUNT(*) AS count FROM persons');
+  const { count } = await db.get('SELECT COUNT(*) AS count FROM households');
   if (count > 0) {
-    console.log('Seed skipped: persons already exist.');
+    console.log('Seed skipped: a household already exists.');
     return;
   }
 
-  for (const name of ['Husband', 'Wife']) {
-    await db.tx(async (t) => {
-      const person = await t.get('INSERT INTO persons (name) VALUES (?) RETURNING id', [name]);
-      for (const a of DEFAULT_ACCOUNTS) {
+  await db.tx(async (t) => {
+    const household = await t.get('INSERT INTO households (name) VALUES (?) RETURNING id', [
+      'Our household',
+    ]);
+    await t.run('INSERT INTO settings (household_id, key, value) VALUES (?, ?, ?)', [
+      household.id,
+      'primary_currency',
+      'AED',
+    ]);
+
+    for (const [index, name] of DEFAULT_PEOPLE.entries()) {
+      const person = await t.get(
+        'INSERT INTO persons (household_id, name) VALUES (?, ?) RETURNING id',
+        [household.id, name]
+      );
+      for (const [offset, account] of [
+        { name: 'Main Account', type: 'current' },
+        { name: 'Savings', type: 'savings' },
+      ].entries()) {
         await t.run(
-          'INSERT INTO accounts (person_id, name, currency, type, sort_order) VALUES (?, ?, ?, ?, ?)',
-          [person.id, a.name, a.currency, a.type, a.sort_order]
+          `INSERT INTO accounts (household_id, person_id, name, currency, type, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [household.id, person.id, account.name, 'AED', account.type, index * 2 + offset]
         );
       }
-    });
-  }
+    }
 
-  console.log('Seeded 2 persons with 2 default accounts each.');
+    // Anyone who can already sign in gets access to it, since there is nobody
+    // else it could belong to.
+    const users = await t.all('SELECT id FROM users ORDER BY id');
+    for (const [index, user] of users.entries()) {
+      await t.run(
+        `INSERT INTO household_members (household_id, user_id, role) VALUES (?, ?, ?)
+         ON CONFLICT (household_id, user_id) DO NOTHING`,
+        [household.id, user.id, index === 0 ? 'owner' : 'editor']
+      );
+    }
+  });
+
+  console.log('Seeded a household with 2 people and 2 accounts each.');
 }
 
 module.exports = seed;

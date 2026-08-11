@@ -17,6 +17,7 @@ export default function SettingsModal({
   primaryCurrency,
   rates,
   user,
+  readOnly = false,
   onSignedOut,
   onClose,
   onSaved,
@@ -194,7 +195,7 @@ export default function SettingsModal({
           <button type="button" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className="primary" disabled={busy || readOnly}>
             Save
           </button>
         </div>

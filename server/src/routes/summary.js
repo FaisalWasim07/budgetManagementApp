@@ -8,21 +8,21 @@ router.get(
   '/trend',
   h(async (req, res) => {
     const months = req.query.months ? Number(req.query.months) : 12;
-    res.json(await summaryService.getTrend(months, req.query.endMonth));
+    res.json(await summaryService.getTrend(req.household.id, months, req.query.endMonth));
   })
 );
 
 router.get(
   '/categories/:month',
   h(async (req, res) => {
-    res.json(await summaryService.getCategoryBreakdown(req.params.month));
+    res.json(await summaryService.getCategoryBreakdown(req.household.id, req.params.month));
   })
 );
 
 router.get(
   '/:month',
   h(async (req, res) => {
-    res.json(await summaryService.getSummary(req.params.month));
+    res.json(await summaryService.getSummary(req.household.id, req.params.month));
   })
 );
 

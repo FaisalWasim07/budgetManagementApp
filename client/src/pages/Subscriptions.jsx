@@ -23,7 +23,7 @@ const emptyForm = (month) => ({
   category: '',
 });
 
-export default function Subscriptions({ summary, month, onChanged }) {
+export default function Subscriptions({ summary, month, onChanged, readOnly = false }) {
   const [subs, setSubs] = useState([]);
   const [form, setForm] = useState(emptyForm(month));
   const [error, setError] = useState(null);

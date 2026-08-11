@@ -10,10 +10,14 @@ router.get(
   h(async (req, res) => {
     const { personId } = req.query;
     const accounts = personId
-      ? await db.all('SELECT * FROM accounts WHERE person_id = ? ORDER BY sort_order, id', [
-          personId,
-        ])
-      : await db.all('SELECT * FROM accounts ORDER BY person_id, sort_order, id');
+      ? await db.all(
+          'SELECT * FROM accounts WHERE household_id = ? AND person_id = ? ORDER BY sort_order, id',
+          [req.household.id, personId]
+        )
+      : await db.all(
+          'SELECT * FROM accounts WHERE household_id = ? ORDER BY person_id, sort_order, id',
+          [req.household.id]
+        );
     res.json(accounts);
   })
 );
@@ -38,7 +42,14 @@ router.post(
     if (typeof openingBalance !== 'number' || Number.isNaN(openingBalance)) {
       return res.status(400).json({ error: 'opening_balance must be a number' });
     }
-    if (!(await db.get('SELECT id FROM persons WHERE id = ?', [personId]))) {
+    // Checked within the household, so an id from another one reads as absent
+    // rather than letting an account be attached across the boundary.
+    if (
+      !(await db.get('SELECT id FROM persons WHERE id = ? AND household_id = ?', [
+        personId,
+        req.household.id,
+      ]))
+    ) {
       return res.status(404).json({ error: 'person not found' });
     }
 
@@ -48,9 +59,17 @@ router.post(
     );
 
     const account = await db.get(
-      `INSERT INTO accounts (person_id, name, currency, type, opening_balance, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
-      [personId, name.trim(), currency.trim().toUpperCase(), type, openingBalance, next]
+      `INSERT INTO accounts (household_id, person_id, name, currency, type, opening_balance, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      [
+        req.household.id,
+        personId,
+        name.trim(),
+        currency.trim().toUpperCase(),
+        type,
+        openingBalance,
+        next,
+      ]
     );
 
     res.status(201).json(account);
@@ -60,7 +79,10 @@ router.post(
 router.patch(
   '/:id',
   h(async (req, res) => {
-    const existing = await db.get('SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+    const existing = await db.get('SELECT * FROM accounts WHERE id = ? AND household_id = ?', [
+      req.params.id,
+      req.household.id,
+    ]);
     if (!existing) return res.status(404).json({ error: 'account not found' });
 
     const { name, currency, type, opening_balance: openingBalance, is_active: isActive } = req.body;
@@ -70,7 +92,7 @@ router.patch(
 
     const account = await db.get(
       `UPDATE accounts SET name = ?, currency = ?, type = ?, opening_balance = ?, is_active = ?
-       WHERE id = ? RETURNING *`,
+       WHERE id = ? AND household_id = ? RETURNING *`,
       [
         name != null ? name.trim() : existing.name,
         currency != null ? currency.trim().toUpperCase() : existing.currency,
@@ -78,6 +100,7 @@ router.patch(
         typeof openingBalance === 'number' ? openingBalance : existing.opening_balance,
         isActive != null ? (isActive ? 1 : 0) : existing.is_active,
         req.params.id,
+        req.household.id,
       ]
     );
 
@@ -90,7 +113,10 @@ router.patch(
 router.delete(
   '/:id',
   h(async (req, res) => {
-    const account = await db.get('SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+    const account = await db.get('SELECT * FROM accounts WHERE id = ? AND household_id = ?', [
+      req.params.id,
+      req.household.id,
+    ]);
     if (!account) return res.status(404).json({ error: 'account not found' });
 
     const [tx, sub] = await Promise.all([
@@ -99,7 +125,10 @@ router.delete(
     ]);
 
     if (tx.count > 0 || sub.count > 0) {
-      await db.run('UPDATE accounts SET is_active = 0 WHERE id = ?', [req.params.id]);
+      await db.run('UPDATE accounts SET is_active = 0 WHERE id = ? AND household_id = ?', [
+        req.params.id,
+        req.household.id,
+      ]);
       return res.json({
         deleted: false,
         deactivated: true,
@@ -108,7 +137,10 @@ router.delete(
       });
     }
 
-    await db.run('DELETE FROM accounts WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM accounts WHERE id = ? AND household_id = ?', [
+      req.params.id,
+      req.household.id,
+    ]);
     res.json({ deleted: true, deactivated: false });
   })
 );

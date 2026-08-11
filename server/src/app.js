@@ -7,6 +7,7 @@ const cors = require('cors');
 const db = require('./db/pool');
 const ensureSchema = require('./db/ensureSchema');
 const authRouter = require('./routes/auth');
+const householdsRouter = require('./routes/households');
 const personsRouter = require('./routes/persons');
 const accountsRouter = require('./routes/accounts');
 const transactionsRouter = require('./routes/transactions');
@@ -15,6 +16,7 @@ const settingsRouter = require('./routes/settings');
 const exchangeRatesRouter = require('./routes/exchangeRates');
 const summaryRouter = require('./routes/summary');
 const { attachUser, requireAuth } = require('./middleware/auth');
+const { resolveHousehold, blockViewerWrites } = require('./middleware/household');
 
 const app = express();
 
@@ -72,6 +74,18 @@ app.use('/api/auth', authRouter);
 // Everything past this point requires a session. Declared once here rather
 // than per route, so a new route can't be added and accidentally left public.
 app.use('/api', requireAuth);
+
+// Households come before the household-scoped middleware: you have to be able
+// to list them before one can be selected, create your first, and accept an
+// invite into one you are not a member of yet.
+app.use('/api/households', householdsRouter);
+
+// From here on every request is about exactly one household, which the user is
+// confirmed to belong to, and req.household.id is the only thing routes may
+// scope a query by. Both are declared once, for the same reason requireAuth is:
+// a route added later cannot forget them.
+app.use('/api', resolveHousehold);
+app.use('/api', blockViewerWrites);
 
 app.use('/api/persons', personsRouter);
 app.use('/api/accounts', accountsRouter);

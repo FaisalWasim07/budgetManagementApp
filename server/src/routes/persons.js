@@ -7,7 +7,53 @@ const router = express.Router();
 router.get(
   '/',
   h(async (req, res) => {
-    res.json(await db.all('SELECT id, name, created_at FROM persons ORDER BY id'));
+    res.json(
+      await db.all(
+        'SELECT id, name, created_at FROM persons WHERE household_id = ? ORDER BY id',
+        [req.household.id]
+      )
+    );
+  })
+);
+
+// Adding a person optionally gives them a first account, because a person with
+// no account can't hold any money and is a dead end on the dashboard.
+router.post(
+  '/',
+  h(async (req, res) => {
+    const { name, with_account: withAccount = true, currency = 'AED' } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    const person = await db.tx(async (t) => {
+      const created = await t.get(
+        'INSERT INTO persons (household_id, name) VALUES (?, ?) RETURNING *',
+        [req.household.id, name.trim()]
+      );
+
+      if (withAccount) {
+        const { next } = await t.get(
+          'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM accounts WHERE household_id = ?',
+          [req.household.id]
+        );
+        await t.run(
+          `INSERT INTO accounts (household_id, person_id, name, currency, type, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            req.household.id,
+            created.id,
+            'Main Account',
+            String(currency).trim().toUpperCase(),
+            'current',
+            next,
+          ]
+        );
+      }
+      return created;
+    });
+
+    res.status(201).json(person);
   })
 );
 
@@ -19,11 +65,39 @@ router.patch(
       return res.status(400).json({ error: 'name is required' });
     }
     const person = await db.get(
-      'UPDATE persons SET name = ? WHERE id = ? RETURNING id, name, created_at',
-      [name.trim(), req.params.id]
+      `UPDATE persons SET name = ? WHERE id = ? AND household_id = ?
+       RETURNING id, name, created_at`,
+      [name.trim(), req.params.id, req.household.id]
     );
     if (!person) return res.status(404).json({ error: 'person not found' });
     res.json(person);
+  })
+);
+
+// A person with any accounts is left alone — removing them would orphan money.
+router.delete(
+  '/:id',
+  h(async (req, res) => {
+    const person = await db.get('SELECT * FROM persons WHERE id = ? AND household_id = ?', [
+      req.params.id,
+      req.household.id,
+    ]);
+    if (!person) return res.status(404).json({ error: 'person not found' });
+
+    const { count } = await db.get('SELECT COUNT(*) AS count FROM accounts WHERE person_id = ?', [
+      req.params.id,
+    ]);
+    if (count > 0) {
+      return res.status(400).json({
+        error: `${person.name} still has ${count} account(s). Remove those first.`,
+      });
+    }
+
+    await db.run('DELETE FROM persons WHERE id = ? AND household_id = ?', [
+      req.params.id,
+      req.household.id,
+    ]);
+    res.status(204).end();
   })
 );
 

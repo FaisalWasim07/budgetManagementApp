@@ -9,7 +9,7 @@ const KIND_LABELS = {
   transfer_out: 'Transfer out',
 };
 
-export default function AccountCard({ account, month, primaryCurrency, onChanged, onEdit }) {
+export default function AccountCard({ account, month, primaryCurrency, onChanged, onEdit, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState([]);
   const [kind, setKind] = useState('expense');
@@ -93,9 +93,11 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
             </div>
           )}
         </div>
+        {!readOnly && (
         <button className="subtle tiny" onClick={() => onEdit(account)}>
           Edit
         </button>
+        )}
       </div>
 
       <div className="row-tight secondary" style={{ fontSize: '0.8rem' }}>
@@ -117,6 +119,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
         )}
       </div>
 
+      {!readOnly && (
       <form className="row-tight" onSubmit={add}>
         <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ width: 'auto' }}>
           <option value="expense">Expense</option>
@@ -142,6 +145,7 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
           Add
         </button>
       </form>
+      )}
 
       {error && <div className="error-text">{error}</div>}
 
@@ -161,9 +165,11 @@ export default function AccountCard({ account, month, primaryCurrency, onChanged
                 {['income', 'transfer_in'].includes(t.kind) ? '+' : '−'}
                 {money(t.amount, account.currency)}
               </span>
-              <button className="subtle tiny danger" onClick={() => remove(t.id)}>
-                Delete
-              </button>
+              {!readOnly && (
+                <button className="subtle tiny danger" onClick={() => remove(t.id)}>
+                  Delete
+                </button>
+              )}
             </li>
           ))}
           {entries.length === 0 && <li className="muted">Nothing recorded this month.</li>}

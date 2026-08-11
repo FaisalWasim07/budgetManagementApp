@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('./pool');
+const migrations = require('./migrations');
 
 const schema = () => fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 
@@ -31,6 +32,14 @@ async function ensureSchema() {
       .tx(async (t) => {
         await t.run('SELECT pg_advisory_xact_lock(?)', [LOCK_KEY]);
         await t.exec(schema());
+      })
+      // Reshaping tables that already hold data can't be expressed as CREATE
+      // IF NOT EXISTS, so it runs separately — after the tables it depends on
+      // exist, and still behind the same lock, which is held until this
+      // promise's transaction commits.
+      .then(async () => {
+        const notes = await migrations.run();
+        for (const note of notes) console.log(`Migration: ${note}`);
       })
       .catch((err) => {
         // Don't cache a failure: the next request should get to try again.

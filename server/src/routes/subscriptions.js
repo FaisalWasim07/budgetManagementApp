@@ -13,8 +13,9 @@ router.get(
   '/',
   h(async (req, res) => {
     const { month, accountId } = req.query;
-    const where = ['1=1'];
-    const params = [];
+    // Bounded by the household before any optional filter is considered.
+    const where = ['a.household_id = ?'];
+    const params = [req.household.id];
     if (accountId) {
       where.push('s.account_id = ?');
       params.push(accountId);
@@ -91,7 +92,12 @@ router.post(
     if (typeof amount !== 'number' || !(amount > 0)) {
       return res.status(400).json({ error: 'amount must be a positive number' });
     }
-    if (!(await db.get('SELECT id FROM accounts WHERE id = ?', [accountId]))) {
+    if (
+      !(await db.get('SELECT id FROM accounts WHERE id = ? AND household_id = ?', [
+        accountId,
+        req.household.id,
+      ]))
+    ) {
       return res.status(404).json({ error: 'account not found' });
     }
 
@@ -118,8 +124,25 @@ router.post(
 router.patch(
   '/:id',
   h(async (req, res) => {
-    const existing = await db.get('SELECT * FROM subscriptions WHERE id = ?', [req.params.id]);
+    const existing = await db.get(
+      `SELECT s.* FROM subscriptions s
+       JOIN accounts a ON a.id = s.account_id
+       WHERE s.id = ? AND a.household_id = ?`,
+      [req.params.id, req.household.id]
+    );
     if (!existing) return res.status(404).json({ error: 'subscription not found' });
+
+    // Moving a subscription to another account must not move it out of the
+    // household, so the destination is checked too.
+    if (
+      req.body.account_id != null &&
+      !(await db.get('SELECT id FROM accounts WHERE id = ? AND household_id = ?', [
+        req.body.account_id,
+        req.household.id,
+      ]))
+    ) {
+      return res.status(404).json({ error: 'account not found' });
+    }
 
     const merged = { ...existing, ...req.body };
     const error = validate(merged, { partial: true });
@@ -129,7 +152,8 @@ router.patch(
       `UPDATE subscriptions
        SET account_id = ?, name = ?, amount = ?, cycle = ?, billing_month = ?,
            start_month = ?, end_month = ?, category = ?, notes = ?, is_active = ?
-       WHERE id = ? RETURNING *`,
+       WHERE id = ? AND account_id IN (SELECT id FROM accounts WHERE household_id = ?)
+       RETURNING *`,
       [
         merged.account_id,
         String(merged.name).trim(),
@@ -144,6 +168,7 @@ router.patch(
         merged.notes || null,
         merged.is_active ? 1 : 0,
         req.params.id,
+        req.household.id,
       ]
     );
 
@@ -154,7 +179,11 @@ router.patch(
 router.delete(
   '/:id',
   h(async (req, res) => {
-    const result = await db.run('DELETE FROM subscriptions WHERE id = ?', [req.params.id]);
+    const result = await db.run(
+      `DELETE FROM subscriptions WHERE id = ? AND account_id IN
+         (SELECT id FROM accounts WHERE household_id = ?)`,
+      [req.params.id, req.household.id]
+    );
     if (result.rowCount === 0) return res.status(404).json({ error: 'subscription not found' });
     res.status(204).end();
   })

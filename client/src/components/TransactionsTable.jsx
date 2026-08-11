@@ -2,6 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
 import { useDisplay } from '../utils/display';
 
+// Entries made before the app recorded an author have neither name nor a
+// meaningful time to show, so both fall back to a dash rather than to now().
+function formatAdded(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
 const KIND_LABELS = {
   income: 'Income',
   expense: 'Expense',
@@ -11,7 +20,7 @@ const KIND_LABELS = {
 
 const isCredit = (kind) => kind === 'income' || kind === 'transfer_in';
 
-export default function TransactionsTable({ month, accountsById, personsById, onChanged }) {
+export default function TransactionsTable({ month, accountsById, personsById, onChanged, readOnly = false }) {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -75,6 +84,8 @@ export default function TransactionsTable({ month, accountsById, personsById, on
               <th>Type</th>
               <th>Person</th>
               <th>Account</th>
+              <th>Added by</th>
+              <th>Added on</th>
               <th className="num">Amount</th>
               <th />
             </tr>
@@ -88,20 +99,22 @@ export default function TransactionsTable({ month, accountsById, personsById, on
                 </td>
                 <td>{personsById[r.person_id]?.name || '—'}</td>
                 <td>{r.account_name}</td>
+                <td className="muted">{r.created_by_username || '—'}</td>
+                <td className="muted nowrap">{formatAdded(r.created_at)}</td>
                 <td className="num" style={{ color: isCredit(r.kind) ? 'var(--success)' : undefined }}>
                   {isCredit(r.kind) ? '+' : '−'}
                   {money(r.amount, r.currency)}
                 </td>
                 <td>
-                  <button className="subtle tiny danger" onClick={() => remove(r)}>
+                  {!readOnly && <button className="subtle tiny danger" onClick={() => remove(r)}>
                     Delete
-                  </button>
+                  </button>}
                 </td>
               </tr>
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={8} className="muted">
                   {loading ? 'Loading…' : 'Nothing recorded this month yet.'}
                 </td>
               </tr>

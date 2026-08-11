@@ -33,15 +33,19 @@ function upsertRate(base, target, rate, fetchedAt) {
 
 const fetchLiveRate = (base, target) => rateProviders.fetchRate(base, target);
 
-// A rate the user typed in Settings, used when the live lookup can't be had.
-async function manualRate(base, target) {
-  const value = Number(await settingsService.get(`manual_rate_${base}_${target}`));
+// A rate the user typed in Settings. Those are per household — one household's
+// idea of the PKR rate is not another's — so the household has to be carried
+// down here. The rate *cache* stays shared: a published exchange rate is a fact
+// about the world, not about anyone's budget.
+async function manualRate(householdId, base, target) {
+  if (householdId == null) return null;
+  const value = Number(await settingsService.get(householdId, `manual_rate_${base}_${target}`));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-async function fallback(base, target, cached) {
+async function fallback(householdId, base, target, cached) {
   const reason = lastFailure.get(pairKey(base, target)) || null;
-  const manual = await manualRate(base, target);
+  const manual = await manualRate(householdId, base, target);
   if (manual != null) {
     return { rate: manual, fetchedAt: null, source: 'manual', stale: false, reason };
   }
@@ -53,7 +57,7 @@ async function fallback(base, target, cached) {
 
 // Resolution order: today's cached rate, then a live lookup, then whatever
 // fallback exists. Never throws and never blocks for more than the timeout.
-async function getRate(base, target, { force = false } = {}) {
+async function getRate(base, target, { force = false, householdId = null } = {}) {
   if (base === target) return { rate: 1, fetchedAt: null, source: 'same', stale: false };
 
   const cached = await getCachedRate(base, target);
@@ -63,7 +67,7 @@ async function getRate(base, target, { force = false } = {}) {
 
   const key = pairKey(base, target);
   if (!force && failedUntil.get(key) > Date.now()) {
-    return fallback(base, target, cached);
+    return fallback(householdId, base, target, cached);
   }
 
   try {
@@ -76,11 +80,12 @@ async function getRate(base, target, { force = false } = {}) {
   } catch (err) {
     failedUntil.set(key, Date.now() + RETRY_AFTER_MS);
     lastFailure.set(key, err.message);
-    return fallback(base, target, cached);
+    return fallback(householdId, base, target, cached);
   }
 }
 
-const refreshRate = (base, target) => getRate(base, target, { force: true });
+const refreshRate = (base, target, householdId) =>
+  getRate(base, target, { force: true, householdId });
 
 async function getRateMap(currencies, target, options) {
   const unique = [...new Set(currencies)];
@@ -88,7 +93,8 @@ async function getRateMap(currencies, target, options) {
   return Object.fromEntries(entries);
 }
 
-const refreshAll = (currencies, target) => getRateMap(currencies, target, { force: true });
+const refreshAll = (currencies, target, householdId) =>
+  getRateMap(currencies, target, { force: true, householdId });
 
 const diagnose = (base, target) => rateProviders.diagnose(base, target);
 

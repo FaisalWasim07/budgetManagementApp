@@ -3,10 +3,22 @@
 // panel on the page showing its own "Not signed in" error.
 export const UNAUTHORIZED_EVENT = 'budget:unauthorized';
 
+// Which household every request is about. Held here rather than threaded
+// through every call site, because it applies to all of them equally — the
+// server still verifies membership, so this is a preference, not a permission.
+let activeHousehold = null;
+export const setActiveHousehold = (id) => {
+  activeHousehold = id ?? null;
+};
+
 async function request(path, options = {}) {
   const response = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(activeHousehold ? { 'X-Household-Id': String(activeHousehold) } : {}),
+      ...options.headers,
+    },
   });
   if (!response.ok) {
     // The auth routes are how you get in, so a 401 there is a wrong password

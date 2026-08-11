@@ -25,8 +25,8 @@ accounts, then every transaction for the month as a filterable table. **Stats**
 is a separate tab with charts for money in vs out, net worth over time,
 per-account balances, and where the money actually went.
 
-- A login each, sharing one budget — data is recorded per person regardless of
-  who entered it
+- Households: each is a separate budget with its own people, accounts and
+  history. You can have several, and be invited into other people's
 - Money is never stored as a balance; every total is derived from the entries
   behind it, so nothing can silently drift out of sync
 
@@ -125,27 +125,69 @@ Type that Network URL into your phone's browser. Requirements:
 Guest and public WiFi networks often isolate devices from each other, which
 blocks this.
 
+## Households
+
+A **household** is one budget: its own people, accounts, transactions,
+subscriptions and currency settings. Nothing is shared between households, and
+which one you are looking at is always shown in the top bar.
+
+You can belong to several — your own, and any you have been invited into — and
+switch between them from that menu.
+
+### Who can do what
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything, including inviting people, changing roles and deleting the household |
+| Can edit | Record and change money |
+| View only | See everything, change nothing |
+
+A household always keeps at least one owner: the last one cannot demote or
+remove themselves.
+
+### Adding someone
+
+From the household menu → **People & sharing**, two ways, for two situations:
+
+- **Add someone directly** — you set up their username and password for them.
+  They are added to the household *and* created as a person with their own main
+  account, so their money has somewhere to go the moment they sign in. This is
+  the husband-and-wife case.
+- **Invite with a code** — a one-time code you send however you like. They sign
+  up themselves, paste it in, and land in the household with the role you chose.
+  Codes expire after 14 days and can be revoked.
+
+Note the difference between **people** and **members**. A person is whose money
+an account holds; a member is someone who can open the app. They usually line up
+but the app never assumes it — a household can track a child's savings without
+that child having a login.
+
+### Giving the app to someone else
+
+Anyone with an account on the same deployment can create their own household,
+and it is completely separate from yours. If you'd rather they were fully
+independent, they can deploy their own copy — the database would then be theirs
+too.
+
+**Registration is open by default**, so anyone who finds the address can create
+an account. Set `SIGNUP_CODE` to a secret of your choosing and only people you
+give it to can sign up. Existing accounts are unaffected.
+
 ## Signing in
 
-The first time you open the app it asks you to choose a username and password.
-That creates the only account that exists — there is nothing to register for
-anywhere, and the password is stored (hashed with scrypt) in your own database
-alongside everything else.
+The first time you open the app it asks you to choose a username and password,
+then to create your first household. The password is stored (hashed with scrypt)
+in your own database.
 
-After that:
-
-- **Settings → Logins → Add another login** creates a second account, so you and
-  your partner each sign in as yourselves. Both see the same budget.
-- **Settings → Logins → Change my password** replaces yours and signs every
-  device out, so a password change actually locks out anything you've forgotten
-  about.
+- **Settings → Change my password** replaces yours and signs every device out,
+  so a password change actually locks out anything you've forgotten about.
 - Staying signed in lasts 30 days per device.
 - Ten wrong passwords in a row locks further attempts from that device for 15
   minutes.
 
-Every API route except signing in requires a session, so the data isn't reachable
-by anyone without a login — on your network or on the open internet once it's
-deployed.
+Every API route except signing in requires a session, and every one that touches
+a budget is scoped to a household you are confirmed to belong to. Both checks are
+declared once, centrally, so a route added later cannot forget either.
 
 **There is no password reset** — nothing knows your email address, so there is
 nowhere to send one. If you lock yourself out completely, clear the logins

@@ -52,32 +52,45 @@ router.get(
   h(async (req, res) => {
     res.json({
       needsSetup: (await authService.userCount()) === 0,
+      signupOpen: true,
+      signupNeedsCode: Boolean(process.env.SIGNUP_CODE),
       user: req.user ?? null,
     });
   })
 );
 
-// Open only while no user exists. Once the first account is created this
-// returns 403, so it can't be used to add accounts from outside.
-router.post(
-  '/setup',
-  h(async (req, res) => {
-    if ((await authService.userCount()) > 0) {
-      return res.status(403).json({ error: 'Already set up — sign in instead.' });
-    }
-    const { username, password } = req.body;
-    if (!username || !String(username).trim()) {
-      return res.status(400).json({ error: 'Choose a username.' });
-    }
-    const problem = validPassword(password);
-    if (problem) return res.status(400).json({ error: problem });
+// Now that one deployment can hold several households, other people have to be
+// able to make their own account — the first user can no longer be the only
+// one. That does mean anyone who finds the address can register, so
+// SIGNUP_CODE gates it: set it and only people you give the code to can sign
+// up. Leave it unset and registration is open.
+async function register(req, res) {
+  const { username, password, code } = req.body;
+  const required = process.env.SIGNUP_CODE;
 
-    const user = await authService.createUser(username, password);
-    const { token, expiresAt } = await authService.createSession(user.id);
-    setSessionCookie(res, token, expiresAt);
-    res.status(201).json({ user: { id: user.id, username: user.username } });
-  })
-);
+  if (required && String(code || '').trim() !== required) {
+    return res.status(403).json({ error: 'That signup code is not right.', code: 'BAD_SIGNUP_CODE' });
+  }
+  if (!username || !String(username).trim()) {
+    return res.status(400).json({ error: 'Choose a username.' });
+  }
+  const problem = validPassword(password);
+  if (problem) return res.status(400).json({ error: problem });
+  if (await authService.findUser(username)) {
+    return res.status(409).json({ error: 'That username is taken.' });
+  }
+
+  const user = await authService.createUser(username, password);
+  const { token, expiresAt } = await authService.createSession(user.id);
+  setSessionCookie(res, token, expiresAt);
+  res.status(201).json({ user: { id: user.id, username: user.username } });
+}
+
+router.post('/signup', h(register));
+
+// Kept because the first-run screen still posts here, and because it reads
+// better than "signup" for the person setting the app up.
+router.post('/setup', h(register));
 
 router.post(
   '/login',

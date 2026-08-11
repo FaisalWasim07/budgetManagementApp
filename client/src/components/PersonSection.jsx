@@ -3,7 +3,7 @@ import AccountCard from './AccountCard';
 import { renamePerson } from '../api/persons';
 import { useDisplay } from '../utils/display';
 
-export default function PersonSection({ person, month, primaryCurrency, onChanged, onAddAccount, onEditAccount }) {
+export default function PersonSection({ person, month, primaryCurrency, onChanged, onAddAccount, onEditAccount, readOnly = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
   const { money } = useDisplay();
@@ -36,7 +36,11 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
           </div>
         ) : (
           <div>
-            <h2 onClick={() => setEditing(true)} style={{ cursor: 'pointer' }} title="Click to rename">
+            <h2
+              onClick={() => !readOnly && setEditing(true)}
+              style={{ cursor: readOnly ? 'default' : 'pointer' }}
+              title={readOnly ? undefined : 'Click to rename'}
+            >
               {person.name}
             </h2>
             <span className="muted" style={{ fontSize: '0.85rem' }}>
@@ -45,9 +49,11 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
             </span>
           </div>
         )}
-        <button className="tiny" onClick={() => onAddAccount(person)}>
-          + Account
-        </button>
+        {!readOnly && (
+          <button className="tiny" onClick={() => onAddAccount(person)}>
+            + Account
+          </button>
+        )}
       </div>
 
       {person.accounts.map((account) => (
@@ -57,6 +63,7 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
           month={month}
           primaryCurrency={primaryCurrency}
           onChanged={onChanged}
+          readOnly={readOnly}
           onEdit={onEditAccount}
         />
       ))}

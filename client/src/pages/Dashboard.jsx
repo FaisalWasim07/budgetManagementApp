@@ -5,7 +5,7 @@ import AccountFormModal from '../components/AccountFormModal';
 import TransferModal from '../components/TransferModal';
 import TransactionsTable from '../components/TransactionsTable';
 
-export default function Dashboard({ summary, month, onChanged }) {
+export default function Dashboard({ summary, month, onChanged, readOnly = false }) {
   const [accountModal, setAccountModal] = useState(null);
   const [showTransfer, setShowTransfer] = useState(false);
 
@@ -22,9 +22,11 @@ export default function Dashboard({ summary, month, onChanged }) {
 
       <div className="spread">
         <h2>Accounts</h2>
-        <button onClick={() => setShowTransfer(true)} disabled={allAccounts.length < 2}>
-          Move money
-        </button>
+        {!readOnly && (
+          <button onClick={() => setShowTransfer(true)} disabled={allAccounts.length < 2}>
+            Move money
+          </button>
+        )}
       </div>
 
       <div className="columns">
@@ -35,6 +37,7 @@ export default function Dashboard({ summary, month, onChanged }) {
             month={month}
             primaryCurrency={primaryCurrency}
             onChanged={onChanged}
+            readOnly={readOnly}
             onAddAccount={(p) => setAccountModal({ personId: p.id, personName: p.name })}
             onEditAccount={(account) => setAccountModal({ account })}
           />
@@ -46,6 +49,7 @@ export default function Dashboard({ summary, month, onChanged }) {
         accountsById={accountsById}
         personsById={personsById}
         onChanged={onChanged}
+        readOnly={readOnly}
       />
 
       {accountModal && (
