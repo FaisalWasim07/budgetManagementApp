@@ -509,7 +509,7 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
-71 checks over three suites: signing in and out, household isolation and roles,
+74 checks over three suites: signing in and out, household isolation and roles,
 and the dashboard itself — recording money from the strip and from the sheet,
 editing an entry, deleting one, moving money between accounts, adding and
 editing something recurring, stopping and restarting it, and amounts being

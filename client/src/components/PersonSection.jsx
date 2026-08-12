@@ -3,6 +3,35 @@ import AccountRow from './AccountRow';
 import { renamePerson } from '../api/persons';
 import { Money } from '../utils/display';
 
+// What the total is actually made of, by currency. One number covering AED and
+// PKR hides that part of it is held abroad at today's rate and will be a
+// different number next month — and that it isn't spendable here.
+//
+// Only worth saying when there is more than one currency: "AED 99,220, of which
+// AED 99,220 is in AED" is noise, so a household in one currency sees nothing.
+function holdings(person, primaryCurrency) {
+  const byCurrency = new Map();
+  for (const account of person.accounts) {
+    const held = byCurrency.get(account.currency) ?? { amount: 0, primary: 0, converted: true };
+    held.amount += account.balance;
+    if (account.balancePrimary == null) held.converted = false;
+    else held.primary += account.balancePrimary;
+    byCurrency.set(account.currency, held);
+  }
+
+  if (byCurrency.size < 2) return [];
+
+  // The primary currency first — it is the part you can spend without thinking
+  // about a rate — then the rest, largest first.
+  return [...byCurrency.entries()]
+    .map(([currency, held]) => ({ currency, ...held }))
+    .sort((a, b) => {
+      if (a.currency === primaryCurrency) return -1;
+      if (b.currency === primaryCurrency) return 1;
+      return b.primary - a.primary;
+    });
+}
+
 export default function PersonSection({
   person,
   month,
@@ -18,6 +47,7 @@ export default function PersonSection({
   const [draft, setDraft] = useState(person.name);
 
   const leftover = person.income - person.expenses - person.subscriptions;
+  const held = holdings(person, primaryCurrency);
 
   async function saveName() {
     const name = draft.trim();
@@ -60,6 +90,25 @@ export default function PersonSection({
         )}
         <span className="total">
           <Money amount={person.netWorth} currency={primaryCurrency} compact />
+          {held.length > 0 && (
+            <span className="holdings">
+              {held.map((h, i) => (
+                <span key={h.currency}>
+                  {i > 0 && <span className="sep"> · </span>}
+                  <Money amount={h.amount} currency={h.currency} compact />
+                  {h.currency !== primaryCurrency &&
+                    (h.converted ? (
+                      <>
+                        {' ≈ '}
+                        <Money amount={h.primary} currency={primaryCurrency} compact />
+                      </>
+                    ) : (
+                      <span className="error-text"> no rate</span>
+                    ))}
+                </span>
+              ))}
+            </span>
+          )}
         </span>
       </div>
 

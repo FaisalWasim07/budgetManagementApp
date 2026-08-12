@@ -243,8 +243,13 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .person { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
 .person-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 18px 11px; }
 .person-head .who { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.person-head .total { font-size: 1.04rem; font-weight: 620; letter-spacing: -.015em; white-space: nowrap; }
+.person-head .total { font-size: 1.04rem; font-weight: 620; letter-spacing: -.015em; white-space: nowrap; text-align: right; }
 .person-head .total small { color: var(--ink-3); font-weight: 500; font-size: .72em; margin-right: .3em; }
+/* What the total is made of, when it is made of more than one currency. Wraps
+   rather than truncating: a household with three currencies has three things
+   worth reading, not two and an ellipsis. */
+.person-head .holdings { display: block; margin-top: 3px; font-size: .72rem; font-weight: 500; color: var(--ink-3); white-space: normal; }
+.person-head .holdings .sep { color: var(--line); }
 
 .person-figures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 18px 12px; }
 .person-figures div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }

@@ -158,6 +158,31 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.locator('.txn-list').textContent()
   );
 
+  // --- what a person's total is made of ------------------------------------
+  // One currency, so there is nothing to break down and nothing is said.
+  check(
+    'a single-currency person gets no breakdown',
+    (await page.locator('.person .holdings').count()) === 0
+  );
+
+  // Add an account in another currency and the total explains itself.
+  await page.locator('.account-row.add').first().click();
+  await page.waitForSelector('.modal');
+  await page.locator('.modal input[placeholder^="e.g."]').fill('Meezan Savings');
+  await page.locator('.modal select').first().selectOption('PKR');
+  await page.locator('.modal input[type="number"]').first().fill('100000');
+  await page.click('.modal button:has-text("Save")');
+  await page.waitForTimeout(1800);
+
+  const holdings = await page.locator('.person .holdings').first().textContent();
+  check(
+    'two currencies are broken down under the total',
+    holdings.includes('AED') && holdings.includes('PKR'),
+    holdings
+  );
+  check('and only the person who holds both gets one',
+    (await page.locator('.person .holdings').count()) === 1);
+
   // --- recurring, and how it shows on the dashboard ------------------------
   await page.click('.nav button:has-text("Recurring")');
   await page.waitForSelector('.txn-list');
