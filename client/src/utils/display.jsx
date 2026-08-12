@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatCurrency } from './currency';
 import { dust } from './dust';
 
@@ -56,8 +56,19 @@ export function Money({
     });
     return () => {
       live = false;
+      // Nothing is coming to swap the text now, so the figure has to be given
+      // back rather than left invisible.
+      box.current?.classList.remove('dusting');
     };
   }, [amountsHidden, target]);
+
+  // dust() leaves the element blank on purpose. Uncovering it belongs here,
+  // after React has put the new text in and before the browser paints — a
+  // plain effect would run after the paint, and the old figure would flash
+  // back for a frame on its way out.
+  useLayoutEffect(() => {
+    box.current?.classList.remove('dusting');
+  }, [shown]);
 
   // Driven by what is on screen rather than by the toggle: applying the masked
   // colour the instant the eye is clicked would recolour the figure grey for

@@ -184,10 +184,14 @@ export function dust(el, host) {
   host.replaceChildren(...layers);
   el.classList.add('dusting');
 
+  // The canvases go, but `dusting` stays: the element is left blank, and it is
+  // the caller's job to clear the class in the same commit that puts the new
+  // text in. Clearing it here would uncover the old figure for however long it
+  // takes React to render — one frame, which is exactly long enough to look
+  // like a glitch.
   const settle = () => {
     inFlight = Math.max(0, inFlight - 1);
     host.replaceChildren();
-    el.classList.remove('dusting');
   };
 
   return Promise.all(layers.map(fly)).then(settle, settle);
