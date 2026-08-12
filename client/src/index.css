@@ -309,6 +309,26 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .txn-acts { display: flex; gap: 4px; opacity: 0; transition: opacity .15s ease; flex: none; }
 @media (hover: none) { .txn-acts { opacity: 1; } }
 
+.txn .amt .sub { display: block; font-size: .73rem; font-weight: 500; color: var(--ink-3); text-align: right; }
+/* Stopped items are the record of what you used to pay: present, and plainly
+   not running. */
+.txn.ended { opacity: .55; }
+.txn.ended .amt { font-weight: 500; }
+
+/* ── The year ahead ──────────────────────────────────────────────
+   Twelve months of commitments. Only drawn when yearly items make the
+   months differ — otherwise it is twelve identical bars. */
+.year { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-top: 16px; }
+.year .mo { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.year .col { width: 100%; height: 64px; display: flex; align-items: flex-end; }
+.year .col span { display: block; width: 100%; border-radius: 4px 4px 2px 2px; background: var(--series-in); transition: height .7s cubic-bezier(.22,.9,.3,1); }
+.year .mo.peak .col span { background: var(--warn); }
+.year .m { font-size: .68rem; color: var(--ink-3); }
+.year .mo.peak .m { color: var(--warn); font-weight: 600; }
+
+.recurring-hero { grid-template-columns: 1fr; padding-bottom: 0; }
+.recurring-hero .value .per { font-size: .32em; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+
 .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 11px; }
 .filter-row button {
   font: inherit; font-size: .8rem; padding: 5px 11px; border-radius: 999px;
@@ -380,6 +400,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .grabber { width: 38px; height: 4px; border-radius: 999px; background: var(--line); margin: 6px auto 14px; }
 
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+.seg.two { grid-template-columns: repeat(2, 1fr); }
 .seg button { border: 0; background: none; font: inherit; font-size: .88rem; font-weight: 550; padding: 10px 4px; border-radius: 9px; color: var(--ink-2); cursor: pointer; }
 .seg button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 
@@ -480,6 +501,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .person-figures { grid-template-columns: 1fr 1fr; gap: 10px; }
   .charts { grid-template-columns: minmax(0, 1fr); }
   .card { padding: 16px; }
+  /* Actions drop to their own line rather than squeezing the description into
+     a three-line column. Applies to the activity list too, which had the same
+     problem for the same reason. */
+  .txn { flex-wrap: wrap; }
+  .txn .amt { margin-left: auto; }
+  .txn-acts { flex: 1 0 100%; justify-content: flex-end; margin-top: 4px; }
+
+  /* Twelve labels will not fit; the bars still read as a shape, and the tall
+     one keeps its name. */
+  .year { gap: 3px; }
+  .year .m { font-size: 0; }
+  .year .mo.peak .m { font-size: .62rem; }
+  .year .col { height: 52px; }
 
   .tabbar {
     display: grid; grid-template-columns: repeat(4, 1fr);

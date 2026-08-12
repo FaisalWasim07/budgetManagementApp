@@ -24,7 +24,16 @@ the month went — spent, subscriptions, moved to savings, and what is actually
 left — then each person's accounts as expandable ledger rows, then everything
 recorded this month. **Stats** is a separate tab, two charts to a row: money in
 versus out, net worth over time, where it went, and what sits where.
-**Recurring** is where subscriptions and salary are defined.
+**Recurring** is where subscriptions and salary are defined, led by what they
+cost a month and a year, with a twelve-month strip when yearly renewals make
+some months dearer than others.
+
+Changing what something recurring costs never changes what it cost. Raising
+Netflix from 56 to 62 in August closes the old price at the end of July and
+opens a new one from August, so last March still says 56 and your trend chart
+stays true. Stopping something works the same way: the months it ran keep it.
+Deleting is the other thing entirely — that erases it from every month, for
+when it should never have been recorded.
 
 Amounts are **hidden every time the app opens**, and the eye in the top bar
 brings them back — the figures disintegrate rather than blink out, which is the
@@ -482,8 +491,9 @@ with `PORT=5001 npm start`.
 TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
 ```
 
-90 checks over the API: the money maths, editing entries and transfers,
-household isolation, roles and invites, and who may reset whose password. The
+132 checks over the API: the money maths, editing entries and transfers,
+recurring money and its history-preserving rules, household isolation, roles
+and invites, and who may reset whose password. The
 runner starts and stops its own server, so nothing needs to be running first.
 
 `TEST_DATABASE_URL` is deliberately a different variable from `DATABASE_URL`.
@@ -499,11 +509,11 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
-66 checks over three suites: signing in and out, household isolation and roles,
+71 checks over three suites: signing in and out, household isolation and roles,
 and the dashboard itself — recording money from the strip and from the sheet,
-editing an entry, deleting one, moving money between accounts, subscriptions
-showing up inside the account they come out of, and amounts being hidden every
-time the app opens.
+editing an entry, deleting one, moving money between accounts, adding and
+editing something recurring, stopping and restarting it, and amounts being
+hidden every time the app opens.
 
 The isolation suite is the one worth keeping green. Households are kept apart by
 middleware plus several dozen correctly-scoped queries, and one careless `WHERE`

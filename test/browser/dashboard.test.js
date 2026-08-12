@@ -160,12 +160,52 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   // --- recurring, and how it shows on the dashboard ------------------------
   await page.click('.nav button:has-text("Recurring")');
-  await page.waitForSelector('form.row');
-  await page.locator('.card input[placeholder^="e.g."]').first().fill('Netflix');
-  await page.locator('.card input[type="number"]').first().fill('56');
-  await page.click('button:has-text("Add")');
+  await page.waitForSelector('.txn-list');
+  await page.click('button:has-text("Add recurring")');
+  await page.waitForSelector('.modal');
+  await page.locator('.modal input[aria-label="Amount"]').fill('56');
+  await page.locator('.modal input[placeholder^="e.g."]').fill('Netflix');
+  await page.click('.modal button:has-text("Add")');
   await page.waitForTimeout(1600);
-  check('a subscription can be added', (await page.locator('table tbody tr').count()) === 1);
+  check('a subscription can be added', (await page.locator('.txn:not(.empty)').count()) === 1);
+  check(
+    'the page leads with what it costs a month and a year',
+    /a month/.test(await page.locator('.recurring-hero').textContent()) &&
+      /a year/.test(await page.locator('.recurring-hero').textContent()),
+    await page.locator('.recurring-hero').textContent()
+  );
+
+  // Editing one — the thing the old page promised in writing and could not do.
+  await page.locator('.txn', { hasText: 'Netflix' }).first().locator('button[title="Edit"]').click();
+  await page.waitForSelector('.modal');
+  await page.locator('.modal input[aria-label="Amount"]').fill('62');
+  await page.click('.modal button:has-text("Save")');
+  await page.waitForTimeout(1600);
+  check(
+    'a recurring item can be edited',
+    (await page.locator('.txn', { hasText: 'Netflix' }).first().textContent()).includes('62'),
+    await page.locator('.txn', { hasText: 'Netflix' }).first().textContent()
+  );
+
+  // Stopping is not deleting — but it only has something to keep once the item
+  // has actually run, so this steps forward a month first. Stopped from
+  // September, August keeps its charge and the item moves to Stopped.
+  await page.click('.month-nav button[aria-label="Next month"]');
+  await page.waitForTimeout(1600);
+  await page.locator('.txn', { hasText: 'Netflix' }).first().locator('button:has-text("Stop")').click();
+  await page.waitForTimeout(1600);
+  check('stopping moves it out of Going out', (await page.locator('.txn.ended').count()) === 1);
+  check(
+    'and says which month it stopped in',
+    (await page.locator('.txn.ended').first().textContent()).includes('stopped'),
+    await page.locator('.txn.ended').first().textContent()
+  );
+
+  await page.locator('.txn.ended').first().locator('button:has-text("Restart")').click();
+  await page.waitForTimeout(1600);
+  check('restarting brings it back', (await page.locator('.txn.ended').count()) === 0);
+  await page.click('.month-nav .m');
+  await page.waitForTimeout(1600);
 
   await page.click('.nav button:has-text("Dashboard")');
   await page.waitForTimeout(1600);

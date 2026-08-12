@@ -14,7 +14,13 @@ const path = require('path');
 const PORT = process.env.TEST_PORT || 5099;
 const BASE = `http://localhost:${PORT}`;
 
-const SUITES = ['api/money.test.js', 'api/editing.test.js', 'api/households.test.js', 'api/reset.test.js'];
+const SUITES = [
+  'api/money.test.js',
+  'api/editing.test.js',
+  'api/recurring.test.js',
+  'api/households.test.js',
+  'api/reset.test.js',
+];
 
 if (!process.env.TEST_DATABASE_URL) {
   console.error(

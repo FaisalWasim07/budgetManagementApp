@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
-import Subscriptions from './pages/Subscriptions';
+import Recurring from './pages/Recurring';
 import HouseholdSetup from './pages/HouseholdSetup';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
@@ -22,7 +22,7 @@ import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 const PAGES = [
   ['dashboard', 'Dashboard'],
   ['stats', 'Stats'],
-  ['subscriptions', 'Recurring'],
+  ['recurring', 'Recurring'],
 ];
 
 const LAST_HOUSEHOLD = 'budget.householdId';
@@ -266,8 +266,8 @@ export default function App({ user, onSignedOut }) {
           <Stats summary={summary} trend={trend} categories={categories} month={month} />
         )}
 
-        {summary && !empty && page === 'subscriptions' && (
-          <Subscriptions summary={summary} month={month} onChanged={load} readOnly={readOnly} />
+        {summary && !empty && page === 'recurring' && (
+          <Recurring summary={summary} month={month} onChanged={load} readOnly={readOnly} />
         )}
       </main>
 
@@ -299,9 +299,9 @@ export default function App({ user, onSignedOut }) {
           <Plus />
         </button>
         <button
-          className={page === 'subscriptions' ? 'active' : ''}
-          aria-current={page === 'subscriptions' ? 'page' : undefined}
-          onClick={() => setPage('subscriptions')}
+          className={page === 'recurring' ? 'active' : ''}
+          aria-current={page === 'recurring' ? 'page' : undefined}
+          onClick={() => setPage('recurring')}
         >
           <Repeat />
           Recurring

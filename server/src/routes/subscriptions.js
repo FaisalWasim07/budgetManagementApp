@@ -1,11 +1,28 @@
 const express = require('express');
 const db = require('../db/pool');
 const summaryService = require('../services/summaryService');
+const recurringService = require('../services/recurringService');
 const { h } = require('../util/route');
 
 const router = express.Router();
 const CYCLES = ['monthly', 'yearly'];
 const DIRECTIONS = ['expense', 'income'];
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// Every change to a recurring item happens *from* a month — usually the one the
+// page is showing. It decides which months keep the old figure and which get
+// the new one, so it is never inferred from the server clock when the client
+// has said which month it means.
+const effectiveMonth = (body) =>
+  MONTH.test(String(body?.from_month)) ? body.from_month : summaryService.currentMonth();
+
+const findInHousehold = (id, householdId) =>
+  db.get(
+    `SELECT s.* FROM subscriptions s
+     JOIN accounts a ON a.id = s.account_id
+     WHERE s.id = ? AND a.household_id = ?`,
+    [id, householdId]
+  );
 
 // Includes the owning account so the page can show currency and person
 // without a second round trip. When ?month= is given, each row also reports
@@ -130,12 +147,7 @@ router.post(
 router.patch(
   '/:id',
   h(async (req, res) => {
-    const existing = await db.get(
-      `SELECT s.* FROM subscriptions s
-       JOIN accounts a ON a.id = s.account_id
-       WHERE s.id = ? AND a.household_id = ?`,
-      [req.params.id, req.household.id]
-    );
+    const existing = await findInHousehold(req.params.id, req.household.id);
     if (!existing) return res.status(404).json({ error: 'subscription not found' });
 
     // Moving a subscription to another account must not move it out of the
@@ -150,36 +162,40 @@ router.patch(
       return res.status(404).json({ error: 'account not found' });
     }
 
-    const merged = { ...existing, ...req.body };
-    const error = validate(merged, { partial: true });
+    const { from_month: _ignored, ...patch } = req.body;
+    const error = validate({ ...existing, ...patch }, { partial: true });
     if (error) return res.status(400).json({ error });
 
-    const row = await db.get(
-      `UPDATE subscriptions
-       SET account_id = ?, name = ?, direction = ?, amount = ?, cycle = ?, billing_month = ?,
-           start_month = ?, end_month = ?, category = ?, notes = ?, is_active = ?
-       WHERE id = ? AND account_id IN (SELECT id FROM accounts WHERE household_id = ?)
-       RETURNING *`,
-      [
-        merged.account_id,
-        String(merged.name).trim(),
-        merged.direction,
-        merged.amount,
-        merged.cycle,
-        merged.cycle === 'yearly'
-          ? merged.billing_month || Number(String(merged.start_month).split('-')[1])
-          : null,
-        merged.start_month,
-        merged.end_month || null,
-        merged.category || null,
-        merged.notes || null,
-        merged.is_active ? 1 : 0,
-        req.params.id,
-        req.household.id,
-      ]
-    );
+    // A change to what an item costs starts a new period rather than restating
+    // the months already behind it. recurringService owns that rule.
+    const result = await recurringService.change(existing, patch, effectiveMonth(req.body));
+    res.json({ ...result.item, split: result.split, endedId: result.endedId });
+  })
+);
 
-    res.json(row);
+// Stops an item from `from_month` on, keeping every month it did run. Deleting
+// is the other thing entirely: that erases it from the record, for when it
+// should never have been there.
+router.post(
+  '/:id/stop',
+  h(async (req, res) => {
+    const existing = await findInHousehold(req.params.id, req.household.id);
+    if (!existing) return res.status(404).json({ error: 'subscription not found' });
+
+    const result = await recurringService.stop(existing, effectiveMonth(req.body));
+    if (result.removed) return res.status(204).end();
+    res.json(result.item);
+  })
+);
+
+router.post(
+  '/:id/resume',
+  h(async (req, res) => {
+    const existing = await findInHousehold(req.params.id, req.household.id);
+    if (!existing) return res.status(404).json({ error: 'subscription not found' });
+
+    const result = await recurringService.resume(existing, effectiveMonth(req.body));
+    res.json({ ...result.item, restarted: result.restarted });
   })
 );
 
