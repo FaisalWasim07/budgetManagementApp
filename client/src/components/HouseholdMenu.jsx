@@ -1,53 +1,37 @@
-import { useEffect, useRef, useState } from 'react';
+import Menu from './Menu';
+import { ChevronDown } from './icons';
 
 const ROLE_LABEL = { owner: 'owner', editor: 'can edit', viewer: 'view only' };
 
-// The household switcher. Sits in the top bar next to the tabs, because which
-// household you are looking at changes everything below it and should never be
-// in doubt.
+// The household switcher, first thing in the top bar: which household you are
+// looking at changes every figure below it and should never be in doubt.
 export default function HouseholdMenu({ households, current, onSwitch, onAdd, onManage }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (e) => {
-      if (!ref.current?.contains(e.target)) setOpen(false);
-    };
-    const escape = (e) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [open]);
-
   return (
-    <div className="household-menu" ref={ref}>
-      <button
-        className="household-trigger"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        title="Switch household"
-      >
-        <span className="household-name">{current?.name ?? 'No household'}</span>
-        {current && current.role !== 'owner' && (
-          <span className="badge">{ROLE_LABEL[current.role]}</span>
-        )}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="household-dropdown card">
+    <Menu
+      trigger={({ open, toggle }) => (
+        <button
+          className="household-trigger"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          title="Switch household"
+        >
+          <span className="household-name">{current?.name ?? 'No household'}</span>
+          {current && current.role !== 'owner' && (
+            <span className="badge">{ROLE_LABEL[current.role]}</span>
+          )}
+          <ChevronDown />
+        </button>
+      )}
+    >
+      {({ close }) => (
+        <>
           {households.map((household) => (
             <button
               key={household.id}
-              className={household.id === current?.id ? 'household-option active' : 'household-option'}
+              className={household.id === current?.id ? 'active' : ''}
               onClick={() => {
-                setOpen(false);
+                close();
                 onSwitch(household.id);
               }}
             >
@@ -58,28 +42,26 @@ export default function HouseholdMenu({ households, current, onSwitch, onAdd, on
             </button>
           ))}
 
-          <hr className="divider" style={{ margin: '8px 0' }} />
+          <hr />
 
           <button
-            className="household-option"
             onClick={() => {
-              setOpen(false);
+              close();
               onManage();
             }}
           >
             People &amp; sharing…
           </button>
           <button
-            className="household-option"
             onClick={() => {
-              setOpen(false);
+              close();
               onAdd();
             }}
           >
             + New or join a household
           </button>
-        </div>
+        </>
       )}
-    </div>
+    </Menu>
   );
 }

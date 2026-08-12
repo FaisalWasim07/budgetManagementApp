@@ -52,22 +52,26 @@ async function signUp(page, username, password) {
   await a.waitForTimeout(1500);
 
   check('the dashboard appears after creating a household', await a.locator('nav.nav').count() === 1);
-  const sections = await a.locator('.columns > section').count();
+  const sections = await a.locator('.person').count();
   check('both people are shown with their accounts', sections === 2, String(sections));
-  const accountCards = await a.locator('.account').count();
-  check('each person got a main account', accountCards === 2, String(accountCards));
+  // '+ Add an account' is a row too, so each person shows two.
+  const accountRows = await a.locator('.account-row:not(.add)').count();
+  check('each person got a main account', accountRows === 2, String(accountRows));
   check('household name is in the top bar', (await a.locator('.household-name').textContent()) === 'Faisal Home');
 
   // --- record money -------------------------------------------------------
-  await a.locator('.account').first().locator('input[type="number"]').fill('9000');
-  await a.locator('.account').first().locator('input[type="text"]').fill('Salary');
-  await a.locator('.account').first().locator('select').selectOption('income');
-  await a.locator('.account').first().locator('button:has-text("Add")').click();
+  // The quick-add strip: one row at the top of the dashboard, kept open so
+  // several entries can be typed in a row.
+  await a.fill('#quick-amount', '9000');
+  await a.locator('.quick button:has-text("Received")').click();
+  await a.locator('.quick input[aria-label="Category"]').fill('Salary');
+  await a.locator('.quick button[type="submit"]').click();
   await a.waitForTimeout(1500);
 
-  const tableText = await a.locator('table').first().textContent();
-  check('the entry shows who added it', tableText.includes(`ui_a_${stamp}`), tableText.slice(0, 120));
-  check('the entry shows a date', /\w{3}\s+\d{1,2},\s*\d{2}/.test(tableText), tableText.slice(-60));
+  const listText = await a.locator('.txn-list').textContent();
+  check('the entry appears in the activity list', listText.includes('Salary'), listText.slice(0, 120));
+  check('the entry shows who added it', listText.includes(`ui_a_${stamp}`), listText.slice(0, 160));
+  check('the entry shows a date', /\w{3}\s+\d{1,2}/.test(listText), listText.slice(0, 160));
 
   // --- add a person from the sharing screen -------------------------------
   await a.click('.household-trigger');
@@ -103,10 +107,10 @@ async function signUp(page, username, password) {
   check('the invitee lands in the household', (await b.locator('.household-name').textContent()) === 'Faisal Home');
   const banner = await b.locator('.warn-banner').count();
   check('a viewer is told they are read-only', banner === 1);
-  check('a viewer sees the money', (await b.locator('table').first().textContent()).includes('Salary'));
-  check('a viewer gets no Add buttons', await b.locator('.account button:has-text("Add")').count() === 0);
-  check('a viewer gets no Move money button', await b.locator('button:has-text("Move money")').count() === 0);
-  check('a viewer gets no Delete buttons', await b.locator('table button:has-text("Delete")').count() === 0);
+  check('a viewer sees the money', (await b.locator('.txn-list').textContent()).includes('Salary'));
+  check('a viewer gets no quick-add strip', await b.locator('.quick').count() === 0);
+  check('a viewer cannot add an account', await b.locator('.account-row.add').count() === 0);
+  check('a viewer gets no edit or delete buttons', await b.locator('.txn-acts').count() === 0);
 
   // --- person B makes their own household, and switches -------------------
   await b.click('.household-trigger');
@@ -120,17 +124,17 @@ async function signUp(page, username, password) {
 
   check('the second household becomes current', (await b.locator('.household-name').textContent()) === 'Bob Home');
   check('the new household has none of the other one’s money',
-    !(await b.locator('table').first().textContent()).includes('Salary'));
-  check('in their own household they can write again', await b.locator('.account button:has-text("Add")').count() > 0);
+    !(await b.locator('.txn-list').textContent()).includes('Salary'));
+  check('in their own household they can write again', await b.locator('.quick').count() === 1);
 
   await b.click('.household-trigger');
-  const options = await b.locator('.household-option').allTextContents();
+  const options = await b.locator('.menu button').allTextContents();
   check('both households are listed to switch between',
     options.some((o) => o.includes('Faisal Home')) && options.some((o) => o.includes('Bob Home')),
     options.join(' | '));
 
   // --- switching back is still read-only ----------------------------------
-  await b.click('.household-option:has-text("Faisal Home")');
+  await b.click('.menu button:has-text("Faisal Home")');
   await b.waitForTimeout(2000);
   check('switching back restores view-only', await b.locator('.warn-banner').count() === 1);
 

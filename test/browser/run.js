@@ -10,7 +10,7 @@ const path = require('path');
 
 const PORT = process.env.TEST_PORT || 5098;
 const VITE_PORT = process.env.TEST_VITE_PORT || 5198;
-const SUITES = ['auth.test.js', 'households.test.js'];
+const SUITES = ['auth.test.js', 'households.test.js', 'dashboard.test.js'];
 
 if (!process.env.TEST_DATABASE_URL) {
   console.error('\nTEST_DATABASE_URL is not set — see test/run.js for why.\n');

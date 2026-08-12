@@ -11,6 +11,12 @@ const bad = [];
 const check = (name, cond, extra = '') =>
   (cond ? ok : bad).push(`${cond ? 'PASS' : 'FAIL'} ${name}${extra ? ' :: ' + extra : ''}`);
 
+// Theme, settings, sharing and sign out all live behind the ⋮ in the top bar.
+const openMenu = async (page) => {
+  await page.click('.topbar button[aria-label="Menu"]');
+  await page.waitForSelector('.menu');
+};
+
 (async () => {
   const browser = await chromium.launch(launchOptions());
   const ctx = await browser.newContext();
@@ -57,17 +63,22 @@ const check = (name, cond, extra = '') =>
   await page.locator('input[placeholder^="e.g."]').nth(0).fill('Faisal');
   await page.click('button:has-text("Create household")');
 
-  await page.waitForSelector('button:has-text("Sign out")', { timeout: 15000 });
-  check('the dashboard appears once a household exists', await page.locator('.appbar').count() === 1);
-  check('sign out button in top bar', await page.locator('button:has-text("Sign out")').count() === 1);
+  await page.waitForSelector('.topbar', { timeout: 15000 });
+  check('the dashboard appears once a household exists', await page.locator('.topbar').count() === 1);
+  // Sign out lives in the overflow menu now — the top bar carries four
+  // controls, not nine.
+  await openMenu(page);
+  check('sign out is in the menu', await page.locator('.menu button:has-text("Sign out")').count() === 1);
+  await page.keyboard.press('Escape');
 
   // --- session survives reload ---
   await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForSelector('button:has-text("Sign out")', { timeout: 10000 });
-  check('session persists across reload', await page.locator('.appbar').count() === 1);
+  await page.waitForSelector('.topbar', { timeout: 10000 });
+  check('session persists across reload', await page.locator('.topbar').count() === 1);
 
   // --- login settings inside Settings ---
-  await page.click('.appbar button:has-text("Settings")');
+  await openMenu(page);
+  await page.click('.menu button:has-text("Settings")');
   await page.waitForSelector('.modal');
   const modalText = await page.locator('.modal').textContent();
   check('settings shows signed-in user', modalText.includes('Signed in as faisal'), modalText.slice(0, 120));
@@ -79,10 +90,11 @@ const check = (name, cond, extra = '') =>
   await page.waitForTimeout(300);
 
   // --- sign out ---
-  await page.click('button:has-text("Sign out")');
+  await openMenu(page);
+  await page.click('.menu button:has-text("Sign out")');
   await page.waitForTimeout(800);
   const h1b = await page.locator('h1').first().textContent();
-  check('sign out returns to login form', h1b === 'Household Budget' && (await page.locator('.appbar').count()) === 0, h1b);
+  check('sign out returns to login form', h1b === 'Household Budget' && (await page.locator('.topbar').count()) === 0, h1b);
   check('login form has no confirm field', await page.locator('input[type="password"]').count() === 1);
 
   // --- wrong password ---
@@ -97,15 +109,15 @@ const check = (name, cond, extra = '') =>
   await page.fill('input[autocomplete="username"]', 'faisal');
   await page.fill('input[type="password"]', 'testpass123');
   await page.click('button[type="submit"]');
-  await page.waitForSelector('button:has-text("Sign out")', { timeout: 15000 });
-  check('signing back in returns to the budget', (await page.locator('.appbar').count()) === 1);
+  await page.waitForSelector('.topbar', { timeout: 15000 });
+  check('signing back in returns to the budget', (await page.locator('.topbar').count()) === 1);
   check('the household is remembered', (await page.locator('.household-name').textContent()) === 'Test Home');
 
   // --- expired session mid-use falls back to login ---
   await ctx.clearCookies();
   await page.evaluate(() => window.dispatchEvent(new Event('budget:unauthorized')));
   await page.waitForTimeout(600);
-  check('lost session drops back to login screen', (await page.locator('.appbar').count()) === 0, await page.locator('h1').first().textContent());
+  check('lost session drops back to login screen', (await page.locator('.topbar').count()) === 0, await page.locator('h1').first().textContent());
 
   console.log([...ok, ...bad].join('\n'));
   console.log(`\n${ok.length} passed, ${bad.length} failed`);

@@ -5,9 +5,12 @@ import Subscriptions from './pages/Subscriptions';
 import HouseholdSetup from './pages/HouseholdSetup';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
-import TopBarToggles from './components/TopBarToggles';
 import HouseholdMenu from './components/HouseholdMenu';
 import HouseholdModal from './components/HouseholdModal';
+import OverflowMenu from './components/OverflowMenu';
+import AddSheet from './components/AddSheet';
+import TransferModal from './components/TransferModal';
+import { Bars, Eye, EyeOff, Home, Plus, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
@@ -19,10 +22,13 @@ import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 const PAGES = [
   ['dashboard', 'Dashboard'],
   ['stats', 'Stats'],
-  ['subscriptions', 'Subscriptions'],
+  ['subscriptions', 'Recurring'],
 ];
 
 const LAST_HOUSEHOLD = 'budget.householdId';
+
+const isPhone = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches;
 
 export default function App({ user, onSignedOut }) {
   const [page, setPage] = useState('dashboard');
@@ -38,11 +44,14 @@ export default function App({ user, onSignedOut }) {
   const [trend, setTrend] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [sheet, setSheet] = useState(null);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [amountsHidden, setAmountsHidden] = useState(
-    () => localStorage.getItem('budget.amountsHidden') === '1'
-  );
+  // Always on when the app opens. Anyone can be looking over your shoulder on a
+  // phone, and a setting that remembers "shown" is a setting that shows your
+  // balance to the room the moment you unlock it.
+  const [amountsHidden, setAmountsHidden] = useState(true);
   const [theme, setTheme] = useState(loadTheme);
 
   const household = households?.find((h) => h.id === householdId) ?? null;
@@ -52,10 +61,6 @@ export default function App({ user, onSignedOut }) {
     applyTheme(theme);
     saveTheme(theme);
   }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('budget.amountsHidden', amountsHidden ? '1' : '0');
-  }, [amountsHidden]);
 
   // Which household the API talks to has to be set before any data request, so
   // it is pushed into the client rather than passed through every call.
@@ -89,7 +94,7 @@ export default function App({ user, onSignedOut }) {
     try {
       setSummary(await getSummary(month));
       setError(null);
-      const [t, c] = await Promise.all([getTrend(12), getCategories(month)]);
+      const [t, c] = await Promise.all([getTrend(12, month), getCategories(month)]);
       setTrend(t);
       setCategories(c);
     } catch (err) {
@@ -102,6 +107,28 @@ export default function App({ user, onSignedOut }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const accounts =
+    summary?.persons.flatMap((p) => p.accounts.map((a) => ({ ...a, personName: p.name }))) ?? [];
+
+  // N for new. On a phone that means the sheet; at a desk it means the strip
+  // that is already on screen, so it puts the cursor there instead.
+  useEffect(() => {
+    if (readOnly) return undefined;
+    const shortcut = (e) => {
+      if (e.key?.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
+      const quick = document.getElementById('quick-amount');
+      if (isPhone() || !quick || page !== 'dashboard') {
+        if (accounts.length > 0) setSheet({ accountId: null });
+      } else {
+        e.preventDefault();
+        quick.focus();
+      }
+    };
+    document.addEventListener('keydown', shortcut);
+    return () => document.removeEventListener('keydown', shortcut);
+  }, [readOnly, page, accounts.length]);
 
   if (households === null) {
     return (
@@ -130,62 +157,66 @@ export default function App({ user, onSignedOut }) {
     );
   }
 
+  const empty = summary && summary.persons.length === 0;
+
   return (
     <DisplayContext.Provider value={{ amountsHidden }}>
-      <div className="stack">
-        <div className="appbar">
-          <h1>Household Budget</h1>
-          <div className="row-tight">
-            <HouseholdMenu
-              households={households}
-              current={household}
-              onSwitch={(id) => {
-                setSummary(null);
-                setHouseholdId(id);
-              }}
-              onAdd={() => setAddingHousehold(true)}
-              onManage={() => setShowHousehold(true)}
-            />
-            <nav className="nav">
-              {PAGES.map(([key, label]) => (
-                <button
-                  key={key}
-                  className={page === key ? 'active' : ''}
-                  onClick={() => setPage(key)}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-            <TopBarToggles
-              amountsHidden={amountsHidden}
-              onToggleAmounts={() => setAmountsHidden((v) => !v)}
-              theme={theme}
-              onCycleTheme={() => setTheme(nextTheme)}
-            />
-            <button onClick={() => setShowSettings(true)}>Settings</button>
-            <button
-              className="subtle"
-              title={`Signed in as ${user.username}`}
-              onClick={async () => {
-                await logout().catch(() => {});
-                onSignedOut();
-              }}
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <HouseholdMenu
+            households={households}
+            current={household}
+            onSwitch={(id) => {
+              setSummary(null);
+              setHouseholdId(id);
+            }}
+            onAdd={() => setAddingHousehold(true)}
+            onManage={() => setShowHousehold(true)}
+          />
 
-        <div className="spread">
+          <nav className="nav">
+            {PAGES.map(([key, label]) => (
+              <button
+                key={key}
+                className={page === key ? 'active' : ''}
+                onClick={() => setPage(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <span className="spacer" />
+
+          {loading && <span className="spinner" aria-label="Updating" />}
+
           <MonthSelector month={month} onChange={setMonth} />
-          {loading && (
-            <span className="loading" aria-live="polite">
-              <span className="spinner" aria-hidden="true" /> Updating…
-            </span>
-          )}
-        </div>
 
+          <button
+            className="icon-button"
+            onClick={() => setAmountsHidden((v) => !v)}
+            title={amountsHidden ? 'Show amounts' : 'Hide amounts'}
+            aria-label={amountsHidden ? 'Show amounts' : 'Hide amounts'}
+            aria-pressed={amountsHidden}
+          >
+            {amountsHidden ? <EyeOff /> : <Eye />}
+          </button>
+
+          <OverflowMenu
+            theme={theme}
+            username={user.username}
+            onCycleTheme={() => setTheme(nextTheme)}
+            onSettings={() => setShowSettings(true)}
+            onSharing={() => setShowHousehold(true)}
+            onSignOut={async () => {
+              await logout().catch(() => {});
+              onSignedOut();
+            }}
+          />
+        </div>
+      </header>
+
+      <main className="stack">
         {readOnly && (
           <div className="warn-banner">
             You have view-only access to {household.name}. You can see everything here but not
@@ -202,7 +233,7 @@ export default function App({ user, onSignedOut }) {
           </div>
         )}
 
-        {summary && summary.persons.length === 0 && (
+        {empty && (
           <div className="card stack-sm">
             <h2>Nobody in this household yet</h2>
             <span className="secondary">
@@ -219,48 +250,115 @@ export default function App({ user, onSignedOut }) {
           </div>
         )}
 
-        {summary && summary.persons.length > 0 && page === 'dashboard' && (
-          <Dashboard summary={summary} month={month} onChanged={load} readOnly={readOnly} />
+        {summary && !empty && page === 'dashboard' && (
+          <Dashboard
+            summary={summary}
+            trend={trend}
+            categories={categories}
+            month={month}
+            onChanged={load}
+            onAddEntry={(accountId) => setSheet({ accountId })}
+            readOnly={readOnly}
+          />
         )}
 
-        {summary && summary.persons.length > 0 && page === 'stats' && (
+        {summary && !empty && page === 'stats' && (
           <Stats summary={summary} trend={trend} categories={categories} month={month} />
         )}
 
-        {summary && summary.persons.length > 0 && page === 'subscriptions' && (
+        {summary && !empty && page === 'subscriptions' && (
           <Subscriptions summary={summary} month={month} onChanged={load} readOnly={readOnly} />
         )}
+      </main>
 
-        {showSettings && summary && (
-          <SettingsModal
-            primaryCurrency={summary.primaryCurrency}
-            rates={summary.rates}
-            user={user}
-            readOnly={readOnly}
-            onSignedOut={onSignedOut}
-            onClose={() => setShowSettings(false)}
-            onSaved={load}
-          />
-        )}
+      {/* Phone only. Adding money is the middle of the bar because it is the
+          one thing you do standing at a till. */}
+      <nav className="tabbar" aria-label="Sections">
+        <button
+          className={page === 'dashboard' ? 'active' : ''}
+          aria-current={page === 'dashboard' ? 'page' : undefined}
+          onClick={() => setPage('dashboard')}
+        >
+          <Home />
+          Home
+        </button>
+        <button
+          className={page === 'stats' ? 'active' : ''}
+          aria-current={page === 'stats' ? 'page' : undefined}
+          onClick={() => setPage('stats')}
+        >
+          <Bars />
+          Stats
+        </button>
+        <button
+          className="add"
+          aria-label="Add money"
+          disabled={readOnly || accounts.length === 0}
+          onClick={() => setSheet({ accountId: null })}
+        >
+          <Plus />
+        </button>
+        <button
+          className={page === 'subscriptions' ? 'active' : ''}
+          aria-current={page === 'subscriptions' ? 'page' : undefined}
+          onClick={() => setPage('subscriptions')}
+        >
+          <Repeat />
+          Recurring
+        </button>
+      </nav>
 
-        {showHousehold && household && (
-          <HouseholdModal
-            household={household}
-            user={user}
-            persons={summary?.persons ?? []}
-            onClose={() => setShowHousehold(false)}
-            onChanged={async (result) => {
-              if (result?.left) {
-                setShowHousehold(false);
-                setSummary(null);
-                setHouseholdId(null);
-              }
-              await loadHouseholds();
-              await load();
-            }}
-          />
-        )}
-      </div>
+      {accounts.length > 0 && (
+        <AddSheet
+          open={Boolean(sheet)}
+          accounts={accounts}
+          categories={categories.map((c) => c.category)}
+          month={month}
+          defaultAccountId={sheet?.accountId}
+          onClose={() => setSheet(null)}
+          onSaved={load}
+          onMove={() => setShowTransfer(true)}
+        />
+      )}
+
+      {showTransfer && (
+        <TransferModal
+          accounts={accounts}
+          month={month}
+          onClose={() => setShowTransfer(false)}
+          onSaved={load}
+        />
+      )}
+
+      {showSettings && summary && (
+        <SettingsModal
+          primaryCurrency={summary.primaryCurrency}
+          rates={summary.rates}
+          user={user}
+          readOnly={readOnly}
+          onSignedOut={onSignedOut}
+          onClose={() => setShowSettings(false)}
+          onSaved={load}
+        />
+      )}
+
+      {showHousehold && household && (
+        <HouseholdModal
+          household={household}
+          user={user}
+          persons={summary?.persons ?? []}
+          onClose={() => setShowHousehold(false)}
+          onChanged={async (result) => {
+            if (result?.left) {
+              setShowHousehold(false);
+              setSummary(null);
+              setHouseholdId(null);
+            }
+            await loadHouseholds();
+            await load();
+          }}
+        />
+      )}
     </DisplayContext.Provider>
   );
 }

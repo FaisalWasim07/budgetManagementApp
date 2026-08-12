@@ -13,6 +13,17 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+// Recurring items sit in whatever currency their account is in, and there is
+// no honest way to add AED to PKR without a rate, so they are totalled per
+// currency and read out as "1,200 AED + 40,000 PKR".
+const totalsByCurrency = (items) =>
+  items.reduce((totals, item) => {
+    const found = totals.find((x) => x.currency === item.currency);
+    if (found) found.total += item.amount;
+    else totals.push({ currency: item.currency, total: item.amount });
+    return totals;
+  }, []);
+
 const emptyForm = (month) => ({
   account_id: '',
   name: '',
@@ -113,41 +124,15 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
 
   return (
     <div className="stack">
-      <div className="tiles">
-        <div className="tile hero">
-          <span className="label">Charged in {formatMonth(month)}</span>
-          <span className="value">{dueThisMonth.length}</span>
-          <span className="sub">
-            of {activeSubs.length} active subscription{activeSubs.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        <div className="tile">
-          <span className="label">Coming in this month</span>
-          <span className="value">
-            {incomeThisMonth.length === 0
-              ? '—'
-              : [
-                  ...incomeThisMonth
-                    .reduce((acc, s) => {
-                      const found = acc.find((x) => x.currency === s.currency);
-                      if (found) found.total += s.amount;
-                      else acc.push({ currency: s.currency, total: s.amount });
-                      return acc;
-                    }, [])
-                    .map((x) => money(x.total, x.currency)),
-                ].join(' + ')}
-          </span>
-          <span className="sub">
-            {incomeThisMonth.length} recurring income item{incomeThisMonth.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        <div className="tile">
-          <span className="label">Mixed currencies</span>
-          <span className="value" style={{ fontSize: '1rem' }}>
-            {[...new Set(dueThisMonth.map((s) => s.currency))].join(', ') || '—'}
-          </span>
-          <span className="sub">totals shown per account currency below</span>
-        </div>
+      <div className="section-head">
+        <h2>Recurring</h2>
+        <span className="muted" style={{ fontSize: '.8rem' }}>
+          {dueThisMonth.length} of {activeSubs.length} charged in {formatMonth(month)}
+          {incomeThisMonth.length > 0 &&
+            `, ${incomeThisMonth.length} coming in (${totalsByCurrency(incomeThisMonth)
+              .map((x) => money(x.total, x.currency))
+              .join(' + ')})`}
+        </span>
       </div>
 
       <section className="card stack">
@@ -228,13 +213,7 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
           <h2>Recurring money</h2>
           <span className="muted" style={{ fontSize: '0.85rem' }}>
             {dueThisMonth.length > 0 &&
-              `Due this month: ${dueThisMonth
-                .reduce((acc, s) => {
-                  const found = acc.find((x) => x.currency === s.currency);
-                  if (found) found.total += s.amount;
-                  else acc.push({ currency: s.currency, total: s.amount });
-                  return acc;
-                }, [])
+              `Due this month: ${totalsByCurrency(dueThisMonth)
                 .map((x) => money(x.total, x.currency))
                 .join(' + ')}`}
           </span>
@@ -269,7 +248,7 @@ export default function Subscriptions({ summary, month, onChanged, readOnly = fa
                   </td>
                   <td
                     className="num"
-                    style={s.direction === 'income' ? { color: 'var(--success)' } : undefined}
+                    style={s.direction === 'income' ? { color: 'var(--pos)' } : undefined}
                   >
                     {s.direction === 'income' ? '+' : '−'}
                     {money(s.amount, s.currency)}

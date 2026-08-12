@@ -19,11 +19,21 @@ You can only move money you actually have — transfers are blocked if the sourc
 account doesn't cover them. Credit cards are the exception, since going negative
 there is the point.
 
-The **Dashboard** gives the household view first (net worth, income, spending,
-subscriptions, what's left over, anything owed on cards), then each person's
-accounts, then every transaction for the month as a filterable table. **Stats**
-is a separate tab with charts for money in vs out, net worth over time,
-per-account balances, and where the money actually went.
+The **Dashboard** opens on net worth and how it has moved, then answers where
+the month went — spent, subscriptions, moved to savings, and what is actually
+left — then each person's accounts as expandable ledger rows, then everything
+recorded this month. **Stats** is a separate tab, two charts to a row: money in
+versus out, net worth over time, where it went, and what sits where.
+**Recurring** is where subscriptions and salary are defined.
+
+Amounts are **hidden every time the app opens**, and the eye in the top bar
+brings them back — the figures disintegrate rather than blink out, which is the
+only decoration in the whole thing and is there because it is a pleasure to use.
+
+Adding money suits the device: at a desk there is a strip along the top of the
+dashboard that stays put so five entries can be typed in a row (or press
+<kbd>N</kbd>); on a phone the bottom bar has a + in the middle that opens a
+sheet under your thumb.
 
 - Households: each is a separate budget with its own people, accounts and
   history. You can have several, and be invited into other people's
@@ -489,9 +499,17 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
+66 checks over three suites: signing in and out, household isolation and roles,
+and the dashboard itself — recording money from the strip and from the sheet,
+editing an entry, deleting one, moving money between accounts, subscriptions
+showing up inside the account they come out of, and amounts being hidden every
+time the app opens.
+
 The isolation suite is the one worth keeping green. Households are kept apart by
 middleware plus several dozen correctly-scoped queries, and one careless `WHERE`
-clause would undo that quietly — the tests are what would notice.
+clause would undo that quietly — the tests are what would notice. The dashboard
+suite earns its keep differently: the app has been redesigned twice now, and it
+is what stops a redesign from quietly dropping a feature.
 
 ## Deploying
 

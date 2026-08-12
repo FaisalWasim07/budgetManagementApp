@@ -1,12 +1,23 @@
 import { useState } from 'react';
-import AccountCard from './AccountCard';
+import AccountRow from './AccountRow';
 import { renamePerson } from '../api/persons';
-import { useDisplay } from '../utils/display';
+import { Money } from '../utils/display';
 
-export default function PersonSection({ person, month, primaryCurrency, onChanged, onAddAccount, onEditAccount, readOnly = false }) {
+export default function PersonSection({
+  person,
+  month,
+  primaryCurrency,
+  subscriptions = [],
+  onChanged,
+  onAddAccount,
+  onEditAccount,
+  onAddEntry,
+  readOnly = false,
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
-  const { money } = useDisplay();
+
+  const leftover = person.income - person.expenses - person.subscriptions;
 
   async function saveName() {
     const name = draft.trim();
@@ -18,8 +29,8 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
   }
 
   return (
-    <section className="card stack">
-      <div className="spread">
+    <section className="person">
+      <div className="person-head">
         {editing ? (
           <div className="row-tight grow">
             <input
@@ -27,7 +38,9 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveName()}
-              style={{ maxWidth: 220 }}
+              onBlur={saveName}
+              style={{ maxWidth: 200 }}
+              aria-label="Name"
               autoFocus
             />
             <button className="primary tiny" onClick={saveName}>
@@ -35,7 +48,7 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
             </button>
           </div>
         ) : (
-          <div>
+          <div className="who">
             <h2
               onClick={() => !readOnly && setEditing(true)}
               style={{ cursor: readOnly ? 'default' : 'pointer' }}
@@ -43,34 +56,68 @@ export default function PersonSection({ person, month, primaryCurrency, onChange
             >
               {person.name}
             </h2>
-            <span className="muted" style={{ fontSize: '0.85rem' }}>
-              {money(person.netWorth, primaryCurrency, { compact: true })} across{' '}
-              {person.accounts.length} account{person.accounts.length === 1 ? '' : 's'}
-            </span>
           </div>
         )}
+        <span className="total">
+          <Money amount={person.netWorth} currency={primaryCurrency} compact />
+        </span>
+      </div>
+
+      <div className="person-figures">
+        <div>
+          <span className="k">Came in</span>
+          <span className="v in">
+            <Money amount={person.income} currency={primaryCurrency} compact />
+          </span>
+        </div>
+        <div>
+          <span className="k">Spent</span>
+          <span className="v out">
+            <Money amount={person.expenses} currency={primaryCurrency} compact />
+          </span>
+        </div>
+        <div>
+          <span className="k">Subscriptions</span>
+          <span className="v">
+            <Money amount={person.subscriptions} currency={primaryCurrency} compact />
+          </span>
+        </div>
+        <div>
+          <span className="k">Left over</span>
+          <span className="v" style={leftover < 0 ? { color: 'var(--neg)' } : undefined}>
+            <Money amount={leftover} currency={primaryCurrency} compact />
+          </span>
+        </div>
+      </div>
+
+      <div className="rows">
+        {person.accounts.map((account) => (
+          <AccountRow
+            key={account.id}
+            account={account}
+            month={month}
+            primaryCurrency={primaryCurrency}
+            recurring={subscriptions.filter((s) => s.account_id === account.id)}
+            onAdd={onAddEntry}
+            onEdit={onEditAccount}
+            readOnly={readOnly}
+          />
+        ))}
+
+        {person.accounts.length === 0 && (
+          <p className="muted" style={{ padding: '12px 18px', margin: 0, fontSize: '.88rem' }}>
+            No accounts yet — add one to start recording salary and spending.
+          </p>
+        )}
+
         {!readOnly && (
-          <button className="tiny" onClick={() => onAddAccount(person)}>
-            + Account
+          <button className="account-row add" onClick={() => onAddAccount(person)}>
+            <span className="name">
+              <b>+ Add an account</b>
+            </span>
           </button>
         )}
       </div>
-
-      {person.accounts.map((account) => (
-        <AccountCard
-          key={account.id}
-          account={account}
-          month={month}
-          primaryCurrency={primaryCurrency}
-          onChanged={onChanged}
-          readOnly={readOnly}
-          onEdit={onEditAccount}
-        />
-      ))}
-
-      {person.accounts.length === 0 && (
-        <p className="muted">No accounts yet — add one to start recording salary and spending.</p>
-      )}
     </section>
   );
 }
