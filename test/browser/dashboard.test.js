@@ -54,7 +54,9 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.locator('.hero .value').textContent()
   );
   await page.click('button[aria-label="Show amounts"]');
-  await page.waitForTimeout(900);
+  // The figures disintegrate before the new ones appear — about a second, so
+  // waiting less than that would be testing the animation, not the toggle.
+  await page.waitForTimeout(1600);
   check(
     'the eye reveals them',
     /\d/.test(await page.locator('.hero .value').textContent()),

@@ -452,7 +452,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   will-change: transform, opacity, filter;
 }
 .money.masked { color: var(--ink-3); letter-spacing: .08em; }
-.money .reveal { display: inline-block; animation: reveal .34s cubic-bezier(.22,.9,.3,1) both; }
+.money .reveal { display: inline-block; animation: reveal .42s cubic-bezier(.22,.9,.3,1) both; }
 @keyframes reveal { from { opacity: 0; transform: translateY(3px) scale(.96); filter: blur(3px); } }
 
 :focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 6px; }

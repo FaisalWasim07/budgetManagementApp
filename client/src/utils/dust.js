@@ -4,11 +4,16 @@
 // of layers, and each layer flown off on its own delay. Animating pixels
 // individually in JavaScript would be tens of thousands of objects a frame on
 // a dashboard full of figures; a layer is one composited element the GPU moves
-// for nothing. Six of them, staggered, read as a crumble rather than a slide.
-
-const LAYERS = 6;
-const DURATION = 260;
-const STEP = 24;
+// for nothing. Eight of them, staggered, read as a crumble rather than a slide.
+//
+// The timings are the whole effect. Too quick and it is a blink you cannot see;
+// the first version ran in under 400ms and read as the figure simply vanishing.
+// A layer needs long enough in the air to be watched, and the gap between one
+// layer and the next is what makes the number come apart from its end rather
+// than all at once. Together: 520 + 7 × 60 ≈ 940ms, start to settled.
+const LAYERS = 8;
+const DURATION = 520;
+const STEP = 60;
 
 // The most figures allowed in the air at once. A dashboard can hold forty, and
 // forty simultaneous rasterisations is a visible stall for an effect nobody
@@ -116,21 +121,34 @@ function deal({ canvas, width, height }) {
 }
 
 function fly(layer, index) {
-  const drift = 9 + index * 5;
+  // Further out for the later layers, so the cloud spreads as it goes instead
+  // of every layer travelling the same distance in convoy. The middle keyframe
+  // holds most of the opacity: the dust should be visible for most of its
+  // flight and only give out at the end.
+  const drift = 14 + index * 7;
   const frames = [
-    { transform: 'translate3d(0,0,0)', opacity: 1, filter: 'blur(0px)' },
+    { offset: 0, transform: 'translate3d(0,0,0)', opacity: 1, filter: 'blur(0px)' },
     {
-      transform: `translate3d(${drift}px, ${-drift * 0.85}px, 0) rotate(${
-        (index % 2 ? 1 : -1) * 2.5
-      }deg) scale(1.05)`,
+      offset: 0.45,
+      transform: `translate3d(${drift * 0.45}px, ${-drift * 0.5}px, 0) rotate(${
+        (index % 2 ? 1 : -1) * 1.4
+      }deg) scale(1.02)`,
+      opacity: 0.72,
+      filter: 'blur(0.7px)',
+    },
+    {
+      offset: 1,
+      transform: `translate3d(${drift}px, ${-drift * 0.95}px, 0) rotate(${
+        (index % 2 ? 1 : -1) * 3.5
+      }deg) scale(1.06)`,
       opacity: 0,
-      filter: 'blur(1.6px)',
+      filter: 'blur(2.4px)',
     },
   ];
   const options = {
     duration: DURATION,
     delay: index * STEP,
-    easing: 'cubic-bezier(.2,.5,.3,1)',
+    easing: 'cubic-bezier(.25,.4,.35,1)',
     fill: 'forwards',
   };
 
