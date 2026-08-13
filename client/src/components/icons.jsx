@@ -114,6 +114,14 @@ export const Repeat = ({ size = 21 }) => (
   </svg>
 );
 
+// Two arrows passing each other: money going one way out of an account and
+// arriving in another.
+export const Exchange = ({ size = 15 }) => (
+  <svg {...base(size)}>
+    <path d="M4 8h15m0 0l-4-4m4 4l-4 4M20 16H5m0 0l4-4m-4 4l4 4" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
 export const Pencil = ({ size = 15 }) => (
   <svg {...base(size)}>
     <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z" {...stroke} strokeWidth="1.8" />

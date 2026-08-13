@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createTransaction } from '../api/transactions';
+import { Exchange } from './icons';
 
 // The phone half of entering money: thumb at the bottom of the screen, the
 // amount the biggest thing on it, and one tap to save. Also what "Add to this
@@ -84,7 +85,9 @@ export default function AddSheet({
       >
         <div className="grabber" />
 
-        <div className="seg" role="group" aria-label="What happened">
+        {/* Two, not three. Moving money is a different form, and it lives
+            below the Save button rather than pretending to be a third mode. */}
+        <div className="seg two" role="group" aria-label="What happened">
           <button
             className={kind === 'expense' ? 'active' : ''}
             aria-pressed={kind === 'expense'}
@@ -98,15 +101,6 @@ export default function AddSheet({
             onClick={() => setKind('income')}
           >
             Received
-          </button>
-          <button
-            onClick={() => {
-              onClose();
-              onMove();
-            }}
-            disabled={accounts.length < 2}
-          >
-            Moved
           </button>
         </div>
 
@@ -169,6 +163,18 @@ export default function AddSheet({
           style={{ width: '100%', marginTop: 16, padding: '12px' }}
         >
           Save
+        </button>
+
+        <button
+          className="move-alt"
+          onClick={() => {
+            onClose();
+            onMove();
+          }}
+          disabled={accounts.length < 2}
+        >
+          <Exchange />
+          Move money
         </button>
       </div>
     </>

@@ -144,7 +144,16 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('the entry it made is in the list', (await page.locator('.txn', { hasText: 'Fuel' }).count()) === 1);
 
   // --- moving money between accounts ---------------------------------------
-  await page.click('.quick button:has-text("Moved")');
+  check(
+    'the strip offers two kinds of entry, not three',
+    (await page.locator('.quick .seg-mini button').count()) === 2
+  );
+  check(
+    'and moving money is its own button',
+    (await page.locator('.quick button:has-text("Move money")').count()) === 1
+  );
+
+  await page.click('.quick button:has-text("Move money")');
   await page.waitForSelector('.modal');
   const selects = page.locator('.modal select');
   await selects.nth(0).selectOption({ index: 0 });
@@ -262,6 +271,65 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(1600);
   check('the label takes you back to this month', (await page.locator('.txn:not(.empty)').count()) > 0);
 
+  // Picks an account by name rather than position, so adding one somewhere
+  // else in this suite cannot silently point these at the wrong pot.
+  const pickIn = async (select, name) => {
+    const options = await select.locator('option').allTextContents();
+    await select.selectOption({ index: options.findIndex((text) => text.includes(name)) });
+  };
+
+  // --- a cross-currency move suggests what will arrive ----------------------
+  // Needs a rate to suggest from, and this machine has no internet, so the
+  // manual override stands in for the one the app would normally fetch.
+  await page.evaluate(async (household) => {
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Household-Id': String(household) },
+      body: JSON.stringify({ manualRates: { PKR: 0.0131 } }),
+    });
+  }, await page.evaluate(() => localStorage.getItem('budget.householdId')));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.hero', { timeout: 15000 });
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(1600);
+
+  await page.click('.quick button:has-text("Move money")');
+  await page.waitForSelector('.modal');
+  const legs = page.locator('.modal select');
+  await pickIn(legs.nth(0), 'Main Account');
+  await pickIn(legs.nth(1), 'Meezan Savings');
+  await page.locator('.modal input[type="number"]').first().fill('1000');
+  await page.waitForTimeout(400);
+
+  const arriving = page.locator('.modal input[type="number"]').nth(1);
+  check(
+    'the arriving amount is filled in from the rate',
+    Number(await arriving.inputValue()) > 76000,
+    await arriving.inputValue()
+  );
+  check(
+    'and it says the figure is an estimate',
+    (await page.locator('.modal').textContent()).includes('Estimated at today'),
+  );
+  check(
+    'the implied rate is spelled out',
+    (await page.locator('.modal').textContent()).includes('1 AED ='),
+    (await page.locator('.modal').textContent()).slice(-160)
+  );
+
+  // Typing your own stops the estimate overwriting it.
+  await arriving.fill('70000');
+  await page.waitForTimeout(300);
+  await page.locator('.modal input[type="number"]').first().fill('1200');
+  await page.waitForTimeout(400);
+  check(
+    'once you type your own, the estimate leaves it alone',
+    (await arriving.inputValue()) === '70000',
+    await arriving.inputValue()
+  );
+  await page.click('.modal button:has-text("Cancel")');
+  await page.waitForTimeout(400);
+
   // --- savings to savings is not saving -------------------------------------
   // Adding up only what arrives counted this as money saved, because the
   // destination reported it arriving and nothing reported it leaving.
@@ -275,20 +343,12 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.waitForTimeout(1600);
   };
 
-  // Picks an account by name rather than position, so adding one somewhere
-  // else in this suite cannot silently point these at the wrong pot.
-  const pick = async (select, name) => {
-    const options = await select.locator('option').allTextContents();
-    const index = options.findIndex((text) => text.includes(name));
-    await select.selectOption({ index });
-  };
-
   const move = async (from, to, amount) => {
-    await page.click('.quick button:has-text("Moved")');
+    await page.click('.quick button:has-text("Move money")');
     await page.waitForSelector('.modal');
     const both = page.locator('.modal select');
-    await pick(both.nth(0), from);
-    await pick(both.nth(1), to);
+    await pickIn(both.nth(0), from);
+    await pickIn(both.nth(1), to);
     await page.locator('.modal input[type="number"]').first().fill(String(amount));
     await page.click('.modal button:has-text("Transfer")');
     await page.waitForTimeout(1800);

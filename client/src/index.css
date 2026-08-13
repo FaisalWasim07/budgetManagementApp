@@ -219,6 +219,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .quick input.amt { width: 150px; font-weight: 600; }
 .quick .grow { min-width: 130px; }
 .quick .hint { font-size: .74rem; color: var(--ink-3); margin-left: auto; }
+.quick .move { display: inline-flex; align-items: center; gap: 6px; }
 .quick kbd { font: inherit; font-size: .72rem; background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; }
 
 /* ── Where the month went ────────────────────────────────────────── */
@@ -418,6 +419,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   font-variant-numeric: tabular-nums;
 }
 .amount-field input:focus { outline: none; }
+
+/* Under Save, plainly secondary: the same journey as before, without
+   masquerading as a third kind of entry. */
+.sheet .move-alt {
+  width: 100%; margin-top: 8px; padding: 11px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; border-color: var(--line); color: var(--ink-2);
+}
+.sheet .move-alt:hover:not(:disabled) { color: var(--ink); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 7px; }
 .chips button { font: inherit; font-size: .85rem; padding: 8px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }

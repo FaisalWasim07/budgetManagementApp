@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createTransaction } from '../api/transactions';
+import { Exchange } from './icons';
 
 // The desk half of entering money. It stays exactly where it is after saving,
 // because at a laptop you enter five things in a row and a sheet that closes
@@ -47,6 +48,9 @@ export default function QuickAdd({ accounts, categories, month, onSaved, onMove 
 
   return (
     <form className="card quick" onSubmit={submit}>
+      {/* Two choices, not three. Spent and Received pick which kind of entry
+          this is; moving money opens a different form entirely, and a segmented
+          control that quietly contains a button is a lie about what it does. */}
       <div className="seg-mini" role="group" aria-label="What happened">
         <button
           type="button"
@@ -63,11 +67,6 @@ export default function QuickAdd({ accounts, categories, month, onSaved, onMove 
           onClick={() => setKind('income')}
         >
           Received
-        </button>
-        {/* Moving money needs two accounts and, across currencies, two amounts.
-            It opens the transfer form rather than pretending to fit here. */}
-        <button type="button" onClick={onMove} disabled={accounts.length < 2}>
-          Moved
         </button>
       </div>
 
@@ -114,6 +113,13 @@ export default function QuickAdd({ accounts, categories, month, onSaved, onMove 
 
       <button className="primary" type="submit" disabled={busy}>
         Add
+      </button>
+
+      {/* type="button" so it can never submit the strip on its way to opening
+          a different form. */}
+      <button className="move" type="button" onClick={onMove} disabled={accounts.length < 2}>
+        <Exchange />
+        Move money
       </button>
 
       {error ? (
