@@ -271,26 +271,40 @@ export const ArrowOut = ({ size = 19 }) => (
   </svg>
 );
 
-// ── The Bayt mark ────────────────────────────────────────────────────
-// A house whose inner stroke is a line going up: a home, and money in it
-// growing. One shape, so it survives being 16px in a browser tab and a
-// single flat colour on a dark bar.
+// ── The mark ─────────────────────────────────────────────────────────
+// Traced from the handoff's own logo: two rounded ribbons that together
+// draw a house. The mint one runs from under the eaves, up the left
+// wall, over the apex; the teal one comes back down the right side and
+// stops short of it, leaving the gap that makes the roof read as folded
+// rather than drawn.
+//
+// Geometry is in the source artwork's own units — the ribbons are 127
+// wide in a 416×430 box — so it is the traced logo rather than an
+// approximation of it, and it stays sharp at any size.
+const RIBBON = { strokeWidth: 127, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
+
 export const Mark = ({ size = 26 }) => (
-  <svg width={size} height={size} viewBox="0 0 34 34" fill="none" aria-hidden="true">
+  <svg
+    width={size}
+    height={(size * 434) / 420}
+    viewBox="-2 -2 420 434"
+    fill="none"
+    aria-hidden="true"
+  >
     <defs>
-      <linearGradient id="bayt-mark" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#22C58E" />
-        <stop offset="1" stopColor="#0D9488" />
+      <linearGradient id="bayt-mint" x1="0" y1="0.1" x2="0.85" y2="1">
+        <stop offset="0" stopColor="#4FD3A0" />
+        <stop offset=".55" stopColor="#22B492" />
+        <stop offset="1" stopColor="#06998C" />
+      </linearGradient>
+      <linearGradient id="bayt-teal" x1="0.1" y1="0" x2="0.5" y2="1">
+        <stop offset="0" stopColor="#3E9089" />
+        <stop offset="1" stopColor="#0E5C67" />
       </linearGradient>
     </defs>
-    <path d="M5 15.5 17 5.5l12 10V28a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 28z" fill="url(#bayt-mark)" />
-    <path
-      d="M10.5 23.5 15 19l3.5 3.5L24 16"
-      stroke="#FFFFFF"
-      strokeWidth="2.4"
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d="M195.5 366 H63.5 V176.5 L207 64" stroke="url(#bayt-mint)" {...RIBBON} />
+    {/* Slightly transparent, which is what darkens the apex where the two
+        cross — the one place the logo shows a third colour. */}
+    <path d="M207 64 L352 177.5 V366" stroke="url(#bayt-teal)" opacity=".88" {...RIBBON} />
   </svg>
 );
