@@ -29,6 +29,12 @@ export function blendedGradient(segments) {
 // Money moved into a savings account is not money spent and not money left
 // lying in the current account — it was the one thing the old dashboard could
 // not tell you, because it quietly counted as "left over".
+//
+// Net, not gross. Adding up only what arrives counts a transfer between two
+// savings accounts as money saved, when nothing moved at all: the destination
+// reports it as arriving and nothing reports it as leaving. Subtracting what
+// left cancels those to zero, and it lets the figure go negative — a month you
+// dipped into savings is a real thing that had no way of being said before.
 export function movedToSavings(persons) {
   let total = 0;
   for (const person of persons) {
@@ -36,7 +42,7 @@ export function movedToSavings(persons) {
       if (account.type !== 'savings') continue;
       const rate = account.rate?.rate;
       if (rate == null) continue;
-      total += account.activity.transferIn * rate;
+      total += (account.activity.transferIn - account.activity.transferOut) * rate;
     }
   }
   return total;
@@ -79,9 +85,13 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
       <div
         className="bar"
         role="img"
-        aria-label={`Of what came in: spent ${percent(spent)}, subscriptions ${percent(
-          subs
-        )}, moved to savings ${percent(moved)}, left over ${percent(left)}`}
+        aria-label={
+          `Of what came in: spent ${percent(spent)}, subscriptions ${percent(subs)}, ` +
+          (moved < 0
+            ? `${percent(-moved)} taken from savings`
+            : `moved to savings ${percent(moved)}`) +
+          `, left over ${percent(left)}`
+        }
       >
         <div
           className="track"
@@ -116,15 +126,20 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
             {subscriptionCount > 0 && ` · ${subscriptionCount} item${subscriptionCount === 1 ? '' : 's'}`}
           </span>
         </div>
+        {/* A month can go either way, and "Moved to savings: −AED 2,000" is a
+            sentence nobody should have to parse. Same slot, same colour, the
+            label does the work. */}
         <div>
           <span className="k">
             <i style={{ background: 'var(--moved)' }} />
-            Moved to savings
+            {moved < 0 ? 'Taken from savings' : 'Moved to savings'}
           </span>
           <span className="v">
-            <Money amount={moved} currency={primaryCurrency} compact />
+            <Money amount={Math.abs(moved)} currency={primaryCurrency} compact />
           </span>
-          <span className="pct">{percent(moved)} · not spent</span>
+          <span className="pct">
+            {moved < 0 ? 'money you dipped into' : `${percent(moved)} · not spent`}
+          </span>
         </div>
         <div>
           <span className="k">

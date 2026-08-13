@@ -262,6 +262,69 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(1600);
   check('the label takes you back to this month', (await page.locator('.txn:not(.empty)').count()) > 0);
 
+  // --- savings to savings is not saving -------------------------------------
+  // Adding up only what arrives counted this as money saved, because the
+  // destination reported it arriving and nothing reported it leaving.
+  const addAccount = async (name, type, opening) => {
+    await page.locator('.account-row.add').first().click();
+    await page.waitForSelector('.modal');
+    await page.locator('.modal input[placeholder^="e.g."]').fill(name);
+    await page.locator('.modal select').nth(1).selectOption(type);
+    await page.locator('.modal input[type="number"]').first().fill(String(opening));
+    await page.click('.modal button:has-text("Save")');
+    await page.waitForTimeout(1600);
+  };
+
+  // Picks an account by name rather than position, so adding one somewhere
+  // else in this suite cannot silently point these at the wrong pot.
+  const pick = async (select, name) => {
+    const options = await select.locator('option').allTextContents();
+    const index = options.findIndex((text) => text.includes(name));
+    await select.selectOption({ index });
+  };
+
+  const move = async (from, to, amount) => {
+    await page.click('.quick button:has-text("Moved")');
+    await page.waitForSelector('.modal');
+    const both = page.locator('.modal select');
+    await pick(both.nth(0), from);
+    await pick(both.nth(1), to);
+    await page.locator('.modal input[type="number"]').first().fill(String(amount));
+    await page.click('.modal button:has-text("Transfer")');
+    await page.waitForTimeout(1800);
+  };
+
+  const savingsTile = () =>
+    page.locator('.breakdown > div').filter({ hasText: 'savings' }).first();
+
+  // Intl separates the currency code from the number with a non-breaking
+  // space, which does not compare equal to the one you type.
+  const figure = async () =>
+    (await savingsTile().locator('.v').textContent()).replace(/\s+/g, ' ').trim();
+
+  await addAccount('Rainy Day', 'savings', 5000);
+  await addAccount('House Fund', 'savings', 0);
+
+  await move('Rainy Day', 'House Fund', 1000);
+  check(
+    'moving between two savings accounts is not money saved',
+    (await figure()) === 'AED 0',
+    await savingsTile().textContent()
+  );
+
+  // And the other direction, which the card could not say at all before.
+  await move('Rainy Day', 'Main Account', 2000);
+  check(
+    'taking money out of savings says so',
+    (await savingsTile().textContent()).includes('Taken from savings'),
+    await savingsTile().textContent()
+  );
+  check(
+    'and shows it as a positive figure',
+    (await figure()).includes('2,000'),
+    await figure()
+  );
+
   // --- and it is hidden again next time --------------------------------------
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.hero', { timeout: 15000 });
