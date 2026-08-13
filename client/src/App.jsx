@@ -10,7 +10,7 @@ import HouseholdModal from './components/HouseholdModal';
 import OverflowMenu from './components/OverflowMenu';
 import AddSheet from './components/AddSheet';
 import TransferModal from './components/TransferModal';
-import { Bars, Eye, EyeOff, Home, Plus, Repeat } from './components/icons';
+import { Bars, Eye, EyeOff, Home, Mark, Plus, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
@@ -163,6 +163,13 @@ export default function App({ user, onSignedOut }) {
     <DisplayContext.Provider value={{ amountsHidden }}>
       <header className="topbar">
         <div className="topbar-inner">
+          {/* The mark alone on a phone: the wordmark is the first thing worth
+              giving up when the bar has a household and a month to fit. */}
+          <span className="brand">
+            <Mark size={24} />
+            <span className="wordmark">Bayt</span>
+          </span>
+
           <HouseholdMenu
             households={households}
             current={household}

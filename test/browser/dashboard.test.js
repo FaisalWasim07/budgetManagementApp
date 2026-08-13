@@ -143,6 +143,28 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('the sheet saves and closes', (await page.locator('.sheet.open').count()) === 0);
   check('the entry it made is in the list', (await page.locator('.txn', { hasText: 'Fuel' }).count()) === 1);
 
+  // Every row carries an icon worked out from what it was called, and every
+  // account row one for what kind of account it is. A row with no tile is a
+  // row the list cannot be scanned by.
+  const txnCount = await page.locator('.txn:not(.empty)').count();
+  check(
+    'every entry has an icon tile',
+    (await page.locator('.txn:not(.empty) .tile svg').count()) === txnCount,
+    `${await page.locator('.txn:not(.empty) .tile svg').count()} of ${txnCount}`
+  );
+  check(
+    'the salary is tinted as money coming in',
+    (await page.locator('.txn .tile.in').count()) >= 1
+  );
+  const accountCount = await page.locator('.account-row:not(.add)').count();
+  check(
+    'every account has one too',
+    (await page.locator('.account-row:not(.add) .tile svg').count()) === accountCount,
+    `${await page.locator('.account-row:not(.add) .tile svg').count()} of ${accountCount}`
+  );
+  check('and each person has an initial', (await page.locator('.person-head .avatar').count()) >= 1);
+  check('the app names itself', (await page.locator('.brand .wordmark').textContent()) === 'Bayt');
+
   // --- moving money between accounts ---------------------------------------
   check(
     'the strip offers two kinds of entry, not three',
@@ -256,11 +278,31 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // --- stats ---------------------------------------------------------------
   await page.click('.nav button:has-text("Stats")');
   await page.waitForTimeout(1200);
-  check('stats shows four cards', (await page.locator('.chart').count()) === 4);
+  check('stats shows six cards', (await page.locator('.chart').count()) === 6);
   const columns = await page.evaluate(
     () => getComputedStyle(document.querySelector('.charts')).gridTemplateColumns.split(' ').length
   );
   check('and lays them out two to a row', columns === 2, `${columns} columns`);
+
+  check('four figures head the page', (await page.locator('.kpi').count()) === 4);
+  const kpiLabels = (await page.locator('.kpi .k').allTextContents()).join('|');
+  check(
+    'and they are net worth, in, out and kept',
+    kpiLabels === 'Net worth|Came in|Went out|Kept',
+    kpiLabels
+  );
+  // Every tile has to say how it moved, or the figure is a number without a
+  // direction — which is what the old Stats page already did.
+  check('each says how it moved since last month', (await page.locator('.kpi .d').count()) === 4);
+  // Kept only has a shape once two months have income to work it out from, so
+  // a brand-new household draws three of the four.
+  const minis = await page.locator('.kpi .mini').count();
+  check('and the money figures carry a sparkline', minis >= 3, `${minis} of 4`);
+
+  const slices = await page.locator('.donut circle').count();
+  const legend = await page.locator('.donut-legend li').count();
+  check('where it went is a donut with a legend per slice', slices > 0 && slices === legend,
+    `${slices} slices, ${legend} legend rows`);
 
   // --- the month, and coming back to today ---------------------------------
   await page.click('.nav button:has-text("Dashboard")');

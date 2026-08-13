@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { listTransactions } from '../api/transactions';
 import { Money } from '../utils/display';
 import { Chevron } from './icons';
+import { iconForAccount } from '../utils/categoryIcon';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -39,6 +40,7 @@ export default function AccountRow({
   const card = account.type === 'credit';
   const foreign = account.currency !== primaryCurrency;
   const owed = card && account.balance < 0;
+  const TypeIcon = iconForAccount(account.type);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -73,10 +75,13 @@ export default function AccountRow({
         aria-expanded={open}
         aria-controls={`account-detail-${account.id}`}
       >
+        <span className={card ? 'tile card' : 'tile'}>
+          <TypeIcon />
+        </span>
         <span className="name">
           <b>{account.name}</b>
           <span className="meta">
-            <span className="badge">{account.currency}</span>
+            <span className="badge currency">{account.currency}</span>
             {account.type === 'savings' && <span className="badge">Savings</span>}
             {card && <span className="badge card">Credit card</span>}
             {foreign && account.balancePrimary == null && (

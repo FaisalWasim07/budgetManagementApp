@@ -94,7 +94,7 @@ const openMenu = async (page) => {
   await page.click('.menu button:has-text("Sign out")');
   await page.waitForTimeout(800);
   const h1b = await page.locator('h1').first().textContent();
-  check('sign out returns to login form', h1b === 'Household Budget' && (await page.locator('.topbar').count()) === 0, h1b);
+  check('sign out returns to login form', h1b === 'Welcome back' && (await page.locator('.topbar').count()) === 0, h1b);
   check('login form has no confirm field', await page.locator('input[type="password"]').count() === 1);
 
   // --- wrong password ---

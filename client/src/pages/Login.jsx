@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { login, setupFirstUser } from '../api/auth';
+import { Mark } from '../components/icons';
 
 // One form for two jobs: before anyone has signed up it creates the first
 // login, and after that it signs you in. Both end with a session cookie set,
@@ -36,7 +37,11 @@ export default function Login({ needsSetup, onSignedIn }) {
     <div className="auth-screen">
       <form className="card stack auth-card" onSubmit={submit}>
         <div className="stack-sm" style={{ gap: 4 }}>
-          <h1>{needsSetup ? 'Set up your budget' : 'Household Budget'}</h1>
+          <span className="brand auth-brand">
+            <Mark size={30} />
+            <span className="wordmark">Bayt</span>
+          </span>
+          <h1>{needsSetup ? 'Set up your budget' : 'Welcome back'}</h1>
           <span className="muted" style={{ fontSize: '0.85rem' }}>
             {needsSetup
               ? 'Pick a username and password. This is stored on your own server — there is no account to create anywhere else.'

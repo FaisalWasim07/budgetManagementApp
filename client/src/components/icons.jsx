@@ -133,3 +133,164 @@ export const Trash = ({ size = 15 }) => (
     <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" {...stroke} strokeWidth="1.8" />
   </svg>
 );
+
+// ── Category and account icons ───────────────────────────────────────
+// Drawn on the same 24×24 grid at the same stroke weight as the rest, so a
+// row of them reads as one family. They exist to make a list of money
+// scannable: you find "the car one" faster than you read "Fuel".
+
+export const Cart = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M3 4h2l2.2 9.5A2 2 0 0 0 9.1 15h7.6a2 2 0 0 0 2-1.6L20 7H6" {...stroke} strokeWidth="1.7" />
+    <circle cx="9.5" cy="19" r="1.4" {...stroke} strokeWidth="1.7" />
+    <circle cx="17" cy="19" r="1.4" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Car = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path
+      d="M4 16v2M20 16v2M3 15l1.4-5A2 2 0 0 1 6.3 8.5h11.4a2 2 0 0 1 1.9 1.5L21 15v1.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM6.5 12.5h2M15.5 12.5h2"
+      {...stroke}
+      strokeWidth="1.7"
+    />
+  </svg>
+);
+
+export const House = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 11l8-6.5 8 6.5v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Book = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a2 2 0 0 0-2-1.6H4zM20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a2 2 0 0 1 2-1.6h6z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Heart = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M12 20s-7-4.4-7-9.2A4 4 0 0 1 12 8.2 4 4 0 0 1 19 10.8C19 15.6 12 20 12 20z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Plane = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M10.5 13.5 4 11l1-2 6.5 1 4-4.2a2 2 0 0 1 2.9 2.8L14 12.6l1 6.4-2 1z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Bolt = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M13 3 5 13.5h6L10.5 21 19 10.5h-6z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Fork = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M7 3v7a2 2 0 0 0 4 0V3M9 12v9M17 3c-1.4 1.4-2 3-2 5s.6 3 2 3v10" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Play = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.5" {...stroke} strokeWidth="1.7" />
+    <path d="M10.5 9.8 15 12l-4.5 2.2z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Shield = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M12 3.5 19 6v5.5c0 4.2-3 7.3-7 8.9-4-1.6-7-4.7-7-8.9V6z" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Bag = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M5 8h14l-1 11.2a1.6 1.6 0 0 1-1.6 1.3H7.6A1.6 1.6 0 0 1 6 19.2zM9 8V6.4A3 3 0 0 1 15 6.4V8" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Wallet = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 7.5A2 2 0 0 1 6 5.5h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM15.5 12.5H19" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Bank = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 9.5 12 4.5l8 5M6 10.5v7M10.5 10.5v7M13.5 10.5v7M18 10.5v7M3.5 20h17" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Vault = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" {...stroke} strokeWidth="1.7" />
+    <circle cx="11" cy="12" r="3.2" {...stroke} strokeWidth="1.7" />
+    <path d="M11 8.8v-1M11 16.2v1M17 9.5v5" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Card = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <rect x="3" y="6" width="18" height="12" rx="2.5" {...stroke} strokeWidth="1.7" />
+    <path d="M3 10h18M6.5 14.5h3" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Piggy = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4.5 12.5A6 6 0 0 1 10.5 7h3a6 6 0 0 1 6 5.5V16h-2l-1 3h-2.5l-.5-2h-3l-.5 2H7l-1-3H4.5z" {...stroke} strokeWidth="1.7" />
+    <circle cx="15.5" cy="11.5" r=".9" fill="currentColor" />
+  </svg>
+);
+
+export const Tag = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 11V5.5A1.5 1.5 0 0 1 5.5 4H11l8.5 8.5a1.6 1.6 0 0 1 0 2.3l-4.7 4.7a1.6 1.6 0 0 1-2.3 0z" {...stroke} strokeWidth="1.7" />
+    <circle cx="8" cy="8" r="1.2" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Trend = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M4 15.5 9 10l3.5 3.5L20 6M15.5 6H20v4.5" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
+export const ArrowIn = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M12 4v13m0 0 5-5m-5 5-5-5M4 20h16" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
+export const ArrowOut = ({ size = 19 }) => (
+  <svg {...base(size)}>
+    <path d="M12 20V7m0 0 5 5m-5-5-5 5M4 4h16" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
+// ── The Bayt mark ────────────────────────────────────────────────────
+// A house whose inner stroke is a line going up: a home, and money in it
+// growing. One shape, so it survives being 16px in a browser tab and a
+// single flat colour on a dark bar.
+export const Mark = ({ size = 26 }) => (
+  <svg width={size} height={size} viewBox="0 0 34 34" fill="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="bayt-mark" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#22C58E" />
+        <stop offset="1" stopColor="#0D9488" />
+      </linearGradient>
+    </defs>
+    <path d="M5 15.5 17 5.5l12 10V28a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 28z" fill="url(#bayt-mark)" />
+    <path
+      d="M10.5 23.5 15 19l3.5 3.5L24 16"
+      stroke="#FFFFFF"
+      strokeWidth="2.4"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);

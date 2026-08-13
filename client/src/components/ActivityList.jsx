@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
 import { Money, useDisplay } from '../utils/display';
 import { Pencil, Trash } from './icons';
+import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
 
 const KIND_LABEL = {
@@ -110,9 +111,14 @@ export default function ActivityList({ month, accountsById, personsById, onChang
           const date = when(row.entry_date || row.created_at);
           const person = personsById[row.person_id]?.name;
           const label = describe(row, rows);
+          // The icon comes from what you called it, so a list of money can be
+          // scanned rather than read.
+          const Icon = iconForEntry(row);
           return (
             <div className="txn" key={row.id}>
-              <i className={`dot${isMove(row.kind) ? ' move' : isCredit(row.kind) ? ' in' : ''}`} />
+              <span className={`tile ${toneForEntry(row.kind)}`}>
+                <Icon />
+              </span>
               <span className="what">
                 <b>{label}</b>
                 <small>

@@ -79,6 +79,9 @@ export default function PersonSection({
           </div>
         ) : (
           <div className="who">
+            <span className="avatar" aria-hidden="true">
+              {person.name.trim().charAt(0).toUpperCase()}
+            </span>
             <h2
               onClick={() => !readOnly && setEditing(true)}
               style={{ cursor: readOnly ? 'default' : 'pointer' }}

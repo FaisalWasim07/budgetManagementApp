@@ -1,83 +1,134 @@
 /* ── Tokens ────────────────────────────────────────────────────────
-   Colour is reserved for money: green in, red out, amber for what
-   repeats, slate for what merely moved. The interface itself is ink on
-   paper with one deep petrol for the primary action, so the figures are
-   the loudest thing on the page.
+   The Bayt palette: navy ink on a cool off-white, one mint→teal gradient
+   reserved for the primary action, the brand mark and the balance card.
+   The brief's own words — "quiet confidence, generous whitespace,
+   rounded geometry, restrained use of the gradient" — which mostly means
+   knowing where *not* to put it.
 
-   Chart series use blue and orange rather than green and red. Green and
-   red is the one pair a colour-blind reader genuinely cannot separate —
-   measured at ΔE 5.9, below the usable floor, against 24.7 for
-   blue/orange. Green and red stay everywhere a + or − sits beside the
-   number and carries the meaning anyway. */
+   Chart colours are separate from brand colours and were run through the
+   colour-blindness validator rather than chosen by eye. Deep teal and
+   amber separate at ΔE 12.5 for the commonest deficiency against a floor
+   of 8, and 24.3 for normal vision; the same two values clear the
+   lightness, chroma and contrast checks against both the white surface
+   and the dark navy one, which is why the charts need one palette
+   instead of two. */
 :root {
   color-scheme: light;
-  --paper:     #F5F6F3;
+  --paper:     #F6F9F9;
   --surface:   #FFFFFF;
-  --surface-2: #ECEEE9;
-  --line:      #E1E4DD;
-  --line-soft: #EDEFEA;
-  --ink:       #131715;
-  --ink-2:     #4C534E;
-  --ink-3:     #838A84;
-  --action:    #0B3E4A;
+  --surface-2: #EFF4F4;
+  --line:      #E5E7EB;
+  --line-soft: #F0F3F4;
+  --ink:       #0F172A;
+  --ink-2:     #475569;
+  --ink-3:     #94A3B8;
+
+  --brand:      #14B8A6;
+  --brand-deep: #0D9488;
+  --brand-mint: #22C58E;
+  --brand-aqua: #6EE7D2;
+  --gradient:   linear-gradient(135deg, #22C58E 0%, #14B8A6 55%, #0D9488 100%);
+  /* A single soft brand light behind the balance card, and nowhere else. */
+  --glow:       radial-gradient(120% 140% at 88% 0%, rgba(34,197,142,.14) 0%, rgba(34,197,142,0) 60%);
+  --tint:       color-mix(in srgb, var(--brand) 14%, transparent);
+
+  --action:    #0D9488;
   --action-in: #FFFFFF;
-  --pos:       #2C6E49;
-  --neg:       #A8392F;
-  --warn:      #8A6510;
-  --moved:     #4C6E8A;
-  --series-in:  #2a78d6;
-  --series-out: #eb6834;
-  --grid:      #EAEDE7;
-  --shadow:      0 1px 2px rgba(19,23,21,.06), 0 8px 24px rgba(19,23,21,.05);
-  --shadow-lift: 0 2px 6px rgba(19,23,21,.08), 0 18px 44px rgba(19,23,21,.14);
+  --pos:       #0F766E;
+  --neg:       #BE123C;
+  --warn:      #B45309;
+  --moved:     #2563EB;
+
+  /* Chart series. Same values in both themes — they were picked to pass
+     against either surface. */
+  --series-in:  #0D9488;
+  --series-out: #D97706;
+  --series-3:   #2563EB;
+  --series-4:   #BE123C;
+  --grid:      #E9EFEF;
+
+  --shadow:      0 1px 2px rgba(15,23,42,.04), 0 8px 22px rgba(15,23,42,.05);
+  --shadow-lift: 0 2px 8px rgba(15,23,42,.08), 0 20px 44px rgba(15,23,42,.10);
+  --shadow-brand: 0 2px 10px rgba(20,184,166,.28);
 }
 
+/* Dark is chosen, not inverted: the handoff's own canvas, surface and
+   raised-surface values, with the brand going brighter because a deep
+   teal disappears against navy. */
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --paper:     #0E1211;
-    --surface:   #171C1A;
-    --surface-2: #1F2523;
-    --line:      #2A312E;
-    --line-soft: #222826;
-    --ink:       #F2F4F1;
-    --ink-2:     #B4BDB7;
-    --ink-3:     #7D8781;
-    --action:    #4FB3A8;
-    --action-in: #06201C;
-    --pos:       #5BC98A;
-    --neg:       #E8837A;
-    --warn:      #D9AB55;
-    --moved:     #82A6C4;
-    --series-in:  #3987e5;
-    --series-out: #d95926;
-    --grid:      #262D2A;
-    --shadow:      0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
-    --shadow-lift: 0 2px 6px rgba(0,0,0,.55), 0 18px 44px rgba(0,0,0,.5);
+    --paper:     #07131F;
+    --surface:   #0F1C2E;
+    --surface-2: #182839;
+    --line:      #203047;
+    --line-soft: #1A2939;
+    --ink:       #F8FAFC;
+    --ink-2:     #9FB0C3;
+    --ink-3:     #64798F;
+
+    --brand:      #22C58E;
+    --brand-deep: #14B8A6;
+    --brand-mint: #22C58E;
+    --brand-aqua: #6EE7D2;
+    --gradient:   linear-gradient(135deg, #22C58E 0%, #14B8A6 60%, #0D9488 100%);
+    --glow:       radial-gradient(120% 140% at 88% 0%, rgba(34,197,142,.16) 0%, rgba(34,197,142,0) 60%);
+    --tint:       color-mix(in srgb, var(--brand) 16%, transparent);
+
+    --action:    #22C58E;
+    --action-in: #06251C;
+    --pos:       #34D399;
+    --neg:       #FB7185;
+    --warn:      #FBBF24;
+    --moved:     #7DA6FF;
+
+    --series-in:  #0D9488;
+    --series-out: #D97706;
+    --series-3:   #2563EB;
+    --series-4:   #BE123C;
+    --grid:      #1E2C3E;
+
+    --shadow:      0 1px 2px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35);
+    --shadow-lift: 0 2px 8px rgba(0,0,0,.6), 0 22px 48px rgba(0,0,0,.5);
+    --shadow-brand: 0 4px 14px rgba(34,197,142,.32);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --paper:     #0E1211;
-  --surface:   #171C1A;
-  --surface-2: #1F2523;
-  --line:      #2A312E;
-  --line-soft: #222826;
-  --ink:       #F2F4F1;
-  --ink-2:     #B4BDB7;
-  --ink-3:     #7D8781;
-  --action:    #4FB3A8;
-  --action-in: #06201C;
-  --pos:       #5BC98A;
-  --neg:       #E8837A;
-  --warn:      #D9AB55;
-  --moved:     #82A6C4;
-  --series-in:  #3987e5;
-  --series-out: #d95926;
-  --grid:      #262D2A;
-  --shadow:      0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
-  --shadow-lift: 0 2px 6px rgba(0,0,0,.55), 0 18px 44px rgba(0,0,0,.5);
+  --paper:     #07131F;
+  --surface:   #0F1C2E;
+  --surface-2: #182839;
+  --line:      #203047;
+  --line-soft: #1A2939;
+  --ink:       #F8FAFC;
+  --ink-2:     #9FB0C3;
+  --ink-3:     #64798F;
+
+  --brand:      #22C58E;
+  --brand-deep: #14B8A6;
+  --brand-mint: #22C58E;
+  --brand-aqua: #6EE7D2;
+  --gradient:   linear-gradient(135deg, #22C58E 0%, #14B8A6 60%, #0D9488 100%);
+  --glow:       radial-gradient(120% 140% at 88% 0%, rgba(34,197,142,.16) 0%, rgba(34,197,142,0) 60%);
+  --tint:       color-mix(in srgb, var(--brand) 16%, transparent);
+
+  --action:    #22C58E;
+  --action-in: #06251C;
+  --pos:       #34D399;
+  --neg:       #FB7185;
+  --warn:      #FBBF24;
+  --moved:     #7DA6FF;
+
+  --series-in:  #0D9488;
+  --series-out: #D97706;
+  --series-3:   #2563EB;
+  --series-4:   #BE123C;
+  --grid:      #1E2C3E;
+
+  --shadow:      0 1px 2px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35);
+  --shadow-lift: 0 2px 8px rgba(0,0,0,.6), 0 22px 48px rgba(0,0,0,.5);
+  --shadow-brand: 0 4px 14px rgba(34,197,142,.32);
 }
 
 :root {
@@ -120,7 +171,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 18px 20px;
   box-shadow: var(--shadow);
 }
@@ -139,6 +190,12 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 }
 .topbar-inner { display: flex; align-items: center; gap: 10px; padding: 11px 0; }
 
+/* The mark and the name. On a phone the wordmark goes and the mark stays —
+   it is the app's face on a home screen anyway. */
+.brand { display: inline-flex; align-items: center; gap: 8px; flex: none; padding-right: 2px; }
+.brand svg { display: block; }
+.wordmark { font-size: 1.02rem; font-weight: 680; letter-spacing: -.02em; color: var(--ink); }
+
 .household-trigger {
   display: inline-flex; align-items: center; gap: 7px;
   border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600;
@@ -154,7 +211,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   border: 0; background: none; font: inherit; font-size: .87rem; font-weight: 550;
   color: var(--ink-2); padding: 7px 15px; border-radius: 8px; cursor: pointer;
 }
-.nav button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.nav button.active { background: var(--surface); color: var(--brand-deep); box-shadow: var(--shadow); }
 
 .icon-button {
   width: 38px; height: 38px; flex: none;
@@ -163,7 +220,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   border-radius: 10px; cursor: pointer; padding: 0;
 }
 .icon-button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
-.icon-button[aria-pressed='true'] { color: var(--action); border-color: var(--line); }
+.icon-button[aria-pressed='true'] { color: var(--brand-deep); border-color: var(--line); background: var(--surface); }
 .icon-button.small { width: 30px; height: 30px; border-radius: 8px; }
 .icon-button.danger { color: var(--neg); }
 
@@ -180,7 +237,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .menu {
   position: absolute; top: calc(100% + 6px); left: 0; min-width: 250px;
   padding: 6px; z-index: 40; box-shadow: var(--shadow-lift);
-  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
 }
 .menu.right { left: auto; right: 0; }
 .menu button {
@@ -193,7 +250,12 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
 
 /* ── Hero ────────────────────────────────────────────────────────── */
-.hero { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px; padding: 10px 0 4px; }
+.hero {
+  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px;
+  background: var(--surface); background-image: var(--glow);
+  border: 1px solid var(--line); border-radius: 20px;
+  padding: 22px 24px; box-shadow: var(--shadow);
+}
 .hero .value { font-size: clamp(2.4rem, 7vw, 3.6rem); font-weight: 620; letter-spacing: -.035em; line-height: 1; margin: 6px 0 0; }
 .hero .value .cur { font-size: .42em; font-weight: 500; letter-spacing: 0; color: var(--ink-3); margin-right: .35em; vertical-align: .28em; }
 .hero .delta { display: inline-flex; align-items: center; gap: 6px; margin: 9px 0 0; font-size: .88rem; color: var(--ink-2); }
@@ -205,10 +267,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .hero .rate-note { margin: 7px 0 0; font-size: .78rem; color: var(--ink-3); }
 
 .spark { flex: none; }
-.spark .fill { fill: var(--pos); opacity: .1; }
-.spark .line { fill: none; stroke: var(--pos); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.spark .dot { fill: var(--pos); }
-.spark.down .fill { fill: var(--neg); }
+.spark .fill { fill: var(--brand); opacity: .16; }
+.spark .line { fill: none; stroke: var(--brand); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.spark .dot { fill: var(--brand-deep); }
+.spark.down .fill { fill: var(--neg); opacity: .12; }
 .spark.down .line { stroke: var(--neg); }
 .spark.down .dot { fill: var(--neg); }
 
@@ -244,7 +306,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
    Accounts are rows in a ledger, not cards in a grid: six accounts
    read as six lines rather than six boxes. */
 .people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; }
-.person { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.person { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
 .person-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 18px 11px; }
 .person-head .who { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .person-head .total { font-size: 1.04rem; font-weight: 620; letter-spacing: -.015em; white-space: nowrap; text-align: right; }
@@ -278,11 +340,43 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .account-row .chev { color: var(--ink-3); transition: transform .2s cubic-bezier(.22,.9,.3,1); flex: none; }
 .account-row[aria-expanded='true'] .chev { transform: rotate(90deg); }
 .account-row:last-child { border-bottom: 0; }
-.account-row.add { color: var(--ink-3); }
+/* No tile of its own, so it indents to where the other names start rather
+   than sitting alone against the edge. */
+.account-row.add { color: var(--ink-3); padding-left: 64px; }
 .account-row.add b { font-weight: 500; }
 .account-row.add:hover { color: var(--ink); }
 
-.badge { display: inline-block; font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; background: var(--surface-2); color: var(--ink-2); }
+/* The icon tile. A row of money is scanned, not read: the tile is what the
+   eye lands on, so it carries the one thing worth knowing before the words —
+   whether this was earned, moved, or spent. Spending is the common case and
+   stays neutral; only the exceptions get a tint. */
+.tile {
+  width: 34px; height: 34px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 11px;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.tile svg { width: 18px; height: 18px; }
+.tile.in { background: color-mix(in srgb, var(--pos) 15%, transparent); color: var(--pos); }
+.tile.move { background: color-mix(in srgb, var(--moved) 15%, transparent); color: var(--moved); }
+.tile.card { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.txn:hover .tile, .account-row:hover .tile { background: color-mix(in srgb, var(--ink-3) 16%, var(--surface)); }
+.txn:hover .tile.in, .txn:hover .tile.move, .account-row:hover .tile.in,
+.account-row:hover .tile.move, .account-row:hover .tile.card { background: color-mix(in srgb, currentColor 18%, transparent); }
+.txn.ended .tile { opacity: .8; }
+
+/* Two people in a household, so the initial is enough to tell them apart —
+   and it is the only place the brand gradient appears below the top bar. */
+.avatar {
+  width: 26px; height: 26px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--gradient); color: #FFFFFF;
+  font-size: .78rem; font-weight: 650; letter-spacing: .01em;
+}
+
+.badge { display: inline-block; font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); }
+.badge.currency { background: var(--tint); color: var(--brand-deep); }
 .badge.card { color: var(--warn); }
 
 /* 0fr → 1fr is the one way to animate a height the browser can't
@@ -302,14 +396,11 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 
 /* ── Activity list ───────────────────────────────────────────────── */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
-.txn-list { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.txn-list { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
 .txn { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
 .txn:last-child { border-bottom: 0; }
 .txn:hover { background: var(--surface-2); }
 .txn:hover .txn-acts { opacity: 1; }
-.txn .dot { width: 8px; height: 8px; border-radius: 3px; flex: none; background: var(--neg); }
-.txn .dot.in { background: var(--pos); }
-.txn .dot.move { background: var(--moved); }
 .txn .what { flex: 1; min-width: 0; }
 .txn .what b { display: block; font-weight: 550; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .txn .what small { color: var(--ink-3); font-size: .76rem; }
@@ -350,7 +441,7 @@ input, select, button, textarea { font-family: inherit; font-size: .92rem; }
 
 input[type='text'], input[type='number'], input[type='month'], input[type='date'],
 input[type='password'], input[type='email'], select, textarea {
-  padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line);
+  padding: 9px 11px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); width: 100%;
 }
 input::placeholder { color: var(--ink-3); }
@@ -358,12 +449,15 @@ input::placeholder { color: var(--ink-3); }
 .field { display: flex; flex-direction: column; gap: 5px; font-size: .8rem; color: var(--ink-3); min-width: 110px; }
 
 button {
-  padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line);
+  padding: 8px 13px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 500;
 }
 button:hover:not(:disabled) { border-color: var(--ink-3); }
-button.primary { background: var(--action); color: var(--action-in); border-color: transparent; font-weight: 600; }
-button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+button.primary {
+  background: var(--gradient); color: var(--action-in);
+  border-color: transparent; font-weight: 640; box-shadow: var(--shadow-brand);
+}
+button.primary:hover:not(:disabled) { filter: brightness(1.06) saturate(1.05); }
 button.subtle { background: transparent; border-color: transparent; color: var(--ink-2); padding: 5px 9px; }
 button.subtle:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
 button.danger { color: var(--neg); }
@@ -386,7 +480,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @keyframes fade { from { opacity: 0; } }
 
 .modal {
-  background: var(--surface); border-radius: 18px; border: 1px solid var(--line);
+  background: var(--surface); border-radius: 20px; border: 1px solid var(--line);
   padding: 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
   box-shadow: var(--shadow-lift);
   animation: pop .22s cubic-bezier(.22,.9,.3,1) both;
@@ -442,8 +536,34 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ── Charts ──────────────────────────────────────────────────────── */
 /* Two across. align-items keeps a short card short instead of stretching it to
    match whatever tall thing happens to sit beside it. */
+/* Four figures, one row, above the charts. The tile is the whole answer:
+   what it is now, which way it moved, and the shape of the year behind it. */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi {
+  position: relative; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 14px 16px 0; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.kpi .k { font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.kpi .v { font-size: 1.3rem; font-weight: 650; letter-spacing: -.025em; white-space: nowrap; }
+.kpi .d { font-size: .74rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .d b { font-weight: 620; }
+.kpi .d.up b { color: var(--pos); }
+.kpi .d.down b { color: var(--neg); }
+
+/* The sparkline sits under the figure rather than beside it: at a quarter of
+   the width there is no room for both, and it is the background detail. */
+.kpi .mini { display: block; width: calc(100% + 32px); height: 34px; margin: 6px -16px 0; }
+.kpi .mini .line { fill: none; stroke: var(--ink-3); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.kpi .mini .fill { fill: var(--ink-3); opacity: .1; }
+.kpi .mini.up .line { stroke: var(--pos); }
+.kpi .mini.up .fill { fill: var(--pos); opacity: .13; }
+.kpi .mini.down .line { stroke: var(--neg); }
+.kpi .mini.down .fill { fill: var(--neg); opacity: .11; }
+
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
 .chart h3 { font-size: 1rem; }
 .chart .sub { font-size: .8rem; color: var(--ink-3); margin: 2px 0 14px; }
 /* Recharts measures its own container; without this it can only ever grow. */
@@ -452,7 +572,32 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend i { width: 9px; height: 9px; border-radius: 3px; }
 
+/* The ring answers "what share", the list beside it answers "which was
+   biggest" — the two things a category breakdown is asked for, neither of
+   which one shape does well on its own. */
+.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.donut { position: relative; width: 148px; flex: none; }
+.donut svg { display: block; width: 100%; height: auto; }
+.donut circle { transition: stroke-dashoffset .7s cubic-bezier(.22,.9,.3,1); }
+.donut-centre {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font-size: .96rem; font-weight: 650; letter-spacing: -.02em;
+}
+.donut-centre small { font-size: .66rem; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+
+.donut-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 190px; }
+.donut-legend li {
+  display: grid; grid-template-columns: 9px 1fr auto auto; align-items: center; gap: 9px;
+  padding: 5px 0; font-size: .82rem;
+}
+.donut-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.donut-legend .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.donut-legend .p { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.donut-legend .a { font-weight: 600; font-variant-numeric: tabular-nums; }
+
 .hbar { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.hbar .n small, .hbar .a small { font-weight: 500; color: var(--ink-3); }
 .hbar:last-child { border-bottom: 0; }
 .hbar .n { font-size: .88rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hbar .a { font-size: .88rem; font-weight: 600; }
@@ -460,6 +605,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .hbar .t span { display: block; height: 100%; border-radius: 999px; background: var(--series-in); transition: width .8s cubic-bezier(.22,.9,.3,1); }
 
 /* ── Auth screens ────────────────────────────────────────────────── */
+/* The sign-in screen is the one place with room for the full lockup, and the
+   only page where the app has to say what it is. */
+.auth-brand { margin-bottom: 8px; }
+.auth-brand .wordmark { display: inline; font-size: 1.2rem; }
+
 .auth-screen { min-height: 78vh; display: flex; align-items: center; justify-content: center; }
 .auth-card { width: 100%; max-width: 400px; }
 
@@ -507,6 +657,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   #root { padding: 0 14px 104px; }
   .topbar { margin: 0 -14px; padding: 0 14px; }
   .topbar-inner { gap: 8px; }
+  .wordmark { display: none; }
   .household-trigger { max-width: 42vw; }
   .month-nav .m { min-width: 68px; font-size: .8rem; }
   .month-nav .m .long { display: none; }
@@ -518,6 +669,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .breakdown { grid-template-columns: 1fr 1fr; gap: 13px 12px; }
   .person-figures { grid-template-columns: 1fr 1fr; gap: 10px; }
   .charts { grid-template-columns: minmax(0, 1fr); }
+  /* Two by two rather than four across: four of these on a phone is four
+     figures too small to read. */
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { padding: 12px 13px 0; }
+  .kpi .v { font-size: 1.12rem; }
+  .kpi .mini { width: calc(100% + 26px); margin: 6px -13px 0; height: 28px; }
+  .donut-wrap { gap: 14px; }
+  .donut { width: 124px; }
   .card { padding: 16px; }
   /* Actions drop to their own line rather than squeezing the description into
      a three-line column. Applies to the activity list too, which had the same

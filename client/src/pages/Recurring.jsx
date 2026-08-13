@@ -10,7 +10,8 @@ import RecurringYear from '../components/RecurringYear';
 import { Money, useDisplay } from '../utils/display';
 import { formatMonth } from '../utils/month';
 import { convert, dueIn, hasEnded, perMonth, startsLater } from '../utils/recurring';
-import { Pencil, Plus, Trash } from '../components/icons';
+import { Pencil, Plus, Trash, Wallet } from '../components/icons';
+import { iconForCategory } from '../utils/categoryIcon';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -37,9 +38,16 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
     .filter(Boolean)
     .join(' · ');
 
+  // Recurring income is nearly always a salary, so that is the fallback
+  // rather than the generic tag.
+  const Icon = iconForCategory(item.category || item.name, { fallback: income ? Wallet : null }) ||
+    iconForCategory(item.name);
+
   return (
     <div className={ended ? 'txn ended' : 'txn'}>
-      <i className={income ? 'dot in' : 'dot'} />
+      <span className={income ? 'tile in' : 'tile'}>
+        <Icon />
+      </span>
       <span className="what">
         <b>{item.name}</b>
         <small>
