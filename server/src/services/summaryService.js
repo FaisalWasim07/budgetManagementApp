@@ -219,9 +219,12 @@ async function getSummary(householdId, month) {
     loadLedger(householdId),
   ]);
 
-  const rates = await exchangeRateService.getRateMap(
+  // Converted at the rate for the month being viewed: live while the month is
+  // still running, and whatever was recorded once it is over.
+  const rates = await exchangeRateService.getRateMapFor(
     allAccounts.map((a) => a.currency),
     primary,
+    month,
     { householdId }
   );
 
@@ -309,22 +312,28 @@ async function getTrend(householdId, count = 12, endMonth) {
     db.all('SELECT * FROM accounts WHERE household_id = ? AND is_active = 1', [householdId]),
     loadLedger(householdId),
   ]);
-  const rates = await exchangeRateService.getRateMap(
+  // A rate per month, not one rate for all of them. Using today's rate for
+  // every month is what made this chart redraw its own past every time a
+  // currency moved — the line would flatten out a real loss instead of showing
+  // it.
+  const months = [];
+  for (let i = count - 1; i >= 0; i -= 1) months.push(shiftMonth(end, -i));
+  const ratesByMonth = await exchangeRateService.getRateMaps(
     accounts.map((a) => a.currency),
     primary,
+    months,
     { householdId }
   );
 
   const trend = [];
-  for (let i = count - 1; i >= 0; i -= 1) {
-    const month = shiftMonth(end, -i);
+  for (const month of months) {
     let income = 0;
     let expenses = 0;
     let subscriptions = 0;
     let netWorth = 0;
 
     for (const account of accounts) {
-      const rate = rates[account.currency];
+      const rate = ratesByMonth[month][account.currency];
       const activity = ledger.activity(account, month);
       income += convert(activity.income, rate) || 0;
       expenses += convert(activity.expense, rate) || 0;
@@ -353,9 +362,10 @@ async function getCategoryBreakdown(householdId, month) {
     ),
   ]);
 
-  const rates = await exchangeRateService.getRateMap(
+  const rates = await exchangeRateService.getRateMapFor(
     accounts.map((a) => a.currency),
     primary,
+    month,
     { householdId }
   );
   const byAccount = Object.fromEntries(accounts.map((a) => [a.id, a]));

@@ -6,8 +6,14 @@ Each person can have **any number of accounts, each in its own currency**. You
 record salary as income into an account, then log spending against it and move
 money between accounts; every account keeps a running total. Balances in other
 currencies are converted to your **primary currency** (AED by default, changed
-in Settings) using live exchange rates, so the household totals cover everything
-in one number.
+in Settings), so the household totals cover everything in one number.
+
+**A past month is converted at that month's rate, not today's.** The month you
+are in follows the live rate and quietly records it; once the month is over,
+that recording is what it uses forever. So if the rupee halves in September,
+August still says what August said, and the net worth chart shows a real drop
+instead of redrawing its own history flat. Viewing a past month says so under
+the headline: *"Converted at August 2026's rate."*
 
 **Subscriptions** are defined once on their own page and then charged
 automatically every month from the account you choose — monthly or yearly —
@@ -491,9 +497,10 @@ with `PORT=5001 npm start`.
 TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
 ```
 
-132 checks over the API: the money maths, editing entries and transfers,
-recurring money and its history-preserving rules, household isolation, roles
-and invites, and who may reset whose password. The
+148 checks over the API: the money maths, editing entries and transfers,
+recurring money and exchange rates over time — both of which must never let
+today rewrite what a past month said — household isolation, roles and invites,
+and who may reset whose password. The
 runner starts and stops its own server, so nothing needs to be running first.
 
 `TEST_DATABASE_URL` is deliberately a different variable from `DATABASE_URL`.

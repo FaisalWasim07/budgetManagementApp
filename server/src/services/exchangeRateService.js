@@ -98,4 +98,128 @@ const refreshAll = (currencies, target, householdId) =>
 
 const diagnose = (base, target) => rateProviders.diagnose(base, target);
 
-module.exports = { getRate, refreshRate, getRateMap, refreshAll, diagnose };
+// --- what a month was worth ----------------------------------------------
+//
+// Every figure the app converts belongs to a month, and only the month you are
+// living in should move. A past month is a record: it is what your money was
+// worth then, and the rupee changing in November must not reach back and edit
+// September. So the current month reads live and writes down what it read, and
+// every earlier month reads what was written.
+
+// Kept here rather than imported: summaryService already requires this module,
+// and one small duplicated function is cheaper than a circular import.
+function currentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const SAME = { rate: 1, fetchedAt: null, source: 'same', stale: false };
+
+function snapshot(householdId, month, target, map) {
+  const writes = Object.entries(map)
+    .filter(([base, info]) => base !== target && info?.rate != null)
+    .map(([base, info]) =>
+      db.run(
+        `INSERT INTO exchange_rate_history (household_id, month, base_currency, target_currency, rate)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (household_id, month, base_currency, target_currency)
+         DO UPDATE SET rate = excluded.rate, captured_at = now()`,
+        [householdId, month, base, target, info.rate]
+      )
+    );
+  return Promise.all(writes);
+}
+
+// The whole history for one household, which is currencies × months — tens of
+// rows, not thousands — so it is read once and searched in memory rather than
+// queried per month per currency.
+const historyRows = (householdId, target) =>
+  householdId == null
+    ? Promise.resolve([])
+    : db.all(
+        `SELECT month, base_currency, rate FROM exchange_rate_history
+         WHERE household_id = ? AND target_currency = ?`,
+        [householdId, target]
+      );
+
+// The rate recorded for that month, or the most recent one before it. A month
+// you never opened the app in borrows the last rate the app actually saw,
+// which is a better answer than today's and an honest one: it is the last
+// thing that was true.
+function recordedAt(rows, base, month) {
+  let best = null;
+  for (const row of rows) {
+    if (row.base_currency !== base || row.month > month) continue;
+    if (!best || row.month > best.month) best = row;
+  }
+  return best;
+}
+
+// A rate map per month. The current month (and anything later) uses live rates
+// and refreshes its snapshot; earlier months use what was recorded.
+async function getRateMaps(currencies, target, months, { householdId = null } = {}) {
+  const list = [...new Set(currencies)];
+  const now = currentMonth();
+  const rows = await historyRows(householdId, target);
+
+  const foreign = list.filter((c) => c !== target);
+  const needsLive =
+    months.some((month) => month >= now) ||
+    foreign.some((c) => months.some((month) => month < now && !recordedAt(rows, c, month)));
+
+  const live = needsLive ? await getRateMap(list, target, { householdId }) : {};
+
+  const maps = {};
+  for (const month of months) {
+    const map = {};
+    for (const base of list) {
+      if (base === target) {
+        map[base] = SAME;
+      } else if (month >= now) {
+        map[base] = live[base];
+      } else {
+        const row = recordedAt(rows, base, month);
+        if (row) {
+          map[base] = {
+            rate: row.rate,
+            fetchedAt: null,
+            source: 'historical',
+            rateMonth: row.month,
+            stale: false,
+          };
+        } else {
+          // Nothing was ever recorded this far back. Today's rate is the only
+          // answer available, and it says so rather than passing itself off as
+          // what that month was worth.
+          const fallbackRate = live[base];
+          map[base] =
+            fallbackRate?.rate == null
+              ? fallbackRate
+              : { ...fallbackRate, source: 'estimated' };
+        }
+      }
+    }
+    maps[month] = map;
+  }
+
+  if (householdId != null && months.some((month) => month >= now)) {
+    await snapshot(householdId, now, target, live);
+  }
+
+  return maps;
+}
+
+// One month's worth, for the callers that only ever want one.
+const getRateMapFor = async (currencies, target, month, options) =>
+  (await getRateMaps(currencies, target, [month], options))[month];
+
+module.exports = {
+  getRate,
+  refreshRate,
+  getRateMap,
+  getRateMaps,
+  getRateMapFor,
+  refreshAll,
+  diagnose,
+  currentMonth,
+};

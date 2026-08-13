@@ -18,6 +18,7 @@ const SUITES = [
   'api/money.test.js',
   'api/editing.test.js',
   'api/recurring.test.js',
+  'api/rates.test.js',
   'api/households.test.js',
   'api/reset.test.js',
 ];

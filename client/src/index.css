@@ -201,6 +201,9 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .hero .delta strong.up { color: var(--pos); }
 .hero .delta strong.down { color: var(--neg); }
 
+/* Only ever present when looking at a past month with foreign money in it. */
+.hero .rate-note { margin: 7px 0 0; font-size: .78rem; color: var(--ink-3); }
+
 .spark { flex: none; }
 .spark .fill { fill: var(--pos); opacity: .1; }
 .spark .line { fill: none; stroke: var(--pos); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }

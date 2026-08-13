@@ -44,6 +44,16 @@ function Spark({ values, rising }) {
 export default function Hero({ summary, trend, month }) {
   const { household, primaryCurrency } = summary;
 
+  // Looking at a past month shows what the money was worth *then*, not now. If
+  // the rupee has halved since, August still says what August said — which is
+  // right, and would be baffling without saying so once, plainly.
+  const historical = summary.persons.some((person) =>
+    person.accounts.some((account) => account.rate?.source === 'historical')
+  );
+  const estimated = summary.persons.some((person) =>
+    person.accounts.some((account) => account.rate?.source === 'estimated')
+  );
+
   // The trend ends on the month being viewed, so the month before it is the
   // one to compare against — including when you have scrolled back to March.
   const values = trend.map((t) => t.netWorth);
@@ -83,6 +93,13 @@ export default function Hero({ summary, trend, month }) {
                 <Money amount={household.savings} currency={primaryCurrency} compact /> in savings
               </>
             )}
+          </p>
+        )}
+        {(historical || estimated) && (
+          <p className="rate-note">
+            {historical
+              ? `Converted at ${formatMonth(month)}’s rate.`
+              : `No rate was recorded for ${formatMonth(month)}, so this uses today’s.`}
           </p>
         )}
       </div>

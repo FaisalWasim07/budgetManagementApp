@@ -166,6 +166,27 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
   PRIMARY KEY (base_currency, target_currency)
 );
 
+-- What a currency was worth in a given month, so a past month stops moving.
+-- Converting every month at today's rate means last March's total changes every
+-- time the rupee does, and a net worth chart that rewrites its own history is
+-- worse than no chart. The current month still uses the live rate — it is still
+-- happening — and this row is refreshed while it is; when the month ends,
+-- whatever was last written becomes the record.
+--
+-- Scoped per household because the primary currency and any manual rate
+-- override are: one household's idea of the PKR rate is not another's. The
+-- exchange_rates cache above stays shared, because a published rate is a fact
+-- about the world rather than about anyone's budget.
+CREATE TABLE IF NOT EXISTS exchange_rate_history (
+  household_id    integer NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  month           text NOT NULL,
+  base_currency   text NOT NULL,
+  target_currency text NOT NULL,
+  rate            double precision NOT NULL,
+  captured_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (household_id, month, base_currency, target_currency)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_household_invites_household ON household_invites(household_id);
