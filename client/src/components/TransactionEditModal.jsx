@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import { Trash } from './icons';
 import { updateTransaction } from '../api/transactions';
 
 const KIND_LABELS = { income: 'Income', expense: 'Expense' };
@@ -8,7 +9,14 @@ const KIND_LABELS = { income: 'Income', expense: 'Expense' };
 // the two sides carry their own amounts, because a cross-currency transfer
 // records what actually left one account and what actually arrived in the
 // other, not an estimate derived from a rate.
-export default function TransactionEditModal({ entry, accountsById, month, onClose, onSaved }) {
+export default function TransactionEditModal({
+  entry,
+  accountsById,
+  month,
+  onClose,
+  onSaved,
+  onDelete,
+}) {
   const isTransfer = Boolean(entry.transfer_id);
   const outLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_out') : null;
   const inLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_in') : null;
@@ -141,13 +149,25 @@ export default function TransactionEditModal({ entry, accountsById, month, onClo
 
         {error && <div className="error-text">{error}</div>}
 
-        <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
-          </button>
+        {/* Delete lives here rather than as a second icon on every row: on a
+            phone those icons cost each entry a line of its own, and this is
+            the screen you are already on when you want to remove one. */}
+        <div className="row-tight" style={{ justifyContent: 'space-between' }}>
+          {onDelete ? (
+            <button type="button" className="danger" disabled={busy} onClick={() => onDelete(entry)}>
+              <Trash size={15} /> Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <span className="row-tight">
+            <button type="button" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </span>
         </div>
       </form>
     </Modal>

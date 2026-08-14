@@ -189,6 +189,8 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   border-bottom: 1px solid var(--line);
 }
 .topbar-inner { display: flex; align-items: center; gap: 10px; padding: 11px 0; }
+/* Desktop keeps the month inline; the phone-only row below is empty here. */
+.month-row { display: none; }
 
 /* The mark and the name. On a phone the wordmark goes and the mark stays —
    it is the app's face on a home screen anyway. */
@@ -227,7 +229,13 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .month-nav { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .month-nav button { border: 0; background: none; cursor: pointer; color: var(--ink-2); padding: 6px 10px; line-height: 1; display: inline-flex; align-items: center; }
 .month-nav button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
-.month-nav .m { font-size: .84rem; font-weight: 600; padding: 6px 4px; min-width: 108px; text-align: center; white-space: nowrap; }
+/* The arrows keep their size and the label takes what is left, so a longer
+   month can never push an arrow off the end of the bar. */
+.month-nav button:not(.m) { flex: none; }
+/* justify-content, not text-align: these buttons are inline-flex, so the label
+   is a flex item and text-align has nothing to act on — it sat against the
+   left edge of a button stretched across the bar. */
+.month-nav .m { flex: 1; justify-content: center; font-size: .84rem; font-weight: 600; padding: 6px 4px; min-width: 108px; white-space: nowrap; }
 /* Disabled only means "you are already here", not unavailable. */
 .month-nav .m:disabled { opacity: 1; cursor: default; }
 .month-nav .m .short { display: none; }
@@ -762,14 +770,21 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    Not merely narrower: navigation moves to the thumb and adding money
    becomes the middle of the bar. */
 @media (max-width: 700px) {
-  #root { padding: 0 14px 104px; }
+  #root { padding: 0 14px 116px; }
   .topbar { margin: 0 -14px; padding: 0 14px; }
   .topbar-inner { gap: 8px; }
   .wordmark { display: none; }
-  .household-trigger { max-width: 42vw; }
-  .month-nav .m { min-width: 68px; font-size: .8rem; }
+  .badge.role { display: none; }
+  /* The month moves to its own row: on a phone the first line already holds
+     the mark, the household, the eye and the menu, and the month was being
+     clipped to fit alongside them. */
+  .month-inline { display: none; }
+  .month-row { display: flex; padding: 0 0 9px; }
+  .month-row .month-nav { flex: 1; }
+  .month-nav .m { min-width: 0; font-size: .82rem; }
   .month-nav .m .long { display: none; }
   .month-nav .m .short { display: inline; }
+  .household-trigger { max-width: 52vw; }
   .nav { display: none; }
   .quick { display: none; }
   /* The horizontal padding matches .card: the hero became one, and was still
@@ -777,7 +792,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .hero { grid-template-columns: 1fr; align-items: start; gap: 8px; padding: 18px 16px 16px; }
   .hero .spark { width: 100%; height: 44px; }
   .breakdown { grid-template-columns: 1fr 1fr; gap: 13px 12px; }
-  .person-figures { grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* Four across in one strip rather than a 2x2 grid of tiny labelled boxes:
+     the labels go small and quiet above the figures, which is the part worth
+     reading, and the four read as one line of the same thing. */
+  .person-figures { grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 10px 12px 12px; }
+  .person-figures > div { min-width: 0; }
+  .person-figures .k { font-size: .63rem; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .person-figures .v { font-size: .84rem; letter-spacing: -.02em; }
   .charts { grid-template-columns: minmax(0, 1fr); }
   /* Two by two rather than four across: four of these on a phone is four
      figures too small to read. */
@@ -785,15 +806,20 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .kpi { padding: 12px 13px 0; }
   .kpi .v { font-size: 1.12rem; }
   .kpi .mini { width: calc(100% + 26px); margin: 6px -13px 0; height: 28px; }
+  /* The legend was competing with the ring for width and losing. Full width
+     under it, and quieter, so the names stop truncating. */
   .donut-wrap { gap: 14px; }
+  .donut-legend { min-width: 100%; }
+  .donut-legend li { font-size: .76rem; gap: 7px; padding: 4px 0; }
+  .donut-centre { font-size: .86rem; }
   .donut { width: 124px; }
   .card { padding: 16px; }
-  /* Actions drop to their own line rather than squeezing the description into
-     a three-line column. Applies to the activity list too, which had the same
-     problem for the same reason. */
-  .txn { flex-wrap: wrap; }
-  .txn .amt { margin-left: auto; }
-  .txn-acts { flex: 1 0 100%; justify-content: flex-end; margin-top: 4px; }
+  /* No action strip. Two icon buttons per entry took a second line each, so a
+     month of spending was twice as long as it needed to be — the row itself
+     opens the editor instead, and Delete lives inside it. */
+  .txn-acts { display: none; }
+  .txn.tappable { cursor: pointer; }
+  .txn .what small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Twelve labels will not fit; the bars still read as a shape, and the tall
      one keeps its name. */
@@ -807,7 +833,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     backdrop-filter: blur(12px); border-top: 1px solid var(--line);
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); align-items: center;
+    /* Lifted off the very bottom edge: on a phone with a home indicator the
+       icons sat right on top of it, and a thumb reaching the last few pixels
+       of a screen is reaching past the comfortable arc. */
+    padding: 9px 6px calc(14px + env(safe-area-inset-bottom)); align-items: center;
   }
   .tabbar button {
     border: 0; background: none; cursor: pointer; display: flex; flex-direction: column;

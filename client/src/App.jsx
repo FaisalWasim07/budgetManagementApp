@@ -191,7 +191,12 @@ export default function App({ user, onSignedOut }) {
 
           {loading && <span className="spinner" aria-label="Updating" />}
 
-          <MonthSelector month={month} onChange={setMonth} />
+          {/* Two copies, one shown at a time. On a phone the month gets a row
+              of its own below — six controls on one line is what was clipping
+              it — and on a desktop it stays inline where there is room. */}
+          <span className="month-inline">
+            <MonthSelector month={month} onChange={setMonth} />
+          </span>
 
           <button
             className="icon-button"
@@ -214,6 +219,10 @@ export default function App({ user, onSignedOut }) {
               onSignedOut();
             }}
           />
+        </div>
+
+        <div className="month-row">
+          <MonthSelector month={month} onChange={setMonth} />
         </div>
       </header>
 

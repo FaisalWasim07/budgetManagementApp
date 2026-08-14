@@ -73,10 +73,11 @@ export default function ActivityList({ month, accountsById, personsById, onChang
     const message = row.transfer_id
       ? 'Delete this transfer? Both sides of it are removed.'
       : 'Delete this entry?';
-    if (!window.confirm(message)) return;
+    if (!window.confirm(message)) return false;
     await deleteTransaction(row.id);
     load();
     onChanged();
+    return true;
   }
 
   const visible = rows.filter((row) => {
@@ -114,8 +115,31 @@ export default function ActivityList({ month, accountsById, personsById, onChang
           // The icon comes from what you called it, so a list of money can be
           // scanned rather than read.
           const Icon = iconForEntry(row);
+          const open = () =>
+            setEditing({
+              ...row,
+              legs: row.transfer_id
+                ? rows.filter((x) => x.transfer_id === row.transfer_id)
+                : null,
+            });
           return (
-            <div className="txn" key={row.id}>
+            // Tapping the row opens the editor. The two icon buttons are
+            // hidden on a phone, where they cost every entry a second line, so
+            // the row itself has to be the way in.
+            <div
+              className={readOnly ? 'txn' : 'txn tappable'}
+              key={row.id}
+              onClick={readOnly ? undefined : open}
+              role={readOnly ? undefined : 'button'}
+              tabIndex={readOnly ? undefined : 0}
+              onKeyDown={(e) => {
+                if (readOnly) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  open();
+                }
+              }}
+            >
               <span className={`tile ${toneForEntry(row.kind)}`}>
                 <Icon />
               </span>
@@ -141,19 +165,12 @@ export default function ActivityList({ month, accountsById, personsById, onChang
                 />
               </span>
               {!readOnly && (
-                <span className="txn-acts">
+                <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
                   <button
                     className="icon-button small"
                     title="Edit"
                     aria-label={`Edit ${label}`}
-                    onClick={() =>
-                      setEditing({
-                        ...row,
-                        legs: row.transfer_id
-                          ? rows.filter((x) => x.transfer_id === row.transfer_id)
-                          : null,
-                      })
-                    }
+                    onClick={open}
                   >
                     <Pencil />
                   </button>
@@ -185,6 +202,9 @@ export default function ActivityList({ month, accountsById, personsById, onChang
           entry={editing}
           accountsById={accountsById}
           month={month}
+          onDelete={async (row) => {
+            if (await remove(row)) setEditing(null);
+          }}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             load();

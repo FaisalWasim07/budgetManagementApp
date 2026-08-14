@@ -1,5 +1,5 @@
-import { Money } from '../../utils/display';
-import { formatMonth } from '../../utils/month';
+import { Money, useDisplay } from '../../utils/display';
+import { formatMonth, hasActivity } from '../../utils/month';
 
 // Four figures across the top of Stats, each with the same three parts: what
 // it is now, how it moved since last month, and the shape of the last twelve.
@@ -89,10 +89,14 @@ function Kpi({
 export default function KpiRow({ summary, trend, month }) {
   const currency = summary.primaryCurrency;
   const { household } = summary;
+  const { money } = useDisplay();
 
   // The trend ends on the month being viewed, so the row before the last is
-  // the month to compare against — including when you have scrolled back.
-  const previous = trend.length >= 2 ? trend[trend.length - 2] : null;
+  // the one to compare against — but only if it actually happened. Before you
+  // started using the app those rows are zeroes, and every figure would report
+  // itself as having appeared out of nowhere this month.
+  const before = trend.length >= 2 ? trend[trend.length - 2] : null;
+  const previous = hasActivity(before) ? before : null;
   const prevMonth = previous?.month ?? month;
 
   const outOf = (t) => t.expenses + t.subscriptions;
@@ -107,7 +111,10 @@ export default function KpiRow({ summary, trend, month }) {
   const keptPrev = previous ? keptRate(previous) : null;
 
   const asMoney = (v) => <Money amount={v} currency={currency} compact />;
-  const moneyText = (v) => `${Math.round(v).toLocaleString()} ${currency}`;
+  // Through the same masking as every other amount. This is what a delta falls
+  // back to when last month was zero, and it used to print the figure in the
+  // clear with the eye shut.
+  const moneyText = (v) => money(v, currency, { compact: true });
 
   return (
     <div className="kpis">

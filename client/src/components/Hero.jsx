@@ -1,5 +1,5 @@
 import { Money } from '../utils/display';
-import { formatMonth, shiftMonth } from '../utils/month';
+import { formatMonth, hasActivity, shiftMonth } from '../utils/month';
 
 // A sparkline, not a chart: no axes, no ticks, no numbers. It answers one
 // question — has this been going up? — and the figure beside it answers the
@@ -57,7 +57,10 @@ export default function Hero({ summary, trend, month }) {
   // The trend ends on the month being viewed, so the month before it is the
   // one to compare against — including when you have scrolled back to March.
   const values = trend.map((t) => t.netWorth);
-  const previous = trend.length >= 2 ? trend[trend.length - 2].netWorth : null;
+  // A month before you started here comes back as zeroes, and comparing
+  // against one would call your entire net worth this month's gain.
+  const before = trend.length >= 2 ? trend[trend.length - 2] : null;
+  const previous = hasActivity(before) ? before.netWorth : null;
   const delta = previous == null ? null : household.netWorth - previous;
 
   return (
@@ -67,15 +70,15 @@ export default function Hero({ summary, trend, month }) {
         <p className="value">
           <Money amount={household.netWorth} currency={primaryCurrency} compact />
         </p>
+        {/* A first month has neither a comparison nor, usually, savings yet.
+            Nothing to say beats an empty line holding space for it. */}
         {delta == null ? (
-          <p className="delta">
-            {household.savings > 0 && (
-              <>
-                <Money amount={household.savings} currency={primaryCurrency} compact /> of it in
-                savings
-              </>
-            )}
-          </p>
+          household.savings > 0 && (
+            <p className="delta">
+              <Money amount={household.savings} currency={primaryCurrency} compact /> of it in
+              savings
+            </p>
+          )
         ) : (
           <p className="delta">
             <strong className={delta >= 0 ? 'up' : 'down'}>

@@ -163,6 +163,19 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     `${await page.locator('.account-row:not(.add) .tile svg').count()} of ${accountCount}`
   );
   check('and each person has an initial', (await page.locator('.person-head .avatar').count()) >= 1);
+
+  // The row itself opens the editor, which is the only way in on a phone —
+  // the two icon buttons are hidden there because they cost every entry a
+  // second line.
+  await page.locator('.txn.tappable').first().click();
+  await page.waitForSelector('.modal', { timeout: 8000 });
+  check('tapping an entry opens the editor', (await page.locator('.modal').count()) === 1);
+  check(
+    'and delete is inside it rather than only on the row',
+    (await page.locator('.modal button:has-text("Delete")').count()) === 1
+  );
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
   check('the app names itself', (await page.locator('.brand .wordmark').textContent()) === 'Bayt');
 
   // --- moving money between accounts ---------------------------------------

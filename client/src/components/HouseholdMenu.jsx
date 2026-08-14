@@ -17,8 +17,10 @@ export default function HouseholdMenu({ households, current, onSwitch, onAdd, on
           title="Switch household"
         >
           <span className="household-name">{current?.name ?? 'No household'}</span>
+          {/* Not on a phone: a banner under the bar already says you are
+              view-only, and the role is in the menu this opens. */}
           {current && current.role !== 'owner' && (
-            <span className="badge">{ROLE_LABEL[current.role]}</span>
+            <span className="badge role">{ROLE_LABEL[current.role]}</span>
           )}
           <ChevronDown />
         </button>
