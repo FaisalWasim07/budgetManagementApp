@@ -8,6 +8,30 @@ const { chromium } = require('playwright');
 const launchOptions = () =>
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {};
 
+const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// The month is a grid you pick from, not a pair of arrows, so moving by one
+// means working out which cell that is — and crossing a year boundary means
+// stepping the year first.
+async function pickMonth(page, delta) {
+  await page.click('.month-trigger');
+  await page.waitForSelector('.month-grid');
+  const current = await page.locator('.month-trigger .short, .month-trigger .long').first().innerText();
+  const index = SHORT.findIndex((m) => current.startsWith(m));
+  const target = index + delta;
+  if (target < 0) await page.click('.year-nav button[aria-label="Previous year"]');
+  if (target > 11) await page.click('.year-nav button[aria-label="Next year"]');
+  await page.click(`.month-grid button:has-text("${SHORT[(target + 12) % 12]}")`);
+  await page.waitForTimeout(1600);
+}
+
+async function backToThisMonth(page) {
+  await page.click('.month-trigger');
+  await page.waitForSelector('.month-grid');
+  await page.click('button:has-text("Back to this month")');
+  await page.waitForTimeout(1600);
+}
+
 const URL = process.env.TEST_APP_URL || 'http://localhost:5173';
 const ok = [];
 const bad = [];
@@ -259,8 +283,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // Stopping is not deleting — but it only has something to keep once the item
   // has actually run, so this steps forward a month first. Stopped from
   // September, August keeps its charge and the item moves to Stopped.
-  await page.click('.month-nav button[aria-label="Next month"]');
-  await page.waitForTimeout(1600);
+  await pickMonth(page, +1);
   await page.locator('.txn', { hasText: 'Netflix' }).first().locator('button:has-text("Stop")').click();
   await page.waitForTimeout(1600);
   check('stopping moves it out of Going out', (await page.locator('.txn.ended').count()) === 1);
@@ -273,8 +296,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.locator('.txn.ended').first().locator('button:has-text("Restart")').click();
   await page.waitForTimeout(1600);
   check('restarting brings it back', (await page.locator('.txn.ended').count()) === 0);
-  await page.click('.month-nav .m');
-  await page.waitForTimeout(1600);
+  await backToThisMonth(page);
 
   await page.click('.nav button:has-text("Dashboard")');
   await page.waitForTimeout(1600);
@@ -319,12 +341,10 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   // --- the month, and coming back to today ---------------------------------
   await page.click('.nav button:has-text("Dashboard")');
-  await page.click('.month-nav button[aria-label="Previous month"]');
-  await page.waitForTimeout(1600);
+  await pickMonth(page, -1);
   check('last month has none of this month’s entries', (await page.locator('.txn:not(.empty)').count()) === 0);
-  await page.click('.month-nav .m');
-  await page.waitForTimeout(1600);
-  check('the label takes you back to this month', (await page.locator('.txn:not(.empty)').count()) > 0);
+  await backToThisMonth(page);
+  check('one tap comes back to this month', (await page.locator('.txn:not(.empty)').count()) > 0);
 
   // Picks an account by name rather than position, so adding one somewhere
   // else in this suite cannot silently point these at the wrong pot.

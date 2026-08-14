@@ -20,8 +20,13 @@ export default function TransactionEditModal({
   const isTransfer = Boolean(entry.transfer_id);
   const outLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_out') : null;
   const inLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_in') : null;
-  const crossCurrency =
-    isTransfer && accountsById[outLeg.account_id]?.currency !== accountsById[inLeg.account_id]?.currency;
+  // Read off the leg itself rather than looked up. The lookup only holds
+  // accounts still active in the household, so a transfer out of an account
+  // that has since been closed rendered as "Left ()" with no name — the row
+  // knew both, and the dialog was asking somewhere that didn't.
+  const nameOf = (leg) => leg?.account_name ?? accountsById[leg?.account_id]?.name ?? 'another account';
+  const currencyOf = (leg) => leg?.currency ?? accountsById[leg?.account_id]?.currency ?? '';
+  const crossCurrency = isTransfer && currencyOf(outLeg) !== currencyOf(inLeg);
 
   const [form, setForm] = useState({
     amount: String(isTransfer ? outLeg.amount : entry.amount),
@@ -80,17 +85,15 @@ export default function TransactionEditModal({
         {isTransfer ? (
           <>
             <span className="muted" style={{ fontSize: '0.85rem' }}>
-              {accountsById[outLeg.account_id]?.name} → {accountsById[inLeg.account_id]?.name}
+              {nameOf(outLeg)} → {nameOf(inLeg)}
             </span>
             <div className="row">
               <label className="field grow">
-                Left {accountsById[outLeg.account_id]?.name} (
-                {accountsById[outLeg.account_id]?.currency})
+                Left {nameOf(outLeg)} ({currencyOf(outLeg)})
                 <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} autoFocus />
               </label>
               <label className="field grow">
-                Arrived in {accountsById[inLeg.account_id]?.name} (
-                {accountsById[inLeg.account_id]?.currency})
+                Arrived in {nameOf(inLeg)} ({currencyOf(inLeg)})
                 <input
                   type="number"
                   min="0"
@@ -120,7 +123,7 @@ export default function TransactionEditModal({
               </select>
             </label>
             <label className="field grow">
-              Amount ({accountsById[entry.account_id]?.currency})
+              Amount ({entry.currency ?? accountsById[entry.account_id]?.currency ?? ''})
               <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} autoFocus />
             </label>
             <label className="field grow">

@@ -189,8 +189,6 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   border-bottom: 1px solid var(--line);
 }
 .topbar-inner { display: flex; align-items: center; gap: 10px; padding: 11px 0; }
-/* Desktop keeps the month inline; the phone-only row below is empty here. */
-.month-row { display: none; }
 
 /* The mark and the name. On a phone the wordmark goes and the mark stays —
    it is the app's face on a home screen anyway. */
@@ -226,19 +224,44 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .icon-button.small { width: 30px; height: 30px; border-radius: 8px; }
 .icon-button.danger { color: var(--neg); }
 
-.month-nav { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-.month-nav button { border: 0; background: none; cursor: pointer; color: var(--ink-2); padding: 6px 10px; line-height: 1; display: inline-flex; align-items: center; }
-.month-nav button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
-/* The arrows keep their size and the label takes what is left, so a longer
-   month can never push an arrow off the end of the bar. */
-.month-nav button:not(.m) { flex: none; }
-/* justify-content, not text-align: these buttons are inline-flex, so the label
-   is a flex item and text-align has nothing to act on — it sat against the
-   left edge of a button stretched across the bar. */
-.month-nav .m { flex: 1; justify-content: center; font-size: .84rem; font-weight: 600; padding: 6px 4px; min-width: 108px; white-space: nowrap; }
-/* Disabled only means "you are already here", not unavailable. */
-.month-nav .m:disabled { opacity: 1; cursor: default; }
-.month-nav .m .short { display: none; }
+/* The month, as a word you tap. The old pill put an arrow either side, which
+   cost a tap per month and told you nothing about where you were in a year. */
+.month-trigger {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  border: 0; background: none; font: inherit; font-size: .92rem; font-weight: 600;
+  color: var(--ink); padding: 6px 8px; border-radius: 9px; cursor: pointer;
+  white-space: nowrap;
+}
+.month-trigger:hover { background: var(--surface-2); }
+.month-trigger svg { color: var(--ink-3); }
+.month-trigger .short { display: none; }
+
+.year-nav { display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 1.02rem; }
+.year-nav button {
+  border: 0; background: var(--surface-2); color: var(--ink-2); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; padding: 0;
+}
+.year-nav button:hover { background: var(--line); color: var(--ink); }
+
+.month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.month-grid button {
+  padding: 13px 4px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); font-size: .88rem; font-weight: 550; cursor: pointer;
+}
+.month-grid button:hover { border-color: var(--ink-3); }
+/* The month you are on is filled; the month it actually is gets a dot, so
+   "today" is findable without being mistaken for the selection. */
+.month-grid button.selected {
+  background: var(--action); border-color: transparent; color: var(--action-in);
+  box-shadow: var(--shadow-brand);
+}
+.month-grid button.now { position: relative; }
+.month-grid button.now::after {
+  content: ''; position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--brand-deep);
+}
+.month-grid button.now.selected::after { background: var(--action-in); }
 
 /* Menu shared by the household switcher and the overflow menu. */
 .menu-wrap { position: relative; }
@@ -468,11 +491,15 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 /* ── Forms ───────────────────────────────────────────────────────── */
 input, select, button, textarea { font-family: inherit; font-size: .92rem; }
 
-/* Everything except the controls that have to keep their native look. This
-   used to name each type it wanted, which meant an input written without a
-   `type` at all — text is the default, so it is easy to leave off — got no
-   styling and sat in a form looking like a stray from another website. */
-input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+/* Everything except the controls that have to keep their native look.
+   Naming each wanted type meant an input written without a `type` at all —
+   text is the default, so it is easy to leave off — got no styling and sat in
+   a form looking like a stray from another website.
+   :where() rather than :not(), because :not() carries the specificity of its
+   argument: four of them outweighed every component rule that sets a width,
+   and the quick-add amount box went full width onto a line of its own.
+   :where() counts as nothing, so anything more specific still wins. */
+input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='file'])),
 select, textarea {
   padding: 9px 11px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); width: 100%;
@@ -775,16 +802,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .topbar-inner { gap: 8px; }
   .wordmark { display: none; }
   .badge.role { display: none; }
-  /* The month moves to its own row: on a phone the first line already holds
-     the mark, the household, the eye and the menu, and the month was being
-     clipped to fit alongside them. */
-  .month-inline { display: none; }
-  .month-row { display: flex; padding: 0 0 9px; }
-  .month-row .month-nav { flex: 1; }
-  .month-nav .m { min-width: 0; font-size: .82rem; }
-  .month-nav .m .long { display: none; }
-  .month-nav .m .short { display: inline; }
-  .household-trigger { max-width: 52vw; }
+  /* One line again: the month is three words now, not a pill with two arrows,
+     so it no longer needs a row of its own. */
+  .month-trigger { font-size: .86rem; padding: 6px 4px; }
+  .month-trigger .long { display: none; }
+  .month-trigger .short { display: inline; }
+  .household-trigger { max-width: 34vw; }
+  .month-grid button { padding: 15px 4px; }
   .nav { display: none; }
   .quick { display: none; }
   /* The horizontal padding matches .card: the hero became one, and was still

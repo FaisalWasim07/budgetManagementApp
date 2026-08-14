@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // A dialog, optionally in tabs.
 //
@@ -22,7 +23,11 @@ export default function Modal({ title, onClose, tabs, children }) {
 
   const current = tabs?.find(([key]) => key === active);
 
-  return (
+  // Rendered into <body> rather than where it was called from. `position:
+  // fixed` is relative to the nearest ancestor with a filter, transform or
+  // backdrop-filter — and the top bar has one — so a dialog opened from up
+  // there was being clipped to the height of the bar.
+  return createPortal(
     <div className="backdrop" onClick={onClose}>
       <div
         className="modal stack"
@@ -55,6 +60,7 @@ export default function Modal({ title, onClose, tabs, children }) {
 
         {current ? current[2]() : children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
