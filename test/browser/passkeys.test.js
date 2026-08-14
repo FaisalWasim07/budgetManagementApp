@@ -46,6 +46,9 @@ const openSettings = async (page) => {
   await openMenu(page);
   await page.click('.menu button:has-text("Settings")');
   await page.waitForSelector('.modal');
+  // Settings opens on Money; logins and passkeys are the Account tab.
+  await page.click('.modal-tabs button:has-text("Account")');
+  await page.waitForTimeout(250);
 };
 
 (async () => {

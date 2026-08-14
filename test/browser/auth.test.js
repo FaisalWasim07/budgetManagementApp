@@ -80,6 +80,10 @@ const openMenu = async (page) => {
   await openMenu(page);
   await page.click('.menu button:has-text("Settings")');
   await page.waitForSelector('.modal');
+  check('settings is in tabs rather than one long scroll',
+    (await page.locator('.modal-tabs button').count()) === 2);
+  await page.click('.modal-tabs button:has-text("Account")');
+  await page.waitForTimeout(250);
   const modalText = await page.locator('.modal').textContent();
   check('settings shows signed-in user', modalText.includes('Signed in as faisal'), modalText.slice(0, 120));
   check('adding a bare login is no longer offered here',

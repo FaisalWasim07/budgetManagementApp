@@ -82,10 +82,19 @@ async function signUp(page, username, password) {
   await a.waitForTimeout(1500);
   const modalText = await a.locator('.modal').textContent();
   check('a person can be added from the sharing screen', modalText.includes('Child'), modalText.slice(0, 150));
+  check('sharing is in tabs', (await a.locator('.modal-tabs button').count()) === 2);
+  // Nothing may scroll inside the dialog — that was the point of the tabs.
+  const inner = await a.evaluate(() => {
+    const m = document.querySelector('.modal');
+    return m.scrollHeight > m.clientHeight + 1;
+  });
+  check('and the dialog does not scroll inside itself', inner === false);
 
   // --- create a viewer invite ---------------------------------------------
+  await a.click('.modal-tabs button:has-text("Access")');
+  await a.waitForTimeout(300);
   await a.selectOption('select[aria-label="Invite role"]', 'viewer');
-  await a.click('button:has-text("Create invite")');
+  await a.click('button:has-text("Create an invite code")');
   await a.waitForTimeout(1200);
   const code = await a.locator('.invite-code').first().textContent();
   check('an invite code is produced', Boolean(code && code.length > 8), code || '(none)');

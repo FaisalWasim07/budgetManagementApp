@@ -87,9 +87,10 @@ export default function SettingsModal({
     }
   }
 
-  return (
-    <Modal title="Settings" onClose={onClose}>
-      <form className="stack" onSubmit={save}>
+  // Money and account are two unrelated jobs, and stacking them made one box
+  // tall enough to need its own scrollbar. Either alone fits.
+  const moneyTab = () => (
+    <form className="stack" onSubmit={save}>
         <label className="field">
           Primary currency
           <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -200,15 +201,27 @@ export default function SettingsModal({
             Save
           </button>
         </div>
-      </form>
+    </form>
+  );
 
-      {/* Outside the form on purpose: pressing Enter in a password field
-          shouldn't save currency settings. */}
-      <hr className="divider" />
+  // Deliberately not inside the form above: pressing Enter in a password field
+  // must not save currency settings.
+  const accountTab = () => (
+    <div className="stack">
       <LoginSettings user={user} onSignedOut={onSignedOut} />
-
       <hr className="divider" />
       <PasskeySettings />
-    </Modal>
+    </div>
+  );
+
+  return (
+    <Modal
+      title="Settings"
+      onClose={onClose}
+      tabs={[
+        ['money', 'Money', moneyTab],
+        ['account', 'Account', accountTab],
+      ]}
+    />
   );
 }
