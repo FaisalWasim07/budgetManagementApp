@@ -481,7 +481,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .year .m { font-size: .68rem; color: var(--ink-3); }
 .year .mo.peak .m { color: var(--warn); font-weight: 600; }
 
-.recurring-hero { grid-template-columns: 1fr; padding-bottom: 0; }
+/* No padding-bottom override any more. That dated from when the hero was a
+   bare block above the page and closing the gap under it was right; it is a
+   card now, and a card whose last line sits on its own border looks broken. */
+.recurring-hero { grid-template-columns: 1fr; }
 .recurring-hero .value .per { font-size: .32em; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
 
 .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 11px; }
