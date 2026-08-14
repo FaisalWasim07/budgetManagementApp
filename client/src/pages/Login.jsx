@@ -8,6 +8,15 @@ import {
 import { Mark, Shield } from '../components/icons';
 import { passkeysSupported, usePasskey, wasCancelled } from '../utils/passkey';
 
+// What to try when the device prompt ends without an answer. Windows is
+// called out because Windows Hello puts up its own "Something went wrong",
+// which says nothing about which of these it was.
+const describeFailure = () =>
+  'Nothing was confirmed. If your passkey is on your phone rather than this ' +
+  'computer, choose “Use a phone or tablet” in the prompt and scan the code. ' +
+  'Otherwise the computer needs a PIN or fingerprint set up — or use a ' +
+  'recovery code below.';
+
 // One form for two jobs: before anyone has signed up it creates the first
 // login, and after that it signs you in. Both end with a session cookie set,
 // so the caller just gets told who is now signed in.
@@ -22,6 +31,9 @@ export default function Login({ needsSetup, onSignedIn }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [challenge, setChallenge] = useState(null);
+  // Separate from `error`, and quieter: a prompt that didn't complete is not
+  // necessarily anything wrong, so it reads as guidance rather than a fault.
+  const [hint, setHint] = useState(null);
   const [recovering, setRecovering] = useState(false);
   const [code, setCode] = useState('');
   // The device prompt is fired automatically the first time the second step
@@ -60,14 +72,18 @@ export default function Login({ needsSetup, onSignedIn }) {
   async function confirmWithDevice() {
     setBusy(true);
     setError(null);
+    setHint(null);
     try {
       const response = await usePasskey(challenge.options);
       const result = await loginWithPasskey(challenge.challengeId, response);
       onSignedIn(result.user);
     } catch (err) {
-      // Cancelling the system prompt is a decision, not a failure, so it
-      // leaves the screen as it was rather than reporting an error.
-      if (!wasCancelled(err)) setError(err.message);
+      // The browser reports a cancelled prompt and a device that could not
+      // help in exactly the same way, on purpose — telling them apart would
+      // tell a stranger which passkeys you hold. So this cannot say which
+      // happened, and says what to do about either instead.
+      if (wasCancelled(err)) setHint(describeFailure());
+      else setError(`${err.message}${err.name ? ` (${err.name})` : ''}`);
       setBusy(false);
     }
   }
@@ -145,6 +161,7 @@ export default function Login({ needsSetup, onSignedIn }) {
                 setRecovering(false);
                 setBusy(false);
                 setError(null);
+                setHint(null);
               }}
             >
               Use my device instead
@@ -166,6 +183,11 @@ export default function Login({ needsSetup, onSignedIn }) {
               <button className="primary" onClick={confirmWithDevice} disabled={busy}>
                 <Shield size={15} /> {busy ? 'Waiting for your device…' : 'Confirm with your device'}
               </button>
+              {hint && (
+                <span className="muted" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
+                  {hint}
+                </span>
+              )}
               {error && <div className="error-text">{error}</div>}
             </>
           ) : (
@@ -183,6 +205,7 @@ export default function Login({ needsSetup, onSignedIn }) {
               setRecovering(true);
               setBusy(false);
               setError(null);
+              setHint(null);
             }}
           >
             Use a recovery code

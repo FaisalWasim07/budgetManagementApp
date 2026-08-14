@@ -169,6 +169,22 @@ async function finishRegistration(user, challengeId, response, label) {
 
 // ── Signing in with one ────────────────────────────────────────────────
 
+// A passkey made on a phone reports itself as `internal` — meaning "built into
+// the device I was made on". Passed back verbatim, a laptop reads that as "not
+// here" and fails on its own built-in authenticator without ever offering the
+// phone, which is the whole point of a passkey being portable.
+//
+// `hybrid` is the transport for the scan-a-QR-with-your-phone route, so any
+// credential that lives inside a device is offered that way too. The device
+// that actually holds it still takes the fast path; the others now have a path
+// at all.
+function loginTransports(stored) {
+  const transports = toTransports(stored);
+  if (!transports) return undefined;
+  if (!transports.includes('internal') || transports.includes('hybrid')) return transports;
+  return [...transports, 'hybrid'];
+}
+
 async function startLogin(user) {
   const credentials = await listCredentials(user.id);
   const options = await generateAuthenticationOptions({
@@ -176,7 +192,7 @@ async function startLogin(user) {
     userVerification: 'required',
     allowCredentials: credentials.map((c) => ({
       id: c.credential_id,
-      transports: toTransports(c.transports),
+      transports: loginTransports(c.transports),
     })),
   });
 
