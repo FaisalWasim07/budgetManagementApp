@@ -208,10 +208,26 @@ function convert(amount, rateInfo) {
   return amount * rateInfo.rate;
 }
 
-async function getSummary(householdId, month) {
+// Whoever is looking comes first. Creation order is otherwise the order, which
+// means the person who set the household up leads everyone else's dashboard
+// forever — and, because every entry form takes its default account from the
+// first person in this list, it also means the second person's spending starts
+// out pointed at the first person's account.
+//
+// A viewer not linked to anyone here sees the order unchanged.
+async function getSummary(householdId, month, viewerUserId = null) {
   const [primary, persons, allAccounts, ledger] = await Promise.all([
     settingsService.primaryCurrency(householdId),
-    db.all('SELECT id, name FROM persons WHERE household_id = ? ORDER BY id', [householdId]),
+    db.all(
+      // `IS TRUE` rather than a plain boolean: comparing against null yields
+      // null, not false, and a null sorts as though it had matched. It also
+      // keeps the comparison against the column, which is what gives the
+      // parameter a type — `? IS NOT NULL` alone leaves Postgres unable to
+      // infer one at all.
+      `SELECT id, name, user_id FROM persons WHERE household_id = ?
+       ORDER BY (user_id = ?) IS TRUE DESC, id`,
+      [householdId, viewerUserId]
+    ),
     db.all(
       'SELECT * FROM accounts WHERE household_id = ? AND is_active = 1 ORDER BY person_id, sort_order, id',
       [householdId]
@@ -284,6 +300,9 @@ async function getSummary(householdId, month) {
     return {
       id: person.id,
       name: person.name,
+      // Which login this person is, when one has been matched. The client uses
+      // it to know which card is yours; nothing about the money depends on it.
+      userId: person.user_id ?? null,
       accounts: accountSummaries,
       income: sumPrimary('income'),
       expenses: sumPrimary('expense'),

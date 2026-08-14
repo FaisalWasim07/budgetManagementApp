@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { listUsers, changePassword, setEmail } from '../api/auth';
+import { listPersons, setPersonUser } from '../api/persons';
 
 // Managing who can sign in. Deliberately separate from `persons` in the
 // budget — adding a login here does not create a person, because whose money
 // an account holds is a different question from who can open the app.
-export default function LoginSettings({ user, onSignedOut }) {
+export default function LoginSettings({ user, onSignedOut, onChanged }) {
   const [users, setUsers] = useState([]);
+  const [persons, setPersons] = useState([]);
   const [mode, setMode] = useState(null); // null | 'password'
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -21,7 +23,10 @@ export default function LoginSettings({ user, onSignedOut }) {
         setEmailValue(list.find((u) => u.id === user.id)?.email ?? '');
       })
       .catch(() => {});
+    listPersons().then(setPersons, () => {});
   }, [user.id]);
+
+  const mine = persons.find((p) => p.user_id === user.id) ?? null;
 
   function reset() {
     setMode(null);
@@ -104,6 +109,47 @@ export default function LoginSettings({ user, onSignedOut }) {
           password for you.
         </span>
       </label>
+
+      {/* Usually already answered — the app matches logins to people by name,
+          and by elimination where the count leaves only one possibility. This
+          is here for the households where it couldn't tell, and to correct it
+          if it got the wrong one. */}
+      {persons.length > 0 && (
+        <label className="field">
+          You are
+          <select
+            value={mine?.id ?? ''}
+            disabled={busy}
+            onChange={async (e) => {
+              const id = e.target.value ? Number(e.target.value) : null;
+              setBusy(true);
+              setError(null);
+              try {
+                if (id) await setPersonUser(id, user.id);
+                else if (mine) await setPersonUser(mine.id, null);
+                setPersons(await listPersons());
+                setNote('Saved.');
+                onChanged?.();
+              } catch (err) {
+                setError(err.message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <option value="">Nobody in particular</option>
+            {persons.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted">
+            Which of the people in this budget is you. Your own money then leads your dashboard, and
+            new entries start on your account instead of whoever was added first.
+          </span>
+        </label>
+      )}
 
       {mode === null && (
         <div className="row-tight">

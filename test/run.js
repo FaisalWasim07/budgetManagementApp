@@ -20,6 +20,7 @@ const SUITES = [
   'api/recurring.test.js',
   'api/rates.test.js',
   'api/passkeys.test.js',
+  'api/whois.test.js',
   'api/households.test.js',
   'api/reset.test.js',
 ];

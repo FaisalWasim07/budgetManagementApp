@@ -64,6 +64,65 @@ async function adoptExistingDataIntoAHousehold(t) {
   return { household: household.id, people: orphans.count, users: users.length };
 }
 
+// Works out, for households that already exist, which person each login is —
+// without ever guessing.
+//
+// Two passes. The first matches on name, which is certain enough: a login
+// called "faisal" in a household with exactly one person called "Faisal" is
+// that person. The second is elimination, and only runs where it is a
+// deduction rather than a hunch — as many members as people, and exactly one
+// of each left over. That last pair is forced, because there is no spare
+// person for it to be wrong about.
+//
+// A household with a person who has no login (a child's savings) has more
+// people than members, so elimination never fires there at all. Anything left
+// unmatched stays null and the app behaves exactly as it did before.
+async function linkPeopleToTheirLogins(t) {
+  const households = await t.all('SELECT id FROM households');
+  let linked = 0;
+
+  for (const household of households) {
+    const people = await t.all(
+      'SELECT id, name, user_id FROM persons WHERE household_id = ? ORDER BY id',
+      [household.id]
+    );
+    const members = await t.all(
+      `SELECT m.user_id, u.username FROM household_members m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.household_id = ? ORDER BY m.user_id`,
+      [household.id]
+    );
+
+    const taken = new Set(people.map((p) => p.user_id).filter(Boolean));
+    const free = () => people.filter((p) => !p.user_id);
+
+    const claim = async (person, userId) => {
+      await t.run('UPDATE persons SET user_id = ? WHERE id = ?', [userId, person.id]);
+      person.user_id = userId;
+      taken.add(userId);
+      linked += 1;
+    };
+
+    // Pass one: an unambiguous name match.
+    for (const member of members) {
+      if (taken.has(member.user_id)) continue;
+      const matches = free().filter(
+        (p) => p.name.trim().toLowerCase() === member.username.trim().toLowerCase()
+      );
+      if (matches.length === 1) await claim(matches[0], member.user_id);
+    }
+
+    // Pass two: elimination, only where the counts say nobody is left out.
+    if (people.length !== members.length) continue;
+    const strays = members.filter((m) => !taken.has(m.user_id));
+    if (strays.length === 1 && free().length === 1) {
+      await claim(free()[0], strays[0].user_id);
+    }
+  }
+
+  return linked;
+}
+
 async function run() {
   const notes = [];
 
@@ -152,6 +211,30 @@ async function run() {
     );
   }
 
+  // ── Which person is which login ────────────────────────────────────────
+  // Deliberately nullable and deliberately separate from the two tables it
+  // joins: a person is whose money an account holds, a user is someone who can
+  // open the app, and a household may hold a person with no login at all — a
+  // child's savings, say. This only records that some of them are the same
+  // human, which is what lets the app show you your own money first.
+  if ((await tableExists('persons')) && !(await columnExists('persons', 'user_id'))) {
+    await db.exec(
+      'ALTER TABLE persons ADD COLUMN user_id integer REFERENCES users(id) ON DELETE SET NULL'
+    );
+    // One each way, per household: a login is at most one person here, and a
+    // person is at most one login.
+    await db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_user_household
+         ON persons (household_id, user_id) WHERE user_id IS NOT NULL`
+    );
+    const linked = await db.tx(linkPeopleToTheirLogins);
+    notes.push(
+      linked > 0
+        ? `matched ${linked} person(s) to the login that is them`
+        : 'people can now be matched to their login'
+    );
+  }
+
   // ── Passkeys ───────────────────────────────────────────────────────────
   // A second factor after the password. Three tables rather than columns on
   // `users`, because each is a list: a person has several devices, ten recovery
@@ -219,4 +302,7 @@ async function run() {
   return notes;
 }
 
-module.exports = { run };
+// linkPeopleToTheirLogins is exported for the tests: `run` only calls it the
+// once, when the column is first added, which is right — a reboot must not
+// re-link someone who deliberately said they were nobody in particular.
+module.exports = { run, linkPeopleToTheirLogins };

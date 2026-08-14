@@ -187,6 +187,20 @@ an account holds; a member is someone who can open the app. They usually line up
 but the app never assumes it — a household can track a child's savings without
 that child having a login.
 
+Where they *do* line up, the app records it, and then **you see your own money
+first**: your card leads your dashboard and new entries start on your account
+rather than on whoever was added to the household earliest. The same budget,
+ordered for whoever is looking.
+
+It works this out rather than asking. Someone added through **Add someone
+directly** is linked as they are created. For households that predate this, a
+migration matches on name, and then by elimination — where there are as many
+members as people and only one pairing left, that pairing is forced. A household
+holding a person with no login has more people than members, so elimination
+never fires there and nothing is guessed. Anything it cannot settle is left
+blank, which behaves exactly as before, and **Settings → Account → You are**
+sets it by hand.
+
 ### Giving the app to someone else
 
 Anyone with an account on the same deployment can create their own household,
@@ -535,7 +549,7 @@ with `PORT=5001 npm start`.
 TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
 ```
 
-191 checks over the API: the money maths, editing entries and transfers,
+207 checks over the API: the money maths, editing entries and transfers,
 recurring money and exchange rates over time — both of which must never let
 today rewrite what a past month said — household isolation, roles and invites,
 who may reset whose password, and passkeys. The

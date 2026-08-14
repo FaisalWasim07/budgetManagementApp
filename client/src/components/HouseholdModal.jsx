@@ -11,7 +11,7 @@ import {
   addMember,
   resetMemberPassword,
 } from '../api/households';
-import { createPerson, deletePerson } from '../api/persons';
+import { createPerson, deletePerson, setPersonUser } from '../api/persons';
 import { Trash } from './icons';
 
 const ROLES = [
@@ -120,6 +120,31 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
               name={person.name}
               meta={`${person.accounts.length} account${person.accounts.length === 1 ? '' : 's'}`}
             >
+              {/* An owner can say who is who without the other person having
+                  to go and find a setting. Usually already filled in — the app
+                  matches on name, and by elimination where only one pairing is
+                  possible. */}
+              {isOwner && (
+                <select
+                  aria-label={`Which login is ${person.name}`}
+                  className="compact"
+                  value={person.userId ?? ''}
+                  disabled={busy}
+                  onChange={(e) =>
+                    act(async () => {
+                      await setPersonUser(person.id, e.target.value ? Number(e.target.value) : null);
+                      onChanged();
+                    })
+                  }
+                >
+                  <option value="">No login</option>
+                  {members.map((member) => (
+                    <option key={member.user_id} value={member.user_id}>
+                      {member.username}
+                    </option>
+                  ))}
+                </select>
+              )}
               {/* Only someone with nothing recorded can go. Removing a person
                   who holds accounts would take their money with them. */}
               {isOwner && person.accounts.length === 0 && (

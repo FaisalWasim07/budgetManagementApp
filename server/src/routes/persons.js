@@ -9,10 +9,75 @@ router.get(
   h(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, name, created_at FROM persons WHERE household_id = ? ORDER BY id',
+        'SELECT id, name, user_id, created_at FROM persons WHERE household_id = ? ORDER BY id',
         [req.household.id]
       )
     );
+  })
+);
+
+// Says which person a login is. You may always set your own; an owner may set
+// anyone's, which is how a household gets sorted out without talking the other
+// person through a settings screen.
+//
+// Nothing about the money moves — this only decides whose card leads a
+// dashboard and which account an entry form starts on.
+router.put(
+  '/:id/user',
+  h(async (req, res) => {
+    const target = req.body.user_id == null ? null : Number(req.body.user_id);
+    const personId = Number(req.params.id);
+    const isOwner = req.household.role === 'owner';
+
+    if (!Number.isInteger(personId) || (target !== null && !Number.isInteger(target))) {
+      return res.status(400).json({ error: 'That is not a valid id.' });
+    }
+
+    if (target !== null && target !== req.user.id && !isOwner) {
+      return res.status(403).json({ error: 'Only an owner can do that for someone else.' });
+    }
+
+    const person = await db.get(
+      'SELECT id, user_id FROM persons WHERE id = ? AND household_id = ?',
+      [personId, req.household.id]
+    );
+    if (!person) return res.status(404).json({ error: 'No such person.' });
+
+    // Saying which person you are must not quietly stop someone else being
+    // theirs. Taking a person who already belongs to another login, or letting
+    // go of one that isn't yours, is an owner's job.
+    if (!isOwner) {
+      const holder = person.user_id;
+      if (holder != null && holder !== req.user.id) {
+        return res.status(409).json({ error: 'Someone else is already that person.' });
+      }
+      if (target === null && holder !== req.user.id) {
+        return res.status(403).json({ error: 'Only an owner can do that for someone else.' });
+      }
+    }
+
+    if (target !== null) {
+      const member = await db.get(
+        'SELECT 1 FROM household_members WHERE household_id = ? AND user_id = ?',
+        [req.household.id, target]
+      );
+      if (!member) return res.status(404).json({ error: 'That login is not in this household.' });
+    }
+
+    // One login is one person here, so claiming it takes it off whoever held
+    // it — otherwise the unique index rejects the whole thing and the person
+    // doing the tidying gets an error instead of the result they asked for.
+    await db.tx(async (t) => {
+      if (target !== null) {
+        await t.run(
+          'UPDATE persons SET user_id = NULL WHERE household_id = ? AND user_id = ? AND id <> ?',
+          [req.household.id, target, person.id]
+        );
+      }
+      await t.run('UPDATE persons SET user_id = ? WHERE id = ?', [target, person.id]);
+    });
+
+    res.json(await db.get('SELECT id, name, user_id FROM persons WHERE id = ?', [person.id]));
   })
 );
 

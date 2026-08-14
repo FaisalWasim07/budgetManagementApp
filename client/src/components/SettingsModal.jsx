@@ -208,7 +208,9 @@ export default function SettingsModal({
   // must not save currency settings.
   const accountTab = () => (
     <div className="stack">
-      <LoginSettings user={user} onSignedOut={onSignedOut} />
+      {/* onSaved so that saying which person you are reorders the dashboard
+          behind the dialog straight away. */}
+      <LoginSettings user={user} onSignedOut={onSignedOut} onChanged={onSaved} />
       <hr className="divider" />
       <PasskeySettings />
     </div>

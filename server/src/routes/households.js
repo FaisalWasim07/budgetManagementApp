@@ -161,14 +161,21 @@ router.post(
 
     if (addPerson) {
       const existing = await db.get(
-        'SELECT id FROM persons WHERE household_id = ? AND lower(name) = lower(?)',
+        'SELECT id, user_id FROM persons WHERE household_id = ? AND lower(name) = lower(?)',
         [req.membership.id, user.username]
       );
-      if (!existing) {
+      // A person by that name already here and unclaimed is this login: adding
+      // them directly is exactly the moment the app knows the two are the same
+      // human, so it never has to guess later.
+      if (existing) {
+        if (!existing.user_id) {
+          await db.run('UPDATE persons SET user_id = ? WHERE id = ?', [user.id, existing.id]);
+        }
+      } else {
         await db.tx(async (t) => {
           const person = await t.get(
-            'INSERT INTO persons (household_id, name) VALUES (?, ?) RETURNING id',
-            [req.membership.id, user.username]
+            'INSERT INTO persons (household_id, name, user_id) VALUES (?, ?, ?) RETURNING id',
+            [req.membership.id, user.username, user.id]
           );
           const { next } = await t.get(
             'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM accounts WHERE household_id = ?',

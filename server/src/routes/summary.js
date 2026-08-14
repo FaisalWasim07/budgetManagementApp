@@ -22,7 +22,7 @@ router.get(
 router.get(
   '/:month',
   h(async (req, res) => {
-    res.json(await summaryService.getSummary(req.household.id, req.params.month));
+    res.json(await summaryService.getSummary(req.household.id, req.params.month, req.user.id));
   })
 );
 
