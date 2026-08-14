@@ -84,16 +84,16 @@ export default function TransactionEditModal({
       <form className="stack" onSubmit={save}>
         {isTransfer ? (
           <>
-            <span className="muted" style={{ fontSize: '0.85rem' }}>
-              {nameOf(outLeg)} → {nameOf(inLeg)}
+            <span className="secondary" style={{ fontSize: '0.88rem' }}>
+              <b>{nameOf(outLeg)}</b> → <b>{nameOf(inLeg)}</b>
             </span>
             <div className="row">
               <label className="field grow">
-                Left {nameOf(outLeg)} ({currencyOf(outLeg)})
+                Left ({currencyOf(outLeg)})
                 <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} autoFocus />
               </label>
               <label className="field grow">
-                Arrived in {nameOf(inLeg)} ({currencyOf(inLeg)})
+                Arrived ({currencyOf(inLeg)})
                 <input
                   type="number"
                   min="0"
