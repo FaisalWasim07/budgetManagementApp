@@ -339,6 +339,11 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
 .account-row:hover { background: var(--surface-2); }
+/* An open row keeps the card's own colour, including under the cursor that
+   just opened it. Tinted, it was the same shade as the panel beneath and the
+   two read as one slab rather than as a row and its contents. */
+.account-row[aria-expanded='true'],
+.account-row[aria-expanded='true']:hover { background: var(--surface); }
 .account-row .name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .account-row .name b { font-weight: 550; font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-row .meta { font-size: .74rem; color: var(--ink-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -389,8 +394,16 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 
 /* 0fr → 1fr is the one way to animate a height the browser can't
    otherwise interpolate. */
-.detail { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s cubic-bezier(.22,.9,.3,1); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
-.detail.open { grid-template-rows: 1fr; }
+/* Closed, this is a zero-height sliver — but a border draws whatever the
+   content height is, so every collapsed account was laying a second 1px line
+   directly under the row's own divider. Transparent keeps the height it
+   already occupied; only an open panel needs a line before the next row. */
+.detail {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows .3s cubic-bezier(.22,.9,.3,1);
+  background: var(--surface-2); border-bottom: 1px solid transparent;
+}
+.detail.open { grid-template-rows: 1fr; border-bottom-color: var(--line-soft); }
 .detail > div { overflow: hidden; }
 .detail-inner { padding: 4px 18px 14px; }
 .entries { list-style: none; margin: 0; padding: 0; }
