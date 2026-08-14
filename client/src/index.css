@@ -258,7 +258,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 }
 .hero .value { font-size: clamp(2.4rem, 7vw, 3.6rem); font-weight: 620; letter-spacing: -.035em; line-height: 1; margin: 6px 0 0; }
 .hero .value .cur { font-size: .42em; font-weight: 500; letter-spacing: 0; color: var(--ink-3); margin-right: .35em; vertical-align: .28em; }
-.hero .delta { display: inline-flex; align-items: center; gap: 6px; margin: 9px 0 0; font-size: .88rem; color: var(--ink-2); }
+/* Prose, not a flex row: as a flex row each phrase was its own item, so on a
+   narrow screen "a year" and "a month coming in" broke onto lines of their
+   own with the separator left hanging. */
+.hero .delta { display: block; margin: 9px 0 0; font-size: .88rem; color: var(--ink-2); line-height: 1.5; }
 .hero .delta strong { font-weight: 600; }
 .hero .delta strong.up { color: var(--pos); }
 .hero .delta strong.down { color: var(--neg); }
@@ -664,7 +667,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .month-nav .m .short { display: inline; }
   .nav { display: none; }
   .quick { display: none; }
-  .hero { grid-template-columns: 1fr; align-items: start; gap: 8px; padding: 18px 0 16px; }
+  /* The horizontal padding matches .card: the hero became one, and was still
+     being padded as though it were a bare block. */
+  .hero { grid-template-columns: 1fr; align-items: start; gap: 8px; padding: 18px 16px 16px; }
   .hero .spark { width: 100%; height: 44px; }
   .breakdown { grid-template-columns: 1fr 1fr; gap: 13px 12px; }
   .person-figures { grid-template-columns: 1fr 1fr; gap: 10px; }

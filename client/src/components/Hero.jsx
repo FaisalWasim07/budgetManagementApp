@@ -85,7 +85,7 @@ export default function Hero({ summary, trend, month }) {
                 compact
                 prefix={delta >= 0 ? '+' : '−'}
               />
-            </strong>
+            </strong>{' '}
             since {formatMonth(shiftMonth(month, -1)).split(' ')[0]}
             {household.savings > 0 && (
               <>
