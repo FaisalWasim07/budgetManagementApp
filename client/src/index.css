@@ -608,6 +608,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .hbar .t span { display: block; height: 100%; border-radius: 999px; background: var(--series-in); transition: width .8s cubic-bezier(.22,.9,.3,1); }
 
 /* ── Auth screens ────────────────────────────────────────────────── */
+/* The splash. Held back for a moment before it appears: a warm load resolves
+   in well under that, and a logo that flashes for three frames looks like a
+   fault rather than a start. */
+.splash {
+  min-height: 82vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  animation: fade .5s ease .15s both;
+}
+.splash .brand { padding: 0; }
+.splash .wordmark { display: inline; font-size: 1.6rem; letter-spacing: -.025em; }
+.splash .spinner { width: 18px; height: 18px; }
+
 /* The sign-in screen is the one place with room for the full lockup, and the
    only page where the app has to say what it is. */
 .auth-brand { margin-bottom: 8px; }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import App from './App';
 import Login from './pages/Login';
+import Splash from './components/Splash';
 import { getAuthStatus } from './api/auth';
 import { UNAUTHORIZED_EVENT } from './api/client';
 
@@ -46,16 +47,7 @@ export default function AuthGate() {
     );
   }
 
-  if (!status) {
-    return (
-      <div className="auth-screen">
-        <div className="card row-tight auth-card">
-          <span className="spinner" aria-hidden="true" />
-          <span className="secondary">Starting up…</span>
-        </div>
-      </div>
-    );
-  }
+  if (!status) return <Splash />;
 
   if (!status.user) {
     return (

@@ -9,6 +9,7 @@ import HouseholdMenu from './components/HouseholdMenu';
 import HouseholdModal from './components/HouseholdModal';
 import OverflowMenu from './components/OverflowMenu';
 import AddSheet from './components/AddSheet';
+import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
 import { Bars, Eye, EyeOff, Home, Mark, Plus, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
@@ -130,16 +131,9 @@ export default function App({ user, onSignedOut }) {
     return () => document.removeEventListener('keydown', shortcut);
   }, [readOnly, page, accounts.length]);
 
-  if (households === null) {
-    return (
-      <div className="auth-screen">
-        <div className="card row-tight auth-card">
-          <span className="spinner" aria-hidden="true" />
-          <span className="secondary">Loading…</span>
-        </div>
-      </div>
-    );
-  }
+  // Same screen the auth check was already showing, so a cold open is one
+  // unbroken splash rather than two that swap.
+  if (households === null) return <Splash />;
 
   // No household at all, or they asked to add one. Either way the budget can't
   // be shown, so this takes over the screen rather than hiding in a corner.
@@ -233,10 +227,11 @@ export default function App({ user, onSignedOut }) {
 
         {error && <div className="card error-text">Couldn’t load: {error}</div>}
 
+        {/* The top bar is already up by now, so this is a placeholder for the
+            page under it rather than a screen of its own — no words needed. */}
         {!summary && !error && (
-          <div className="card row-tight">
-            <span className="spinner" aria-hidden="true" />
-            <span className="secondary">Loading your budget…</span>
+          <div className="card row-tight" style={{ justifyContent: 'center', padding: 28 }}>
+            <span className="spinner" role="status" aria-label="Loading" />
           </div>
         )}
 
