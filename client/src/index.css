@@ -736,10 +736,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
 
 /* Rows that span their container take the ring on the inside: offset outwards
-   it would sit on top of the row above and below, and past the card's edge. */
-.account-row:focus-visible,
-.txn:focus-visible,
-.list-row:focus-visible { outline-offset: -2px; }
+   it would sit on top of the row above and below, and past the card's edge.
+   The divider goes transparent rather than away, so the ring is the only line
+   along the bottom and the row keeps its height either way. */
+.account-row:focus-visible { outline-offset: -2px; border-bottom-color: transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
