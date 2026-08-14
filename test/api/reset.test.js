@@ -20,10 +20,51 @@ const u = unique();
   const badEmail = await client().post('/api/auth/signup', { username: `bad_${u}`, password: 'badpass12345', email: 'not-an-email' });
   check('a malformed email is refused', badEmail.status === 400, String(badEmail.status));
 
+  // --- signing in with either name ----------------------------------------
+  const byEmail = await client().post('/api/auth/login', {
+    username: `own_${u}@example.com`,
+    password: 'ownerpass123',
+  });
+  check('the email signs you in as well as the username', byEmail.data.user?.username === `own_${u}`, JSON.stringify(byEmail.data));
+
+  const byShouty = await client().post('/api/auth/login', {
+    username: `OWN_${u}@EXAMPLE.COM`.toUpperCase(),
+    password: 'ownerpass123',
+  });
+  check('and case does not matter', byShouty.data.user?.username === `own_${u}`, String(byShouty.status));
+
+  const byUsername = await client().post('/api/auth/login', {
+    username: `own_${u}`,
+    password: 'ownerpass123',
+  });
+  check('the username still works', byUsername.data.user?.username === `own_${u}`, String(byUsername.status));
+
+  const strangerEmail = await client().post('/api/auth/login', {
+    username: `nobody_${u}@example.com`,
+    password: 'ownerpass123',
+  });
+  check('an address with no account is refused', strangerEmail.status === 401, String(strangerEmail.status));
+  check(
+    'and is refused in the same words as a wrong password, so it cannot be used to find out who has an account',
+    strangerEmail.data.error === 'Wrong username or password.',
+    strangerEmail.data.error
+  );
+
   const changed = await owner.post('/api/auth/email', { email: `new_${u}@example.com` });
   check('email can be changed later', changed.data.email === `new_${u}@example.com`, JSON.stringify(changed.data));
+
+  const byOldEmail = await client().post('/api/auth/login', {
+    username: `own_${u}@example.com`,
+    password: 'ownerpass123',
+  });
+  check('the old address stops working once it is changed', byOldEmail.status === 401, String(byOldEmail.status));
+
   const cleared = await owner.post('/api/auth/email', { email: '' });
   check('and cleared', cleared.data.email === null, JSON.stringify(cleared.data));
+
+  // An account with no address at all must not be reachable by an empty one.
+  const emptyLogin = await client().post('/api/auth/login', { username: '', password: 'ownerpass123' });
+  check('an empty name signs nobody in', emptyLogin.status === 401, String(emptyLogin.status));
 
   // --- owner resets a member ---------------------------------------------
   const added = await owner.post(`/api/households/${hh.data.id}/members`, {

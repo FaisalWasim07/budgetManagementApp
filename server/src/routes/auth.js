@@ -134,11 +134,15 @@ router.post(
       return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
     }
 
+    // Either name for the same person. `username` is still what the field is
+    // called on the wire, because that is what older clients send.
     const { username, password } = req.body;
-    const user = username ? await authService.findUser(username) : null;
+    const user = await authService.findByLogin(username);
 
-    // Same message and same code path whether the username or the password was
-    // wrong, so neither can be probed for independently.
+    // Same message and same code path whether the name or the password was
+    // wrong, so neither can be probed for independently — and the message says
+    // nothing about which of the two you typed, so it cannot be used to find
+    // out whether an address has an account here.
     if (!user || !authService.verifyPassword(String(password ?? ''), user.password_hash)) {
       recordFailure(key);
       return res.status(401).json({ error: 'Wrong username or password.' });

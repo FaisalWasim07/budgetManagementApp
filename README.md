@@ -204,6 +204,11 @@ The first time you open the app it asks you to choose a username and password,
 then to create your first household. The password is stored (hashed with scrypt)
 in your own database.
 
+**Either name signs you in** — your username, or the email address on your
+account if you've set one in Settings. A wrong address is refused in exactly the
+same words as a wrong password, so the form can't be used to find out whether an
+address has an account here.
+
 - **Settings → Change my password** replaces yours and signs every device out,
   so a password change actually locks out anything you've forgotten about.
 - Staying signed in lasts 30 days per device.
@@ -267,9 +272,9 @@ machinery for something that happens once a year. Two ways back in instead:
   `DATABASE_URL`, which is the honest boundary anyway — anyone who can reach the
   database can already change any row in it.
 
-Accounts can hold an **optional email address**. Nothing is sent to it today; it
-exists so that adding self-service reset later is a contained change rather than
-having to collect addresses from everyone first.
+Accounts can hold an **optional email address**. Nothing is ever sent to it — it
+is a second name to sign in with, and a head start if self-service reset is ever
+added, rather than having to collect addresses from everyone first.
 
 ## Database
 
@@ -530,7 +535,7 @@ with `PORT=5001 npm start`.
 TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
 ```
 
-181 checks over the API: the money maths, editing entries and transfers,
+191 checks over the API: the money maths, editing entries and transfers,
 recurring money and exchange rates over time — both of which must never let
 today rewrite what a past month said — household isolation, roles and invites,
 who may reset whose password, and passkeys. The

@@ -66,16 +66,15 @@ export default function LoginSettings({ user, onSignedOut }) {
         bare login here would not.
       </span>
 
-      {/* Nothing is sent to this address today. It is here so that if
-          self-service password reset is ever added, the address already
-          exists rather than having to be collected from everyone first. */}
+      {/* Nothing is *sent* to this address — it is a second name to sign in
+          with, and a head start if self-service reset is ever added. */}
       <label className="field">
         Your email (optional)
         <div className="row-tight">
           <input
             className="grow"
             type="email"
-            placeholder="not used for anything yet"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmailValue(e.target.value)}
           />
@@ -100,8 +99,9 @@ export default function LoginSettings({ user, onSignedOut }) {
           </button>
         </div>
         <span className="muted">
-          Stored only. No password reset by email exists — if you're locked out, another owner of
-          your household can set a new password for you.
+          You can sign in with this instead of your username. Nothing is ever sent to it — there is
+          no reset by email, so if you're locked out, another owner of your household can set a new
+          password for you.
         </span>
       </label>
 

@@ -204,8 +204,9 @@ export default function Login({ needsSetup, onSignedIn }) {
         {heading}
 
         <label className="field">
-          Username
+          {needsSetup ? 'Username' : 'Username or email'}
           <input
+            type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"

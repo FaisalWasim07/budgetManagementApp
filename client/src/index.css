@@ -442,8 +442,12 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 /* ── Forms ───────────────────────────────────────────────────────── */
 input, select, button, textarea { font-family: inherit; font-size: .92rem; }
 
-input[type='text'], input[type='number'], input[type='month'], input[type='date'],
-input[type='password'], input[type='email'], select, textarea {
+/* Everything except the controls that have to keep their native look. This
+   used to name each type it wanted, which meant an input written without a
+   `type` at all — text is the default, so it is easy to leave off — got no
+   styling and sat in a form looking like a stray from another website. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select, textarea {
   padding: 9px 11px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); width: 100%;
 }

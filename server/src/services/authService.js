@@ -50,6 +50,18 @@ function findUser(username) {
   return db.get('SELECT * FROM users WHERE lower(username) = lower(?)', [String(username).trim()]);
 }
 
+// Signing in accepts either. Which one you typed is a detail — you are trying
+// to say who you are, and the app knows both names for that.
+//
+// Username is tried first so that a username can never be shadowed by someone
+// else putting it in their email field. Both are already unique, so at most one
+// row can match either way.
+async function findByLogin(value) {
+  const cleaned = String(value ?? '').trim();
+  if (!cleaned) return null;
+  return (await findUser(cleaned)) ?? (cleaned.includes('@') ? findByEmail(cleaned) : null);
+}
+
 async function setPassword(userId, password) {
   await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), userId]);
   // Changing a password ends every other session for that user.
@@ -89,6 +101,7 @@ const purgeExpiredSessions = () => db.run('DELETE FROM sessions WHERE expires_at
 
 module.exports = {
   findByEmail,
+  findByLogin,
   setEmail,
   hashPassword,
   verifyPassword,
