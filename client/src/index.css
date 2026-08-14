@@ -850,6 +850,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   /* No action strip. Two icon buttons per entry took a second line each, so a
      month of spending was twice as long as it needed to be — the row itself
      opens the editor instead, and Delete lives inside it. */
+  /* Form fields go one per line. Two number boxes sharing a phone's width
+     come out about 160px each — enough to type into, not enough to read back
+     a six-figure amount, and the labels above them start truncating. */
+  .row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .row > .field, .row > .field.grow { flex: none; width: 100%; }
+
   .txn-acts { display: none; }
   .txn.tappable { cursor: pointer; }
   .txn .what small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
