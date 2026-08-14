@@ -328,9 +328,14 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .person-figures .v.out { color: var(--neg); }
 
 .rows { border-top: 1px solid var(--line-soft); }
+/* A line in a ledger, not a button chip. It is a <button> because it does
+   something when clicked, and so it was picking up the 12px radius every
+   button gets — which drew a rounded hover fill and a rounded focus ring
+   inside a list whose own dividers run straight across. Two shapes, one row.
+   The card around it is what supplies the rounded corners. */
 .account-row {
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 18px;
-  background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+  background: none; border: 0; border-radius: 0; border-bottom: 1px solid var(--line-soft);
   font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
 .account-row:hover { background: var(--surface-2); }
@@ -723,7 +728,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .money .reveal { display: inline-block; animation: reveal .42s cubic-bezier(.22,.9,.3,1) both; }
 @keyframes reveal { from { opacity: 0; transform: translateY(3px) scale(.96); filter: blur(3px); } }
 
-:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 6px; }
+/* No border-radius here. It used to force 6px onto whatever was focused, which
+   reshapes the element itself rather than the ring — a full-width row would
+   round its own corners the moment you tabbed to it, inside a list whose
+   dividers stay straight. An outline follows the element's own radius on its
+   own, so there is nothing to say. */
+:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+
+/* Rows that span their container take the ring on the inside: offset outwards
+   it would sit on top of the row above and below, and past the card's edge. */
+.account-row:focus-visible,
+.txn:focus-visible,
+.list-row:focus-visible { outline-offset: -2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
