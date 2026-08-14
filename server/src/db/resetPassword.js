@@ -12,6 +12,10 @@ const authService = require('../services/authService');
 //   npm run reset-password -- <username> [new password]
 //
 // With no password given, one is generated and printed.
+//
+// Passkeys go too. A new password is no use on an account whose second factor
+// lives on a phone at the bottom of a lake, and this is the one place with the
+// standing to say so — it already requires the database.
 
 function generated() {
   // Unambiguous alphabet: no 0/O or 1/l to misread when typing it back in.
@@ -49,8 +53,22 @@ async function main() {
   // locks out whatever was already signed in.
   await authService.setPassword(user.id, password);
 
+  const keys = await db.get('SELECT COUNT(*) AS count FROM credentials WHERE user_id = ?', [
+    user.id,
+  ]);
+  await db.run('DELETE FROM credentials WHERE user_id = ?', [user.id]);
+  await db.run('DELETE FROM recovery_codes WHERE user_id = ?', [user.id]);
+  await db.run('DELETE FROM login_challenges WHERE user_id = ?', [user.id]);
+
   console.log(`\n  Password for ${user.username} is now:\n\n      ${password}\n`);
-  console.log('  Every device signed in as them has been signed out.\n');
+  console.log('  Every device signed in as them has been signed out.');
+  if (keys.count > 0) {
+    console.log(
+      `  ${keys.count} passkey${keys.count === 1 ? '' : 's'} removed — sign in with the password ` +
+        'above, then add a new one from Settings.'
+    );
+  }
+  console.log('');
 }
 
 main()

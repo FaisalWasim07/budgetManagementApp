@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import LoginSettings from './LoginSettings';
+import PasskeySettings from './PasskeySettings';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
 import { CURRENCIES } from '../utils/currency';
@@ -205,6 +206,9 @@ export default function SettingsModal({
           shouldn't save currency settings. */}
       <hr className="divider" />
       <LoginSettings user={user} onSignedOut={onSignedOut} />
+
+      <hr className="divider" />
+      <PasskeySettings />
     </Modal>
   );
 }

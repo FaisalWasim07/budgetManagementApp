@@ -210,6 +210,39 @@ in your own database.
 - Ten wrong passwords in a row locks further attempts from that device for 15
   minutes.
 
+### Passkeys
+
+**Settings → Passkeys** adds a second factor. After that, signing in asks for
+your password and then your face, fingerprint or device PIN — nothing to type,
+no code, no authenticator app, and nothing to install.
+
+A passkey is bound to the site that created it, so it cannot be handed to a
+convincing copy of the login page. That is the part a six-digit code can't do:
+a code can be typed into anything. The server stores only public keys, so
+someone who walked off with the whole database still could not sign a single
+assertion with it.
+
+It works on the laptop too. A passkey made on your phone syncs through iCloud
+Keychain or Google Password Manager, or the laptop shows a QR you scan with the
+phone, or you register a second one there — there is no need for a different
+method per device.
+
+- The password is checked first and gets you **nothing but a challenge**. No
+  session exists until the device has signed it.
+- Five wrong answers burn that challenge, counted in the database rather than in
+  memory, so a serverless host restarting doesn't reset the count.
+- **Ten recovery codes** are shown once, when you add your first passkey. Each
+  works once. Settings can issue a fresh set, which voids the old ones.
+- Removing your last passkey switches the second factor back off rather than
+  leaving an account only a recovery code can open. Removing any passkey asks
+  for your password, so an unlocked laptop can't quietly take it off.
+- `npm run reset-password` clears passkeys too — the last resort when a device
+  and the codes are both gone.
+
+Deployments need `RP_ID` and `RP_ORIGIN` set (see [Deploying](#deploying)).
+**A passkey is tied to the exact hostname it was made on**, so changing the app's
+URL means registering them again.
+
 Every API route except signing in requires a session, and every one that touches
 a budget is scoped to a household you are confirmed to belong to. Both checks are
 declared once, centrally, so a route added later cannot forget either.
@@ -497,11 +530,17 @@ with `PORT=5001 npm start`.
 TEST_DATABASE_URL=postgresql://user:pass@host:5432/budget_test npm test
 ```
 
-148 checks over the API: the money maths, editing entries and transfers,
+181 checks over the API: the money maths, editing entries and transfers,
 recurring money and exchange rates over time — both of which must never let
 today rewrite what a past month said — household isolation, roles and invites,
-and who may reset whose password. The
+who may reset whose password, and passkeys. The
 runner starts and stops its own server, so nothing needs to be running first.
+
+The passkey suite signs with a **real P-256 keypair** built in `node:crypto`,
+producing the same bytes a phone produces, rather than stubbing the verification
+out. So it genuinely covers a signature made for another origin being refused, a
+challenge that cannot be replayed, and a counter going backwards being read as a
+cloned device.
 
 `TEST_DATABASE_URL` is deliberately a different variable from `DATABASE_URL`.
 These suites create accounts, households and money — pointing them at the real
@@ -516,7 +555,8 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
-83 checks over three suites: signing in and out, household isolation and roles,
+110 checks over four suites: signing in and out, passkeys, household isolation
+and roles,
 and the dashboard itself — recording money from the strip and from the sheet,
 editing an entry, deleting one, moving money between accounts, adding and
 editing something recurring, stopping and restarting it, and amounts being
@@ -538,6 +578,14 @@ manual configuration in the dashboard beyond three environment variables:
 | `DATABASE_URL` | the Supabase **transaction pooler** string, port 6543 |
 | `COOKIE_SECURE` | `true` — the session cookie then only travels over HTTPS |
 | `TRUST_PROXY` | `true` — so the login rate limit sees the real client address |
+| `RP_ID` | the bare hostname, e.g. `thebayt.vercel.app` — no scheme, no path |
+| `RP_ORIGIN` | the full origin, e.g. `https://thebayt.vercel.app` |
+
+The last two are what passkeys are bound to. Get them wrong and registering one
+fails outright rather than half-working; **change the app's URL and existing
+passkeys stop working**, because a passkey is deliberately worthless anywhere but
+the hostname it was made on. Both default to localhost, so local development
+needs neither.
 
 `vercel.json` supplies the rest: the build produces `client/dist`, which is
 served as static files, and everything under `/api/` goes to a single serverless

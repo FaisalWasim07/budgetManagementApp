@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/pool');
 const authService = require('../services/authService');
+const webauthnService = require('../services/webauthnService');
 const {
   requireAuth,
   setSessionCookie,
@@ -44,6 +45,16 @@ function recordFailure(key) {
 }
 
 const clearFailures = (key) => attempts.delete(key);
+
+// The one place a session is minted. Three routes can end in one — password
+// alone, password then passkey, password then recovery code — and they must
+// not drift apart in what they set.
+async function signIn(res, user) {
+  await authService.purgeExpiredSessions();
+  const { token, expiresAt } = await authService.createSession(user.id);
+  setSessionCookie(res, token, expiresAt);
+  res.json({ user: { id: user.id, username: user.username } });
+}
 
 function validPassword(password) {
   if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
@@ -134,10 +145,65 @@ router.post(
     }
 
     clearFailures(key);
-    await authService.purgeExpiredSessions();
-    const { token, expiresAt } = await authService.createSession(user.id);
-    setSessionCookie(res, token, expiresAt);
-    res.json({ user: { id: user.id, username: user.username } });
+
+    // The password was right, but it is only the first half. No session is
+    // issued until the passkey answers — the challenge is the only thing that
+    // crosses the wire, and it is worth nothing without the device.
+    if (await webauthnService.hasPasskeys(user.id)) {
+      await webauthnService.purgeExpiredChallenges();
+      const { challengeId, options } = await webauthnService.startLogin(user);
+      return res.json({
+        needs: 'passkey',
+        challengeId,
+        options,
+        recoveryCodesLeft: await webauthnService.countRecoveryCodes(user.id),
+      });
+    }
+
+    await signIn(res, user);
+  })
+);
+
+// The second half. The challenge carries who is signing in, so this takes no
+// username and cannot be used to go fishing for one.
+router.post(
+  '/login/passkey',
+  h(async (req, res) => {
+    const { challengeId, response } = req.body;
+    const result = await webauthnService.finishLogin(challengeId, response);
+    if (!result.ok) return res.status(401).json({ error: result.error });
+
+    const user = await db.get('SELECT id, username FROM users WHERE id = ?', [result.userId]);
+    await signIn(res, user);
+  })
+);
+
+// The way back in when the device is gone. Each code works once, and the
+// attempt limit on the challenge covers this route too — the codes are long
+// enough that five guesses is nowhere near enough to matter.
+router.post(
+  '/login/recovery',
+  h(async (req, res) => {
+    const { challengeId, code } = req.body;
+    const row = await db.get(`SELECT * FROM login_challenges WHERE id = ? AND kind = 'login'`, [
+      challengeId ?? '',
+    ]);
+    if (!row || new Date(row.expires_at) < new Date()) {
+      return res.status(401).json({ error: 'That sign-in expired. Start again.' });
+    }
+    if (row.attempts >= webauthnService.MAX_CHALLENGE_ATTEMPTS) {
+      await db.run('DELETE FROM login_challenges WHERE id = ?', [row.id]);
+      return res.status(429).json({ error: 'Too many tries. Start again.' });
+    }
+    await db.run('UPDATE login_challenges SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+
+    if (!(await webauthnService.useRecoveryCode(row.user_id, code))) {
+      return res.status(401).json({ error: 'That code is not right, or has been used already.' });
+    }
+
+    await db.run('DELETE FROM login_challenges WHERE id = ?', [row.id]);
+    const user = await db.get('SELECT id, username FROM users WHERE id = ?', [row.user_id]);
+    await signIn(res, user);
   })
 );
 
@@ -227,6 +293,98 @@ router.post(
     await authService.setPassword(user.id, newPassword);
     clearSessionCookie(res);
     res.json({ ok: true, signedOut: true });
+  })
+);
+
+// ── Passkeys ─────────────────────────────────────────────────────────────
+// All of these need a session already: this is managing how you get in, not
+// getting in.
+
+router.get(
+  '/passkeys',
+  requireAuth,
+  h(async (req, res) => {
+    const credentials = await webauthnService.listCredentials(req.user.id);
+    res.json({
+      passkeys: credentials.map((c) => ({
+        id: c.id,
+        label: c.label,
+        created_at: c.created_at,
+        last_used_at: c.last_used_at,
+      })),
+      recoveryCodesLeft: await webauthnService.countRecoveryCodes(req.user.id),
+    });
+  })
+);
+
+router.post(
+  '/passkeys/start',
+  requireAuth,
+  h(async (req, res) => {
+    await webauthnService.purgeExpiredChallenges();
+    res.json(await webauthnService.startRegistration(req.user));
+  })
+);
+
+router.post(
+  '/passkeys/finish',
+  requireAuth,
+  h(async (req, res) => {
+    const { challengeId, response, label } = req.body;
+    const first = (await webauthnService.countCredentials(req.user.id)) === 0;
+
+    const result = await webauthnService.finishRegistration(
+      req.user,
+      challengeId,
+      response,
+      label
+    );
+    if (!result.ok) return res.status(400).json({ error: result.error });
+
+    // The codes come with the first passkey and only with the first: this is
+    // the moment the account stops being openable by password alone, so it is
+    // the moment there has to be a way back from a lost phone. Shown once.
+    const recoveryCodes = first ? await webauthnService.issueRecoveryCodes(req.user.id) : null;
+    res.status(201).json({ passkey: result.credential, recoveryCodes });
+  })
+);
+
+// Removing one asks for the password, because an unlocked laptop left on a
+// desk should not be able to quietly take the second factor off the account.
+router.delete(
+  '/passkeys/:id',
+  requireAuth,
+  h(async (req, res) => {
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (!authService.verifyPassword(String(req.body?.password ?? ''), user.password_hash)) {
+      return res.status(401).json({ error: 'Password is wrong.' });
+    }
+
+    if (!(await webauthnService.removeCredential(req.user.id, Number(req.params.id)))) {
+      return res.status(404).json({ error: 'No such passkey.' });
+    }
+
+    res.json({
+      ok: true,
+      // Zero left means the password is the whole lock again, and the client
+      // says so rather than letting it happen quietly.
+      passkeysLeft: await webauthnService.countCredentials(req.user.id),
+    });
+  })
+);
+
+router.post(
+  '/recovery-codes',
+  requireAuth,
+  h(async (req, res) => {
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (!authService.verifyPassword(String(req.body?.password ?? ''), user.password_hash)) {
+      return res.status(401).json({ error: 'Password is wrong.' });
+    }
+    if (!(await webauthnService.hasPasskeys(req.user.id))) {
+      return res.status(400).json({ error: 'Add a passkey first — there is nothing to recover.' });
+    }
+    res.json({ recoveryCodes: await webauthnService.issueRecoveryCodes(req.user.id) });
   })
 );
 

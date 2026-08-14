@@ -19,6 +19,7 @@ const SUITES = [
   'api/editing.test.js',
   'api/recurring.test.js',
   'api/rates.test.js',
+  'api/passkeys.test.js',
   'api/households.test.js',
   'api/reset.test.js',
 ];
@@ -40,6 +41,10 @@ const env = {
   // The suites create many accounts in a row from one address, which is
   // exactly what the signup limit exists to stop.
   SIGNUP_MAX: '10000',
+  // Passkeys are bound to an origin, and the suite signs for the one the test
+  // server is actually listening on.
+  RP_ID: 'localhost',
+  RP_ORIGIN: BASE,
 };
 
 async function waitForServer(timeoutMs = 20000) {

@@ -58,6 +58,11 @@ export function patch(path, body) {
   return request(path, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
-export function del(path) {
-  return request(path, { method: 'DELETE' });
+// Takes a body, because removing a passkey has to be confirmed with a
+// password and there is nowhere sensible to put one but the body.
+export function del(path, body) {
+  return request(path, {
+    method: 'DELETE',
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 }

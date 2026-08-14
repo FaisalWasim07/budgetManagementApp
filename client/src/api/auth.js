@@ -1,4 +1,4 @@
-import { get, post } from './client';
+import { get, post, del } from './client';
 
 export const getAuthStatus = () => get('/auth/status');
 
@@ -16,3 +16,22 @@ export const changePassword = (currentPassword, newPassword) =>
   post('/auth/password', { current_password: currentPassword, new_password: newPassword });
 
 export const setEmail = (email) => post('/auth/email', { email });
+
+// Passkeys. `login` answers with either a user or a challenge, and these are
+// the two ways of settling that challenge.
+export const loginWithPasskey = (challengeId, response) =>
+  post('/auth/login/passkey', { challengeId, response });
+
+export const loginWithRecoveryCode = (challengeId, code) =>
+  post('/auth/login/recovery', { challengeId, code });
+
+export const listPasskeys = () => get('/auth/passkeys');
+
+export const startPasskeyRegistration = () => post('/auth/passkeys/start');
+
+export const finishPasskeyRegistration = (challengeId, response, label) =>
+  post('/auth/passkeys/finish', { challengeId, response, label });
+
+export const removePasskey = (id, password) => del(`/auth/passkeys/${id}`, { password });
+
+export const newRecoveryCodes = (password) => post('/auth/recovery-codes', { password });

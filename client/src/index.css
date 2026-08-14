@@ -608,6 +608,28 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .hbar .t span { display: block; height: 100%; border-radius: 999px; background: var(--series-in); transition: width .8s cubic-bezier(.22,.9,.3,1); }
 
 /* ── Auth screens ────────────────────────────────────────────────── */
+/* ── Passkeys ────────────────────────────────────────────────────────── */
+.passkey-rows { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.passkey-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.passkey-row:last-child { border-bottom: 0; }
+.passkey-row .what { flex: 1; min-width: 0; }
+.passkey-row .what b { display: block; font-weight: 550; font-size: .9rem; }
+.passkey-row .what small { color: var(--ink-3); font-size: .76rem; }
+
+/* Shown once and never again, so it is deliberately the loudest thing on the
+   screen while it is up. */
+.recovery { border-color: var(--brand); background-image: var(--glow); }
+.recovery .codes {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+  margin: 4px 0; padding: 0; list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92rem; letter-spacing: .04em;
+}
+.recovery .codes li { padding: 3px 0; }
+
 /* The splash. Held back for a moment before it appears: a warm load resolves
    in well under that, and a logo that flashes for three frames looks like a
    fault rather than a start. */
