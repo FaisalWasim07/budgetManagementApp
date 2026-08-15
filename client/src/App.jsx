@@ -371,14 +371,16 @@ export default function App({ user, onSignedOut }) {
             {label}
           </button>
         ))}
-        <button
-          className="add"
-          aria-label="Add money"
-          disabled={readOnly || accounts.length === 0}
-          onClick={() => setSheet({ accountId: null })}
-        >
-          <Plus />
-        </button>
+        {!readOnly && (
+          <button
+            className="add"
+            aria-label="Add money"
+            disabled={accounts.length === 0}
+            onClick={() => setSheet({ accountId: null })}
+          >
+            <Plus />
+          </button>
+        )}
         {PAGES.slice(2).map(([key, label, Icon]) => (
           <button
             key={key}

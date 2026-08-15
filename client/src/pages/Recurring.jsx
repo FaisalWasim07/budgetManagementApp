@@ -228,6 +228,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
           shape it exists to show. */}
       <RecurringYear items={out} rateFor={rateFor} currency={currency} month={month} />
 
+      <div className="recurring-lists">
       <section>
         <div className="section-head">
           <h2>Going out</h2>
@@ -295,6 +296,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
           </div>
         </section>
       )}
+      </div>
 
       {/* Stopped items stay visible but out of the way: they are the record of
           what you used to pay, and they are how you restart something. */}

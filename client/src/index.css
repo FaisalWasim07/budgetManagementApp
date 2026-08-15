@@ -374,6 +374,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 /* ── People and accounts ─────────────────────────────────────────
    Accounts are rows in a ledger, not cards in a grid: six accounts
    read as six lines rather than six boxes. */
+/* Going out and coming in read as a pair at a desk; on a phone they stack,
+   which is the only thing that fits. */
+.recurring-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+
 .people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; }
 .person { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
 .person-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 18px 11px; }
@@ -490,7 +494,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .txn:hover .txn-acts { opacity: 1; }
 .txn .what { flex: 1; min-width: 0; }
 .txn .what b { display: block; font-weight: 550; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.txn .what small { color: var(--ink-3); font-size: .76rem; }
+.txn .what small {
+  display: block; color: var(--ink-3); font-size: .76rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .txn .amt { font-weight: 600; white-space: nowrap; letter-spacing: -.01em; }
 .txn .amt.in { color: var(--pos); }
 .txn-acts { display: flex; gap: 4px; opacity: 0; transition: opacity .15s ease; flex: none; }
@@ -982,6 +989,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .person-figures .k { font-size: .63rem; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .person-figures .v { font-size: .84rem; letter-spacing: -.02em; }
   .charts { grid-template-columns: minmax(0, 1fr); }
+  .recurring-lists { grid-template-columns: minmax(0, 1fr); }
   /* Two by two rather than four across: four of these on a phone is four
      figures too small to read. */
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1018,6 +1026,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   .tabbar {
     display: grid; grid-template-columns: repeat(5, 1fr);
+    /* A viewer's bar has no + in it, so it is four across, not five with a hole. */
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     backdrop-filter: blur(12px); border-top: 1px solid var(--line);
@@ -1031,6 +1040,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     align-items: center; gap: 3px; padding: 7px 2px; color: var(--ink-3);
     font: inherit; font-size: .66rem; font-weight: 550;
   }
+  .tabbar:not(:has(.add)) { grid-template-columns: repeat(4, 1fr); }
   .tabbar button.active { color: var(--ink); }
   .tabbar .add {
     background: var(--action); color: var(--action-in); width: 46px; height: 46px;

@@ -124,6 +124,21 @@ async function signUp(page, username, password) {
   check('a viewer gets no quick-add strip', await b.locator('.quick').count() === 0);
   check('a viewer cannot add an account', await b.locator('.account-row.add').count() === 0);
   check('a viewer gets no edit or delete buttons', await b.locator('.txn-acts').count() === 0);
+  // A disabled + is a promise already broken; it is not in their bar at all.
+  check('a viewer gets no add button', await b.locator('.tabbar .add').count() === 0);
+  check(
+    'and an account they open offers them nothing to change',
+    await (async () => {
+      await b.click('.side-nav button:has-text("Home")');
+      await b.waitForTimeout(500);
+      await b.locator('.account-row:not(.add)').first().click();
+      await b.waitForSelector('.account-page', { timeout: 8000 });
+      const buttons = await b.locator('.account-top button').count();
+      await b.click('.account-top .back');
+      await b.waitForTimeout(400);
+      return buttons === 1;
+    })()
+  );
 
   // --- person B makes their own household, and switches -------------------
   await b.click('.household-trigger');
