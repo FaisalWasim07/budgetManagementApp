@@ -14,6 +14,7 @@ export default function Dashboard({
   onChanged,
   onOpenAccount,
   onSeeActivity,
+  userId,
   readOnly = false,
 }) {
   const [accountModal, setAccountModal] = useState(null);
@@ -69,6 +70,7 @@ export default function Dashboard({
             readOnly={readOnly}
             onAddAccount={(p) => setAccountModal({ personId: p.id, personName: p.name })}
             onOpenAccount={onOpenAccount}
+            yours={person.userId != null && person.userId === userId}
           />
         ))}
 

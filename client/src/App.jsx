@@ -199,6 +199,7 @@ export default function App({ user, onSignedOut }) {
           onManageHousehold={() => setShowHousehold(true)}
           theme={theme}
           username={user.username}
+          role={household?.role ?? ''}
           onCycleTheme={() => setTheme(nextTheme)}
           onSettings={() => setShowSettings(true)}
           onSharing={() => setShowHousehold(true)}
@@ -337,6 +338,7 @@ export default function App({ user, onSignedOut }) {
             onChanged={load}
             onOpenAccount={(account) => setAccountId(account.id)}
             onSeeActivity={() => goTo('activity')}
+            userId={user.id}
             readOnly={readOnly}
           />
         )}

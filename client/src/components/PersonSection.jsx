@@ -41,6 +41,7 @@ export default function PersonSection({
   onAddAccount,
   onOpenAccount,
   readOnly = false,
+  yours = false,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
@@ -88,6 +89,8 @@ export default function PersonSection({
             >
               {person.name}
             </h2>
+            {/* Whose money you are looking at, when it is your own. */}
+            {yours && <span className="yours">You</span>}
           </div>
         )}
         <span className="total">

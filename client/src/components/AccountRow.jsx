@@ -1,5 +1,4 @@
 import { Money } from '../utils/display';
-import { Chevron } from './icons';
 import { iconForAccount } from '../utils/categoryIcon';
 
 // An account is a line in a ledger, not a card in a grid: six accounts should
@@ -43,7 +42,6 @@ export default function AccountRow({ account, primaryCurrency, onOpen }) {
           </span>
         )}
       </span>
-      <Chevron />
     </button>
   );
 }

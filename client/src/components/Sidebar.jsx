@@ -17,6 +17,7 @@ export default function Sidebar({
   onManageHousehold,
   theme,
   username,
+  role,
   onCycleTheme,
   onSettings,
   onSharing,
@@ -30,6 +31,7 @@ export default function Sidebar({
       </span>
 
       <HouseholdMenu
+        badge
         households={households}
         current={household}
         onSwitch={onSwitchHousehold}
@@ -56,7 +58,13 @@ export default function Sidebar({
       {/* Theme, Settings, People & sharing and Sign out. They lived in the top
           bar; with navigation gone from it there is no bar left to hold them. */}
       <div className="side-you">
-        <span className="side-you-name">{username}</span>
+        <span className="avatar" aria-hidden="true">
+          {username.trim().charAt(0).toUpperCase()}
+        </span>
+        <span className="side-you-name">
+          <b>{username}</b>
+          <small>{role}</small>
+        </span>
         <OverflowMenu
           align="up"
           theme={theme}
