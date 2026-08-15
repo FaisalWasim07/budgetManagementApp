@@ -58,9 +58,9 @@ export default function IncomeExpenseChart({ trend, currency }) {
               color: c.textPrimary,
             }}
           />
-          <Bar dataKey="income" name="Came in" fill={income} radius={[3, 3, 0, 0]} />
-          <Bar dataKey="expenses" name="Went out" fill={spending} radius={[3, 3, 0, 0]} />
-          <Bar dataKey="subscriptions" name="Subscriptions" fill={subs} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="income" name="Came in" fill={income} radius={[6, 6, 0, 0]} />
+          <Bar dataKey="expenses" name="Went out" fill={spending} radius={[6, 6, 0, 0]} />
+          <Bar dataKey="subscriptions" name="Subscriptions" fill={subs} radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -1,3 +1,4 @@
+import { useDisplay } from '../utils/display';
 import { shiftMonth, shortMonth, formatMonth } from '../utils/month';
 import { dueIn, convert } from '../utils/recurring';
 
@@ -16,6 +17,7 @@ import { dueIn, convert } from '../utils/recurring';
 // the one picked out, not the dearest — the dearest is already the tallest bar
 // and does not need a second colour to say so.
 export default function RecurringYear({ items, rateFor, currency, month }) {
+  const { money } = useDisplay();
   if (items.length === 0) return null;
 
   const months = Array.from({ length: 12 }, (_, i) => shiftMonth(month, i));
@@ -41,8 +43,12 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
       <div className="strip">
         {months.map((m, i) => (
           <div className={i === 0 ? 'now' : ''} key={m}>
-            <i title={formatMonth(m)}>
+            {/* The figure on hover, because a bar you cannot read the value of
+                only answers "which month is worst", not "by how much". The
+                same text is the title, so it is reachable without a mouse. */}
+            <i title={`${formatMonth(m)} · ${money(totals[i], currency, { compact: true })}`}>
               <b style={{ height: `${Math.max(4, (totals[i] / peak) * 100)}%` }} />
+              <em>{money(totals[i], currency, { compact: true })}</em>
             </i>
             <small>{shortMonth(m)}</small>
           </div>

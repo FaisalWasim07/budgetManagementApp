@@ -287,7 +287,10 @@ export default function RecurringFormModal({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={busy}>
-            {busy ? 'Saving…' : editing ? 'Save' : 'Add'}
+            {/* "Update", because editing one of these does not overwrite it —
+                it changes what it costs from this month on, and the months
+                before keep what they cost. */}
+            {busy ? (editing ? 'Updating…' : 'Adding…') : editing ? 'Update' : 'Add'}
           </button>
         </div>
       </form>

@@ -79,7 +79,7 @@ export default function KeptChart({ trend }) {
             {/* Zero is the line that matters: below it the month cost more
                 than it earned. */}
             <ReferenceLine y={0} stroke={c.baseline} />
-            <Bar dataKey="kept" name="Kept" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="kept" name="Kept" radius={[6, 6, 0, 0]}>
               {data.map((d) => (
                 <Cell key={d.month} fill={d.kept != null && d.kept < 0 ? '#BE123C' : good} />
               ))}

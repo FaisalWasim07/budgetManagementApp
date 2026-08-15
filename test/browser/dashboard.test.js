@@ -306,7 +306,9 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.locator('.txn', { hasText: 'Netflix' }).first().locator('button[title="Edit"]').click();
   await page.waitForSelector('.modal');
   await page.locator('.modal input[aria-label="Amount"]').fill('62');
-  await page.click('.modal button:has-text("Save")');
+  // "Update", not "Save" — editing a recurring item changes it from this month
+  // on rather than overwriting what it used to cost.
+  await page.click('.modal button:has-text("Update")');
   await page.waitForTimeout(1600);
   check(
     'a recurring item can be edited',

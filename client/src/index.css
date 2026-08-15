@@ -147,8 +147,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root { padding: 0 0 40px; }
-main.stack { padding-top: 18px; }
+/* No bottom padding on the root: the sidebar is a full 100vh, so anything
+   below the grid makes a short page scroll by exactly that much and end on a
+   band of nothing. The breathing room goes inside the column instead, where a
+   short page simply doesn't need it. */
+#root { padding: 0; }
+main.stack { padding: 18px 0 40px; }
 .spacer { flex: 1; }
 
 /* Navigation gets a column of its own at a desk. On a phone the sidebar is
@@ -207,7 +211,7 @@ main.stack { padding-top: 18px; }
 /* A month field: the same grid the top bar opens, wearing an input's clothes. */
 .month-field {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; height: 36px; padding: 0 11px;
+  width: 100%; height: 38px; padding: 0 11px;
   border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--ink);
   font: inherit; font-size: .92rem; text-align: left; cursor: pointer;
@@ -228,7 +232,12 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 /* Fields in a row are label-above-input, and labels are not all one line
    long. Aligning to the end puts the inputs on a common line whatever the
    labels above them did. */
-.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+/* Stretch, not end. End-alignment lined the fields up by their bottoms, so a
+   two-line hint under one of them pushed its label and control a line higher
+   than its neighbour's. Stretched, the columns are the same height, the labels
+   and controls sit on common lines, and the hints hang from the bottom. */
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
+.row > .field > .muted { margin-top: auto; padding-top: 2px; }
 .row-tight { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .muted { color: var(--ink-3); }
@@ -296,10 +305,13 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 
 /* The month, as a word you tap. The old pill put an arrow either side, which
    cost a tap per month and told you nothing about where you were in a year. */
+/* A pill, as in the mockup: the month is a control you press, and bare text
+   beside the eye and the add button did not look like one. */
 .month-trigger {
   display: inline-flex; align-items: center; gap: 5px; flex: none;
-  border: 0; background: none; font: inherit; font-size: .92rem; font-weight: 600;
-  color: var(--ink); padding: 6px 8px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface);
+  font: inherit; font-size: .84rem; font-weight: 600;
+  color: var(--ink); padding: 6px 12px; border-radius: 999px; cursor: pointer;
   white-space: nowrap;
 }
 .month-trigger:hover { background: var(--surface-2); }
@@ -560,7 +572,6 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .txn { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
 .txn:last-child { border-bottom: 0; }
 .txn:hover { background: var(--surface-2); }
-.txn:hover .txn-acts { opacity: 1; }
 .txn .what { flex: 1; min-width: 0; }
 .txn .what > b { display: block; font-weight: 550; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .txn .what small {
@@ -571,8 +582,11 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 /* The one fact on the row you must not skim past. */
 .txn .what small b.cycle { color: var(--warn); font-weight: 620; }
 .txn .amt.in { color: var(--pos); }
-.txn-acts { display: flex; gap: 4px; opacity: 0; transition: opacity .15s ease; flex: none; }
-@media (hover: none) { .txn-acts { opacity: 1; } }
+/* Visible, not revealed on hover. Hidden they leave a hole on the right of
+   every row that reads as a column of missing something, and editing is not a
+   thing you should have to find. Recurring rows carry three of them, so the
+   hole was the width of three buttons. */
+.txn-acts { display: flex; gap: 4px; flex: none; }
 
 .txn .amt .sub { display: block; font-size: .73rem; font-weight: 500; color: var(--ink-3); text-align: right; }
 
@@ -718,6 +732,18 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   transition: height .7s cubic-bezier(.22,.9,.3,1);
 }
 .strip > div.now i b { background: var(--brand-deep); }
+/* The month's figure, on hover. Absolute so it never changes the height of the
+   track it sits in — a tooltip that reflows the chart under the pointer is a
+   chart you cannot aim at. */
+.strip i { position: relative; }
+.strip i em {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  padding: 4px 8px; border-radius: 8px; white-space: nowrap;
+  background: var(--ink); color: var(--paper);
+  font: inherit; font-size: .72rem; font-weight: 600; font-style: normal;
+  opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 5;
+}
+.strip > div:hover i em { opacity: 1; }
 .strip small { font-size: .66rem; color: var(--ink-3); }
 .strip > div.now small { color: var(--ink); font-weight: 620; }
 
@@ -751,12 +777,12 @@ input, select, button, textarea { font-family: inherit; font-size: .92rem; }
    :where() counts as nothing, so anything more specific still wins. */
 input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='file'])),
 select, textarea {
-  padding: 9px 11px; border-radius: 12px; border: 1px solid var(--line);
+  padding: 8px 11px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); width: 100%;
-  /* One height for every control. A month input carries a native calendar
-     widget and comes out ~3px taller than a text box, which is enough to see
-     when the two sit side by side in a row. */
-  height: 36px; line-height: 1.2;
+  /* One height for every control, and enough of it for a descender. At 36px
+     with 9px of padding the line box was taller than the content box, so the
+     tail of a "y" was sliced off — "Every month" read as "Everv month". */
+  height: 38px; line-height: 1.2;
 }
 textarea { height: auto; min-height: 72px; }
 input::placeholder { color: var(--ink-3); }
@@ -1053,7 +1079,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    Not merely narrower: navigation moves to the thumb and adding money
    becomes the middle of the bar. */
 @media (max-width: 700px) {
-  #root { padding: 0 14px 116px; }
+  #root { padding: 0 14px; }
+  /* Clearance for the tab bar, which floats over the foot of the page. */
+  main.stack { padding-bottom: 116px; }
   /* Qualifiers that are worth a line at a desk and not worth one on a phone. */
   .on-desk { display: none; }
   .topbar { margin: 0 -14px; padding: 0 14px; }
@@ -1062,7 +1090,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .badge.role { display: none; }
   /* One line again: the month is three words now, not a pill with two arrows,
      so it no longer needs a row of its own. */
-  .month-trigger { font-size: .86rem; padding: 6px 4px; }
+  .month-trigger { font-size: .82rem; padding: 5px 10px; }
   .month-trigger .long { display: none; }
   .month-trigger .short { display: inline; }
   .household-trigger { max-width: 34vw; }
@@ -1070,7 +1098,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   /* No column for navigation, so the sidebar goes and its contents come back
      to the top bar and the bottom bar. */
-  #root { padding: 0 20px 110px; }
+  #root { padding: 0 20px; }
+  main.stack { padding-bottom: 110px; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
   .pane { padding: 0; }
