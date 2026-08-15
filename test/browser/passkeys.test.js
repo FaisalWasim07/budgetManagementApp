@@ -38,7 +38,7 @@ async function attachAuthenticator(page) {
 }
 
 const openMenu = async (page) => {
-  await page.click('.topbar button[aria-label="Menu"]');
+  await page.click('button[aria-label="Menu"]');
   await page.waitForSelector('.menu');
 };
 

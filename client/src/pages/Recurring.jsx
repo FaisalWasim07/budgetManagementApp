@@ -179,8 +179,10 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
 
   return (
     <>
+      {/* No heading: the sidebar and the top bar both already say Recurring,
+          and on a phone the tab bar does. */}
       <div className="section-head">
-        <h2>Recurring</h2>
+        <span />
         {!readOnly && accounts.length > 0 && (
           <button className="primary tiny" onClick={() => setAdding(true)}>
             <Plus size={14} /> Add recurring

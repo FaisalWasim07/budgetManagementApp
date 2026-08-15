@@ -7,12 +7,22 @@ const THEME_LABEL = { auto: 'Theme: follows your system', light: 'Theme: light',
 // Everything that isn't the household, the month or the eye. The old top bar
 // had nine controls competing with the figures; these five are the ones you
 // touch once a week rather than once a minute.
-export default function OverflowMenu({ theme, onCycleTheme, onSettings, onSharing, onSignOut, username }) {
+export default function OverflowMenu({
+  theme,
+  onCycleTheme,
+  onSettings,
+  onSharing,
+  onSignOut,
+  username,
+  // In the sidebar this sits at the foot of a full-height column, so a panel
+  // that opens downwards opens off the bottom of the screen.
+  align = 'right',
+}) {
   const ThemeIcon = THEME_ICON[theme];
 
   return (
     <Menu
-      align="right"
+      align={align}
       trigger={({ open, toggle }) => (
         <button
           className="icon-button"

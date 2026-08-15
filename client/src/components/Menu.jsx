@@ -25,7 +25,7 @@ export default function Menu({ align = 'left', trigger, children }) {
     <div className="menu-wrap" ref={wrap}>
       {trigger({ open, toggle: () => setOpen((v) => !v) })}
       {open && (
-        <div className={align === 'right' ? 'menu right' : 'menu'} role="menu">
+        <div className={align === 'left' ? 'menu' : `menu ${align}`} role="menu">
           {children({ close: () => setOpen(false) })}
         </div>
       )}

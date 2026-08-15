@@ -2,16 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
 import Recurring from './pages/Recurring';
+import Activity from './pages/Activity';
 import HouseholdSetup from './pages/HouseholdSetup';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
 import HouseholdMenu from './components/HouseholdMenu';
+import Sidebar from './components/Sidebar';
 import HouseholdModal from './components/HouseholdModal';
 import OverflowMenu from './components/OverflowMenu';
 import AddSheet from './components/AddSheet';
 import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
-import { Bars, Eye, EyeOff, Home, Mark, Plus, Repeat } from './components/icons';
+import { Bars, Eye, EyeOff, Home, List, Mark, Plus, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
@@ -20,16 +22,34 @@ import { currentMonth } from './utils/month';
 import { DisplayContext } from './utils/display';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
+// Four destinations, the same four on both shells. Activity is new: it was the
+// tail of Home, which is why Home was the longest screen in the app.
 const PAGES = [
-  ['dashboard', 'Dashboard'],
-  ['stats', 'Stats'],
-  ['recurring', 'Recurring'],
+  ['dashboard', 'Home', Home],
+  ['activity', 'Activity', List],
+  ['stats', 'Stats', Bars],
+  ['recurring', 'Recurring', Repeat],
 ];
 
 const LAST_HOUSEHOLD = 'budget.householdId';
 
-const isPhone = () =>
-  typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches;
+const PHONE = '(max-width: 700px)';
+
+const isPhone = () => typeof window !== 'undefined' && window.matchMedia(PHONE).matches;
+
+// The two shells hold the same controls in different places, so only one of
+// them may exist at a time. Hiding the spare with CSS leaves a second "Menu"
+// button in the page for anything that reads it rather than looks at it.
+function usePhone() {
+  const [phone, setPhone] = useState(isPhone);
+  useEffect(() => {
+    const query = window.matchMedia(PHONE);
+    const sync = () => setPhone(query.matches);
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+  return phone;
+}
 
 export default function App({ user, onSignedOut }) {
   const [page, setPage] = useState('dashboard');
@@ -54,6 +74,7 @@ export default function App({ user, onSignedOut }) {
   // balance to the room the moment you unlock it.
   const [amountsHidden, setAmountsHidden] = useState(true);
   const [theme, setTheme] = useState(loadTheme);
+  const phone = usePhone();
 
   const household = households?.find((h) => h.id === householdId) ?? null;
   const readOnly = household?.role === 'viewer';
@@ -155,69 +176,93 @@ export default function App({ user, onSignedOut }) {
 
   return (
     <DisplayContext.Provider value={{ amountsHidden }}>
-      <header className="topbar">
-        <div className="topbar-inner">
-          {/* The mark alone on a phone: the wordmark is the first thing worth
-              giving up when the bar has a household and a month to fit. */}
-          <span className="brand">
-            <Mark size={24} />
-            <span className="wordmark">Bayt</span>
-          </span>
+      <div className="shell">
+        {/* On a phone the same controls live in the top bar and the bottom
+            bar, because there is no width for a column. */}
+        {!phone && (
+        <Sidebar
+          pages={PAGES}
+          page={page}
+          onPage={setPage}
+          households={households}
+          household={household}
+          onSwitchHousehold={(id) => {
+            setSummary(null);
+            setHouseholdId(id);
+          }}
+          onAddHousehold={() => setAddingHousehold(true)}
+          onManageHousehold={() => setShowHousehold(true)}
+          theme={theme}
+          username={user.username}
+          onCycleTheme={() => setTheme(nextTheme)}
+          onSettings={() => setShowSettings(true)}
+          onSharing={() => setShowHousehold(true)}
+          onSignOut={async () => {
+            await logout().catch(() => {});
+            onSignedOut();
+          }}
+        />
+        )}
 
-          <HouseholdMenu
-            households={households}
-            current={household}
-            onSwitch={(id) => {
-              setSummary(null);
-              setHouseholdId(id);
-            }}
-            onAdd={() => setAddingHousehold(true)}
-            onManage={() => setShowHousehold(true)}
-          />
+        <div className="pane">
+          <header className="topbar">
+            <div className="topbar-inner">
+              {/* The mark alone on a phone: the wordmark is the first thing
+                  worth giving up when the bar has a household and a month to
+                  fit. At a desk both live in the sidebar instead. */}
+              {phone ? (
+                <>
+                  <span className="brand">
+                    <Mark size={24} />
+                  </span>
+                  <HouseholdMenu
+                    households={households}
+                    current={household}
+                    onSwitch={(id) => {
+                      setSummary(null);
+                      setHouseholdId(id);
+                    }}
+                    onAdd={() => setAddingHousehold(true)}
+                    onManage={() => setShowHousehold(true)}
+                  />
+                </>
+              ) : (
+                <h1 className="page-title">{PAGES.find(([key]) => key === page)?.[1]}</h1>
+              )}
 
-          <nav className="nav">
-            {PAGES.map(([key, label]) => (
+              <span className="spacer" />
+
+              {loading && <span className="spinner" aria-label="Updating" />}
+
+              <MonthSelector month={month} onChange={setMonth} />
+
               <button
-                key={key}
-                className={page === key ? 'active' : ''}
-                onClick={() => setPage(key)}
+                className="icon-button"
+                onClick={() => setAmountsHidden((v) => !v)}
+                title={amountsHidden ? 'Show amounts' : 'Hide amounts'}
+                aria-label={amountsHidden ? 'Show amounts' : 'Hide amounts'}
+                aria-pressed={amountsHidden}
               >
-                {label}
+                {amountsHidden ? <EyeOff /> : <Eye />}
               </button>
-            ))}
-          </nav>
 
-          <span className="spacer" />
+              {phone && (
+                <OverflowMenu
+                  theme={theme}
+                  username={user.username}
+                  onCycleTheme={() => setTheme(nextTheme)}
+                  onSettings={() => setShowSettings(true)}
+                  onSharing={() => setShowHousehold(true)}
+                  onSignOut={async () => {
+                    await logout().catch(() => {});
+                    onSignedOut();
+                  }}
+                />
+              )}
+            </div>
+          </header>
 
-          {loading && <span className="spinner" aria-label="Updating" />}
-
-          <MonthSelector month={month} onChange={setMonth} />
-
-          <button
-            className="icon-button"
-            onClick={() => setAmountsHidden((v) => !v)}
-            title={amountsHidden ? 'Show amounts' : 'Hide amounts'}
-            aria-label={amountsHidden ? 'Show amounts' : 'Hide amounts'}
-            aria-pressed={amountsHidden}
-          >
-            {amountsHidden ? <EyeOff /> : <Eye />}
-          </button>
-
-          <OverflowMenu
-            theme={theme}
-            username={user.username}
-            onCycleTheme={() => setTheme(nextTheme)}
-            onSettings={() => setShowSettings(true)}
-            onSharing={() => setShowHousehold(true)}
-            onSignOut={async () => {
-              await logout().catch(() => {});
-              onSignedOut();
-            }}
-          />
-        </div>
-      </header>
-
-      <main className="stack">
+          <main className="stack">
         {readOnly && (
           <div className="warn-banner">
             You have view-only access to {household.name}. You can see everything here but not
@@ -268,30 +313,32 @@ export default function App({ user, onSignedOut }) {
           <Stats summary={summary} trend={trend} categories={categories} month={month} />
         )}
 
+        {summary && !empty && page === 'activity' && (
+          <Activity summary={summary} month={month} onChanged={load} readOnly={readOnly} />
+        )}
+
         {summary && !empty && page === 'recurring' && (
           <Recurring summary={summary} month={month} onChanged={load} readOnly={readOnly} />
         )}
-      </main>
+          </main>
+        </div>
+      </div>
 
       {/* Phone only. Adding money is the middle of the bar because it is the
-          one thing you do standing at a till. */}
+          one thing you do standing at a till, and the two destinations either
+          side of it are the two you open most. */}
       <nav className="tabbar" aria-label="Sections">
-        <button
-          className={page === 'dashboard' ? 'active' : ''}
-          aria-current={page === 'dashboard' ? 'page' : undefined}
-          onClick={() => setPage('dashboard')}
-        >
-          <Home />
-          Home
-        </button>
-        <button
-          className={page === 'stats' ? 'active' : ''}
-          aria-current={page === 'stats' ? 'page' : undefined}
-          onClick={() => setPage('stats')}
-        >
-          <Bars />
-          Stats
-        </button>
+        {PAGES.slice(0, 2).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            className={page === key ? 'active' : ''}
+            aria-current={page === key ? 'page' : undefined}
+            onClick={() => setPage(key)}
+          >
+            <Icon />
+            {label}
+          </button>
+        ))}
         <button
           className="add"
           aria-label="Add money"
@@ -300,14 +347,17 @@ export default function App({ user, onSignedOut }) {
         >
           <Plus />
         </button>
-        <button
-          className={page === 'recurring' ? 'active' : ''}
-          aria-current={page === 'recurring' ? 'page' : undefined}
-          onClick={() => setPage('recurring')}
-        >
-          <Repeat />
-          Recurring
-        </button>
+        {PAGES.slice(2).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            className={page === key ? 'active' : ''}
+            aria-current={page === key ? 'page' : undefined}
+            onClick={() => setPage(key)}
+          >
+            <Icon />
+            {label}
+          </button>
+        ))}
       </nav>
 
       {accounts.length > 0 && (

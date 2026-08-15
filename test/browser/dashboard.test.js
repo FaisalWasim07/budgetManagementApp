@@ -87,6 +87,13 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.locator('.hero .value').textContent()
   );
 
+  // Entries are recorded on Home and read on Activity, so the test walks
+  // between the two rather than expecting both on one screen.
+  const go = async (label) => {
+    await page.click(`.side-nav button:has-text("${label}")`);
+    await page.waitForTimeout(500);
+  };
+
   // --- the quick-add strip -------------------------------------------------
   await page.fill('#quick-amount', '9000');
   await page.locator('.quick button:has-text("Received")').click();
@@ -94,18 +101,23 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.locator('.quick button[type="submit"]').click();
   await page.waitForTimeout(1500);
 
-  check('an entry can be recorded from the strip', (await page.locator('.txn:not(.empty)').count()) === 1);
   check(
     'the strip clears but stays put, ready for the next one',
     (await page.inputValue('#quick-amount')) === '' && (await page.locator('.quick').count()) === 1
   );
+
+  await go('Activity');
+  check('an entry can be recorded from the strip', (await page.locator('.txn:not(.empty)').count()) === 1);
+  await go('Home');
 
   await page.fill('#quick-amount', '240');
   await page.locator('.quick button:has-text("Spent")').click();
   await page.locator('.quick input[aria-label="Category"]').fill('Groceries');
   await page.locator('.quick button[type="submit"]').click();
   await page.waitForTimeout(1500);
+  await go('Activity');
   check('a second entry lands too', (await page.locator('.txn:not(.empty)').count()) === 2);
+  await go('Home');
 
   // --- the month card counts it -------------------------------------------
   const flow = await page.locator('.card:has(.breakdown)').textContent();
@@ -113,6 +125,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('the month card shows what was spent', flow.includes('240'), flow.slice(0, 140));
 
   // --- editing -------------------------------------------------------------
+  await go('Activity');
   const groceries = page.locator('.txn', { hasText: 'Groceries' }).first();
   await groceries.locator('button[title="Edit"]').click();
   await page.waitForSelector('.modal');
@@ -146,6 +159,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('and everything brings it back', (await page.locator('.txn:not(.empty)').count()) === 1);
 
   // --- account rows --------------------------------------------------------
+  await go('Home');
   await page.locator('.account-row:not(.add)').first().click();
   await page.waitForTimeout(700);
   check('an account row opens', (await page.locator('.detail.open').count()) === 1);
@@ -165,6 +179,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('.sheet button:has-text("Save")');
   await page.waitForTimeout(1600);
   check('the sheet saves and closes', (await page.locator('.sheet.open').count()) === 0);
+  await go('Activity');
   check('the entry it made is in the list', (await page.locator('.txn', { hasText: 'Fuel' }).count()) === 1);
 
   // Every row carries an icon worked out from what it was called, and every
@@ -180,6 +195,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     'the salary is tinted as money coming in',
     (await page.locator('.txn .tile.in').count()) >= 1
   );
+  await go('Home');
   const accountCount = await page.locator('.account-row:not(.add)').count();
   check(
     'every account has one too',
@@ -191,6 +207,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // The row itself opens the editor, which is the only way in on a phone —
   // the two icon buttons are hidden there because they cost every entry a
   // second line.
+  await go('Activity');
   await page.locator('.txn.tappable').first().click();
   await page.waitForSelector('.modal', { timeout: 8000 });
   check('tapping an entry opens the editor', (await page.locator('.modal').count()) === 1);
@@ -203,6 +220,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('the app names itself', (await page.locator('.brand .wordmark').textContent()) === 'Bayt');
 
   // --- moving money between accounts ---------------------------------------
+  await go('Home');
   check(
     'the strip offers two kinds of entry, not three',
     (await page.locator('.quick .seg-mini button').count()) === 2
@@ -220,6 +238,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.locator('.modal input[type="number"]').first().fill('500');
   await page.click('.modal button:has-text("Transfer")');
   await page.waitForTimeout(1800);
+  await go('Activity');
   check(
     'a transfer records both sides',
     (await page.locator('.txn b', { hasText: /^(To|From) / }).count()) === 2,
@@ -227,6 +246,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
 
   // --- what a person's total is made of ------------------------------------
+  await go('Home');
   // One currency, so there is nothing to break down and nothing is said.
   check(
     'a single-currency person gets no breakdown',
@@ -252,7 +272,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await page.locator('.person .holdings').count()) === 1);
 
   // --- recurring, and how it shows on the dashboard ------------------------
-  await page.click('.nav button:has-text("Recurring")');
+  await page.click('.side-nav button:has-text("Recurring")');
   await page.waitForSelector('.txn-list');
   await page.click('button:has-text("Add recurring")');
   await page.waitForSelector('.modal');
@@ -298,7 +318,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('restarting brings it back', (await page.locator('.txn.ended').count()) === 0);
   await backToThisMonth(page);
 
-  await page.click('.nav button:has-text("Dashboard")');
+  await page.click('.side-nav button:has-text("Home")');
   await page.waitForTimeout(1600);
   const flowAfter = await page.locator('.card:has(.breakdown)').textContent();
   check('the month card counts the subscription', flowAfter.includes('1 item'), flowAfter.slice(0, 200));
@@ -311,7 +331,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
 
   // --- stats ---------------------------------------------------------------
-  await page.click('.nav button:has-text("Stats")');
+  await page.click('.side-nav button:has-text("Stats")');
   await page.waitForTimeout(1200);
   check('stats shows six cards', (await page.locator('.chart').count()) === 6);
   const columns = await page.evaluate(
@@ -340,7 +360,9 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     `${slices} slices, ${legend} legend rows`);
 
   // --- the month, and coming back to today ---------------------------------
-  await page.click('.nav button:has-text("Dashboard")');
+  // On Activity, not Home: Home holds no entry rows, so counting them there
+  // would pass for last month whether the month selector worked or not.
+  await go('Activity');
   await pickMonth(page, -1);
   check('last month has none of this month’s entries', (await page.locator('.txn:not(.empty)').count()) === 0);
   await backToThisMonth(page);

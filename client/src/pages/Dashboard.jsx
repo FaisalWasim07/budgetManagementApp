@@ -3,7 +3,6 @@ import Hero from '../components/Hero';
 import MonthFlow from '../components/MonthFlow';
 import QuickAdd from '../components/QuickAdd';
 import PersonSection from '../components/PersonSection';
-import ActivityList from '../components/ActivityList';
 import AccountFormModal from '../components/AccountFormModal';
 import TransferModal from '../components/TransferModal';
 import { listSubscriptions } from '../api/subscriptions';
@@ -25,8 +24,6 @@ export default function Dashboard({
   const allAccounts = summary.persons.flatMap((p) =>
     p.accounts.map((a) => ({ ...a, personName: p.name }))
   );
-  const accountsById = Object.fromEntries(allAccounts.map((a) => [a.id, a]));
-  const personsById = Object.fromEntries(summary.persons.map((p) => [p.id, p]));
   const categoryNames = categories.map((c) => c.category);
 
   // Recurring items are shown inside the account they come out of, and counted
@@ -83,14 +80,6 @@ export default function Dashboard({
           />
         ))}
       </div>
-
-      <ActivityList
-        month={month}
-        accountsById={accountsById}
-        personsById={personsById}
-        onChanged={onChanged}
-        readOnly={readOnly}
-      />
 
       {accountModal && (
         <AccountFormModal

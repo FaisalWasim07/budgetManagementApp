@@ -48,10 +48,10 @@ async function signUp(page, username, password) {
   await people.nth(0).fill('Faisal');
   await people.nth(1).fill('Wife');
   await a.click('button:has-text("Create household")');
-  await a.waitForSelector('nav.nav', { timeout: 15000 });
+  await a.waitForSelector('nav.side-nav', { timeout: 15000 });
   await a.waitForTimeout(1500);
 
-  check('the dashboard appears after creating a household', await a.locator('nav.nav').count() === 1);
+  check('the dashboard appears after creating a household', await a.locator('nav.side-nav').count() === 1);
   const sections = await a.locator('.person').count();
   check('both people are shown with their accounts', sections === 2, String(sections));
   // '+ Add an account' is a row too, so each person shows two.
@@ -68,6 +68,8 @@ async function signUp(page, username, password) {
   await a.locator('.quick button[type="submit"]').click();
   await a.waitForTimeout(1500);
 
+  await a.click('.side-nav button:has-text("Activity")');
+  await a.waitForTimeout(600);
   const listText = await a.locator('.txn-list').textContent();
   check('the entry appears in the activity list', listText.includes('Salary'), listText.slice(0, 120));
   check('the entry shows who added it', listText.includes(`ui_a_${stamp}`), listText.slice(0, 160));
@@ -110,12 +112,14 @@ async function signUp(page, username, password) {
   await b.click('button:has-text("Join with a code")');
   await b.fill('input[required]', code.trim());
   await b.click('form button[type="submit"]');
-  await b.waitForSelector('nav.nav', { timeout: 15000 });
+  await b.waitForSelector('nav.side-nav', { timeout: 15000 });
   await b.waitForTimeout(1500);
 
   check('the invitee lands in the household', (await b.locator('.household-name').textContent()) === 'Faisal Home');
   const banner = await b.locator('.warn-banner').count();
   check('a viewer is told they are read-only', banner === 1);
+  await b.click('.side-nav button:has-text("Activity")');
+  await b.waitForTimeout(600);
   check('a viewer sees the money', (await b.locator('.txn-list').textContent()).includes('Salary'));
   check('a viewer gets no quick-add strip', await b.locator('.quick').count() === 0);
   check('a viewer cannot add an account', await b.locator('.account-row.add').count() === 0);
@@ -128,12 +132,16 @@ async function signUp(page, username, password) {
   await b.fill('input[placeholder="Our household"]', 'Bob Home');
   await b.locator('input[placeholder^="e.g."]').nth(0).fill('Bob');
   await b.click('button:has-text("Create household")');
-  await b.waitForSelector('nav.nav', { timeout: 15000 });
+  await b.waitForSelector('nav.side-nav', { timeout: 15000 });
   await b.waitForTimeout(1500);
 
   check('the second household becomes current', (await b.locator('.household-name').textContent()) === 'Bob Home');
+  await b.click('.side-nav button:has-text("Activity")');
+  await b.waitForTimeout(600);
   check('the new household has none of the other one’s money',
     !(await b.locator('.txn-list').textContent()).includes('Salary'));
+  await b.click('.side-nav button:has-text("Home")');
+  await b.waitForTimeout(600);
   check('in their own household they can write again', await b.locator('.quick').count() === 1);
 
   await b.click('.household-trigger');

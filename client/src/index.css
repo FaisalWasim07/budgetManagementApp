@@ -147,9 +147,39 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root { max-width: 1080px; margin: 0 auto; padding: 0 20px 110px; }
+#root { max-width: 1240px; margin: 0 auto; padding: 0 0 40px; }
 main.stack { padding-top: 18px; }
 .spacer { flex: 1; }
+
+/* Navigation gets a column of its own at a desk. On a phone the sidebar is
+   gone and this collapses to the single column it has always been. */
+.shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); align-items: start; }
+.pane { min-width: 0; padding: 0 22px; }
+
+.sidebar {
+  position: sticky; top: 0; height: 100vh; z-index: 20;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 12px 14px;
+  border-right: 1px solid var(--line);
+}
+.sidebar .brand { padding: 4px 8px 14px; }
+.sidebar .household-trigger { max-width: none; margin: 0 0 10px; }
+.side-nav { display: flex; flex-direction: column; gap: 2px; }
+.side-nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  border: 0; background: none; font: inherit; font-size: .9rem; font-weight: 550;
+  color: var(--ink-2); padding: 9px 11px; border-radius: 10px; cursor: pointer;
+}
+.side-nav button:hover { background: var(--surface-2); color: var(--ink); }
+.side-nav button.active { background: var(--surface-2); color: var(--ink); }
+.side-nav svg { flex: none; }
+.side-you { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
+.side-you-name {
+  flex: 1; min-width: 0; font-size: .84rem; font-weight: 600; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.page-title { font-size: 1.1rem; font-weight: 640; letter-spacing: -.02em; }
 
 h1 { font-size: 1.4rem; margin: 0; }
 h2 { font-size: 1rem; font-weight: 600; margin: 0; }
@@ -185,8 +215,8 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
    rest moved into the menu. */
 .topbar {
   position: sticky; top: 0; z-index: 30;
-  margin: 0 -20px 0;
-  padding: 0 20px;
+  margin: 0 -22px 0;
+  padding: 0 22px;
   background: color-mix(in srgb, var(--paper) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -274,6 +304,8 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
 }
 .menu.right { left: auto; right: 0; }
+/* At the foot of a full-height sidebar, downwards is off the screen. */
+.menu.up { top: auto; bottom: calc(100% + 6px); }
 .menu button {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
   border: 0; background: transparent; padding: 9px 11px; border-radius: 9px;
@@ -821,7 +853,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .month-trigger .short { display: inline; }
   .household-trigger { max-width: 34vw; }
   .month-grid button { padding: 15px 4px; }
-  .nav { display: none; }
+
+  /* No column for navigation, so the sidebar goes and its contents come back
+     to the top bar and the bottom bar. */
+  #root { padding: 0 20px 110px; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
+  .pane { padding: 0; }
+  .pane .topbar { margin: 0 -20px; padding: 0 20px; }
   .quick { display: none; }
   /* The horizontal padding matches .card: the hero became one, and was still
      being padded as though it were a bare block. */
@@ -871,7 +910,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .year .col { height: 52px; }
 
   .tabbar {
-    display: grid; grid-template-columns: repeat(4, 1fr);
+    display: grid; grid-template-columns: repeat(5, 1fr);
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     backdrop-filter: blur(12px); border-top: 1px solid var(--line);

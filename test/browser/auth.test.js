@@ -13,7 +13,7 @@ const check = (name, cond, extra = '') =>
 
 // Theme, settings, sharing and sign out all live behind the ⋮ in the top bar.
 const openMenu = async (page) => {
-  await page.click('.topbar button[aria-label="Menu"]');
+  await page.click('button[aria-label="Menu"]');
   await page.waitForSelector('.menu');
 };
 
@@ -31,7 +31,7 @@ const openMenu = async (page) => {
   const h1 = await page.locator('h1').first().textContent();
   check('first run shows setup heading', h1.includes('Set up'), h1);
   check('confirm field present on setup', await page.locator('input[autocomplete="new-password"]').count() === 2);
-  check('dashboard not rendered before login', await page.locator('nav.nav').count() === 0);
+  check('dashboard not rendered before login', await page.locator('nav.side-nav').count() === 0);
 
   // mismatch guard
   await page.fill('input[autocomplete="username"]', 'faisal');

@@ -108,9 +108,22 @@ export const Bars = ({ size = 21 }) => (
   </svg>
 );
 
-export const Repeat = ({ size = 21 }) => (
+// A list of things that happened.
+export const List = ({ size = 21 }) => (
   <svg {...base(size)}>
     <path d="M4 7h16M4 12h16M4 17h10" {...stroke} strokeWidth="1.9" />
+  </svg>
+);
+
+// A loop. This used to be the list glyph above, which meant Recurring and a
+// money transfer were drawn with symbols that said nothing about either.
+export const Repeat = ({ size = 21 }) => (
+  <svg {...base(size)}>
+    <path
+      d="M17 3l3.5 3.5L17 10M3.5 12v-1.5a4 4 0 014-4h13M7 21l-3.5-3.5L7 14M20.5 12v1.5a4 4 0 01-4 4h-13"
+      {...stroke}
+      strokeWidth="1.8"
+    />
   </svg>
 );
 
