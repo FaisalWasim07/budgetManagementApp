@@ -198,6 +198,20 @@ main.stack { padding-top: 18px; }
 
 .page-title { font-size: 1.1rem; font-weight: 640; letter-spacing: -.02em; }
 
+/* A month field: the same grid the top bar opens, wearing an input's clothes. */
+.month-field {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; height: 36px; padding: 0 11px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: .92rem; text-align: left; cursor: pointer;
+}
+.month-field:hover:not(:disabled) { border-color: var(--ink-3); }
+.month-field.empty { color: var(--ink-3); }
+.month-field svg { color: var(--ink-3); flex: none; }
+.month-field:disabled { cursor: default; background: var(--surface-2); color: var(--ink-3); }
+.month-grid button:disabled { opacity: .35; cursor: default; }
+
 h1 { font-size: 1.4rem; margin: 0; }
 h2 { font-size: 1rem; font-weight: 600; margin: 0; }
 h3 { font-size: .96rem; font-weight: 600; margin: 0; }

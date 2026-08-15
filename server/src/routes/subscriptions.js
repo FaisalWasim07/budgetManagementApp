@@ -61,7 +61,7 @@ router.get(
   })
 );
 
-function validate(body, { partial = false, wasEndMonth = null } = {}) {
+function validate(body, { partial = false, wasEndMonth = null, wasStartMonth = null } = {}) {
   const {
     account_id: accountId,
     name,
@@ -100,6 +100,19 @@ function validate(body, { partial = false, wasEndMonth = null } = {}) {
   // stopped in March.
   if (endMonth && endMonth !== wasEndMonth && endMonth < shiftMonth(summaryService.currentMonth(), -1)) {
     return 'end_month cannot be before last month — earlier months are already recorded';
+  }
+  // Moving the start of something that has already charged adds or removes
+  // months that are recorded. A price change splits into a new period rather
+  // than restating them; a start date has no equivalent, so it is fixed once
+  // the item has run. Creating one that started in the past is fine — that is
+  // recording something you already pay, not rewriting it.
+  if (
+    wasStartMonth &&
+    startMonth &&
+    startMonth !== wasStartMonth &&
+    wasStartMonth < summaryService.currentMonth()
+  ) {
+    return 'start_month cannot move once the item has charged';
   }
   return null;
 }
@@ -178,6 +191,7 @@ router.patch(
     const error = validate({ ...existing, ...patch }, {
       partial: true,
       wasEndMonth: existing.end_month,
+      wasStartMonth: existing.start_month,
     });
     if (error) return res.status(400).json({ error });
 

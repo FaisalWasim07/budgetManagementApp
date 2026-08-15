@@ -7,10 +7,12 @@ import { dueIn, convert } from '../utils/recurring';
 // information you cannot get from a list sorted any way at all, and it is the
 // difference between being surprised by March and expecting it.
 //
-// It renders nothing when every item is monthly: twelve identical bars is a
-// chart with nothing to say, and a chart with nothing to say is clutter.
+// It used to hide itself when every item was monthly, on the grounds that
+// twelve identical bars say nothing. But the twelve months are also how you
+// see an item ending — the floor drops the month after it stops — and a strip
+// that comes and goes is one you never learn to look at. It stays.
 export default function RecurringYear({ items, rateFor, currency, month }) {
-  if (!items.some((item) => item.cycle === 'yearly')) return null;
+  if (items.length === 0) return null;
 
   const months = Array.from({ length: 12 }, (_, i) => shiftMonth(month, i));
   const totals = months.map((m) =>
@@ -33,7 +35,7 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
         <span className="muted" style={{ fontSize: '.8rem' }}>
           {peak > floor
             ? `${formatMonth(months[dearest]).split(' ')[0]} is the expensive one`
-            : 'Every month the same'}
+            : 'The same every month'}
         </span>
       </div>
 
@@ -49,8 +51,16 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
       </div>
 
       <p className="muted" style={{ fontSize: '.8rem', margin: '12px 0 0' }}>
-        Highest is {formatMonth(months[dearest])} at{' '}
-        <Money amount={peak} currency={currency} compact />.
+        {peak > floor ? (
+          <>
+            Highest is {formatMonth(months[dearest])} at{' '}
+            <Money amount={peak} currency={currency} compact />.
+          </>
+        ) : (
+          <>
+            <Money amount={peak} currency={currency} compact /> every month for the next year.
+          </>
+        )}
       </p>
     </section>
   );

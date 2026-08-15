@@ -251,6 +251,43 @@ const SEP = '2026-09';
   check('and it charges past where it used to end',
     (await listAt(shift(lastYear, 1)))?.dueThisMonth === true);
 
+  // --- and the month it starts --------------------------------------------
+  // Recording something you already pay is fine: a start in the past is a fact
+  // you are entering late, not a rewrite. Moving the start of something that
+  // has already charged is the rewrite, and that is refused.
+  const backdatedStart = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'Rent, entered late',
+    amount: 100,
+    cycle: 'monthly',
+    start_month: shift(thisMonth, -5),
+  });
+  check('an item can be created as having started months ago',
+    backdatedStart.status === 201, String(backdatedStart.status));
+
+  const moved = await me.patch(`/api/subscriptions/${backdatedStart.data.id}`, {
+    start_month: shift(thisMonth, -2),
+    from_month: thisMonth,
+  });
+  check('but its start cannot be moved once it has charged', moved.status === 400,
+    String(moved.status));
+
+  const fresh = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'Starts next month',
+    amount: 20,
+    cycle: 'monthly',
+    start_month: shift(thisMonth, 1),
+  });
+  const movedFresh = await me.patch(`/api/subscriptions/${fresh.data.id}`, {
+    start_month: shift(thisMonth, 2),
+    from_month: thisMonth,
+  });
+  check('one that has not charged yet can still be moved', movedFresh.status === 200,
+    String(movedFresh.status));
+
+  await me.del(`/api/subscriptions/${backdatedStart.data.id}`);
+  await me.del(`/api/subscriptions/${fresh.data.id}`);
   await me.del(`/api/subscriptions/${fees.data.id}`);
   await me.del(`/api/subscriptions/${old.data.id}`);
   await me.del(`/api/subscriptions/${longRunning.data.id}`);

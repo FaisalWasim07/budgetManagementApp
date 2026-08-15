@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import MonthPicker from './MonthPicker';
 import { createSubscription, updateSubscription } from '../api/subscriptions';
 import { useDisplay } from '../utils/display';
 import { currentMonth, formatMonth, shiftMonth } from '../utils/month';
@@ -31,6 +32,7 @@ export default function RecurringFormModal({
     cycle: item?.cycle ?? 'monthly',
     billing_month: String(item?.billing_month || Number(month.split('-')[1])),
     category: item?.category ?? '',
+    start_month: item?.start_month ?? month,
     end_month: item?.end_month ?? '',
   }));
   const [error, setError] = useState(null);
@@ -57,8 +59,13 @@ export default function RecurringFormModal({
   const thisMonth = currentMonth();
   const earliestEnd = shiftMonth(thisMonth, -1);
   const endTooEarly = form.end_month && form.end_month < earliestEnd;
-  const endBeforeStart =
-    form.end_month && editing && form.end_month < item.start_month;
+  const endBeforeStart = form.end_month && form.end_month < form.start_month;
+
+  // Moving the start of something that has already charged would add or remove
+  // months that are already recorded. A price change splits into a new period
+  // for the same reason; a start date has no equivalent, so it is fixed once
+  // the item has run.
+  const startLocked = editing && item.start_month < thisMonth;
 
   async function submit(e) {
     e.preventDefault();
@@ -83,7 +90,7 @@ export default function RecurringFormModal({
       return;
     }
     if (endBeforeStart) {
-      setError(`It cannot end before it starts, in ${formatMonth(item.start_month)}.`);
+      setError(`It cannot end before it starts, in ${formatMonth(form.start_month)}.`);
       return;
     }
 
@@ -97,11 +104,12 @@ export default function RecurringFormModal({
       category: form.category.trim() || null,
       end_month: form.end_month || null,
     };
+    if (!startLocked) body.start_month = form.start_month;
 
     setBusy(true);
     try {
       if (editing) await updateSubscription(item.id, body, month);
-      else await createSubscription({ ...body, start_month: month });
+      else await createSubscription(body);
       await onSaved();
       onClose();
     } catch (err) {
@@ -192,22 +200,44 @@ export default function RecurringFormModal({
           )}
         </div>
 
-        {/* Optional, and the only way to say "this runs until" without having
-            to remember to press Stop when the month arrives. */}
-        <label className="field">
-          <span className="label">Runs until</span>
-          <input
-            type="month"
-            value={form.end_month}
-            min={editing ? item.start_month : earliestEnd}
-            onChange={set('end_month')}
-          />
-          <span className="muted" style={{ fontSize: '.78rem' }}>
-            {form.end_month
-              ? `Charges through ${formatMonth(form.end_month)}, then stops.`
-              : 'Leave empty and it runs until you stop it.'}
-          </span>
-        </label>
+        {/* When it began and, if you already know, when it finishes. Both use
+            the same grid the top bar does rather than a browser's own control,
+            which is a numeric dropdown in one browser and a text box in
+            another. */}
+        <div className="row">
+          <label className="field grow">
+            <span className="label">Starts</span>
+            <MonthPicker
+              label="Starts"
+              value={form.start_month}
+              onChange={(v) => setForm((f) => ({ ...f, start_month: v }))}
+              max={form.end_month || undefined}
+              disabled={startLocked}
+            />
+            <span className="muted" style={{ fontSize: '.78rem' }}>
+              {startLocked
+                ? `Running since ${formatMonth(item.start_month)} — the months it charged are fixed.`
+                : 'The first month it charges.'}
+            </span>
+          </label>
+
+          <label className="field grow">
+            <span className="label">Runs until</span>
+            <MonthPicker
+              label="Runs until"
+              value={form.end_month}
+              onChange={(v) => setForm((f) => ({ ...f, end_month: v }))}
+              min={form.start_month > earliestEnd ? form.start_month : earliestEnd}
+              placeholder="No end"
+              clearable
+            />
+            <span className="muted" style={{ fontSize: '.78rem' }}>
+              {form.end_month
+                ? `Charges through ${formatMonth(form.end_month)}, then stops.`
+                : 'Runs until you stop it.'}
+            </span>
+          </label>
+        </div>
 
         <label className="field">
           <span className="label">Category</span>
