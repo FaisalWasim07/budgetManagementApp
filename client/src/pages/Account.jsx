@@ -54,6 +54,13 @@ export default function Account({
     `ledger:${account.id}:${month}`,
     () => listTransactions({ accountId: account.id, month })
   );
+  // The month across every account, purely to pair up a transfer. This ledger
+  // holds one account's side of one; the editor needs both, because a transfer
+  // is edited as a pair — and the other side is, by definition, in a different
+  // account. Same key Activity uses, so it is one request between them.
+  const { data: monthRows } = useLive(`transactions:${month}`, () =>
+    listTransactions({ month })
+  );
   const { data: subs, reload: loadSubs } = useLive(`subscriptions:${month}`, () =>
     listSubscriptions(month)
   );
@@ -95,6 +102,14 @@ export default function Account({
   });
   const opening = running;
 
+  // A transfer is edited as a pair, so it is opened as one.
+  const withLegs = (entry) => ({
+    ...entry,
+    legs: entry.transfer_id
+      ? (monthRows ?? []).filter((r) => r.transfer_id === entry.transfer_id)
+      : null,
+  });
+
   const acts = (entry, label) =>
     !readOnly && (
       <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
@@ -102,7 +117,7 @@ export default function Account({
           className="icon-button small"
           title="Edit"
           aria-label={`Edit ${label}`}
-          onClick={() => setEditing(entry)}
+          onClick={() => setEditing(withLegs(entry))}
         >
           <Pencil />
         </button>
@@ -258,7 +273,7 @@ export default function Account({
           {ledger.map(({ entry, after }) => {
             const label = describe(entry);
             const Icon = iconForEntry(entry);
-            const open = () => !readOnly && setEditing(entry);
+            const open = () => !readOnly && setEditing(withLegs(entry));
             const rowProps = readOnly
               ? { className: 'txn' }
               : {

@@ -419,6 +419,66 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('.page-title .crumb');
   await page.waitForTimeout(600);
 
+  // --- a transfer opened from inside an account ----------------------------
+  // An account's ledger holds one side of a transfer; the editor needs both,
+  // because a transfer is edited as a pair. Opening one with only the near leg
+  // threw inside render, which unmounts the app and leaves a blank page.
+  await go('Home');
+  await page.locator('.account-row:not(.add)').first().click();
+  await page.waitForSelector('.account-page', { timeout: 8000 });
+  await page.waitForTimeout(700);
+  const transferRow = page.locator('.ledger-table .txn.tappable', { hasText: 'Transfer' }).first();
+  if (await transferRow.count()) {
+    await transferRow.click();
+    await page.waitForTimeout(900);
+    check('a transfer opens from inside an account', (await page.locator('.modal').count()) === 1);
+    check(
+      'the app is still on screen',
+      (await page.evaluate(() => document.getElementById('root').innerHTML.length)) > 1000
+    );
+    check(
+      'and it is the pair editor, with both accounts named',
+      (await page.locator('.modal').textContent()).includes('→'),
+      (await page.locator('.modal').textContent()).replace(/\s+/g, ' ').slice(0, 80)
+    );
+    await page.click('.modal button[aria-label="Close"]');
+    await page.waitForTimeout(400);
+  }
+  await page.click('.page-title .crumb');
+  await page.waitForTimeout(600);
+
+  // --- the eye must not move a scrollbar ------------------------------------
+  // The dust drifts up and to the right, so from the figure nearest the right
+  // edge it reached past it and grew the document — which showed a horizontal
+  // scrollbar, and then a vertical one, for the length of the animation.
+  const restW = await page.evaluate(() => document.documentElement.scrollWidth);
+  await page.click('button[aria-label="Hide amounts"]');
+  const grew = await page.evaluate(
+    () =>
+      new Promise((res) => {
+        const start = document.documentElement.scrollWidth;
+        let max = start;
+        const stop = setInterval(() => {
+          max = Math.max(max, document.documentElement.scrollWidth);
+        }, 16);
+        setTimeout(() => {
+          clearInterval(stop);
+          res(max);
+        }, 900);
+      })
+  );
+  check('the eye never widens the page', grew === restW, `${grew} vs ${restW}`);
+  check(
+    'and the dust goes in a layer of its own',
+    (await page.evaluate(() => {
+      const l = document.querySelector('.dust-layer');
+      return l ? getComputedStyle(l).position : null;
+    })) === 'fixed'
+  );
+  await page.waitForTimeout(1200);
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(1600);
+
   // --- stats ---------------------------------------------------------------
   await page.click('.side-nav button:has-text("Stats")');
   await page.waitForTimeout(1200);

@@ -19,9 +19,15 @@ export default function TransactionEditModal({
   onSaved,
   onDelete,
 }) {
+  // A transfer is two rows and is edited as one thing, so both are needed. If
+  // only one arrived, this says so rather than throwing on the missing half —
+  // an exception here unmounts the whole app and leaves a blank page, which is
+  // exactly what a caller that forgot to pair them up used to cause.
+  const legs = entry.legs ?? [];
   const isTransfer = Boolean(entry.transfer_id);
-  const outLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_out') : null;
-  const inLeg = isTransfer ? entry.legs.find((l) => l.kind === 'transfer_in') : null;
+  const outLeg = isTransfer ? legs.find((l) => l.kind === 'transfer_out') : null;
+  const inLeg = isTransfer ? legs.find((l) => l.kind === 'transfer_in') : null;
+  const incomplete = isTransfer && (!outLeg || !inLeg);
   // Read off the leg itself rather than looked up. The lookup only holds
   // accounts still active in the household, so a transfer out of an account
   // that has since been closed rendered as "Left ()" with no name — the row
@@ -31,8 +37,8 @@ export default function TransactionEditModal({
   const crossCurrency = isTransfer && currencyOf(outLeg) !== currencyOf(inLeg);
 
   const [form, setForm] = useState({
-    amount: String(isTransfer ? outLeg.amount : entry.amount),
-    toAmount: String(isTransfer ? inLeg.amount : ''),
+    amount: String(isTransfer ? outLeg?.amount ?? entry.amount : entry.amount),
+    toAmount: String(isTransfer ? inLeg?.amount ?? '' : ''),
     kind: entry.kind,
     category: entry.category ?? '',
     description: entry.description ?? '',
@@ -79,6 +85,27 @@ export default function TransactionEditModal({
       setError(err.message);
       setBusy(false);
     }
+  }
+
+  // Both halves of a transfer have to be in hand before it can be edited, and
+  // saying so is the whole of the failure. It was a blank page before.
+  if (incomplete) {
+    return (
+      <Modal title="Edit transfer" onClose={onClose}>
+        <div className="stack">
+          <p className="secondary" style={{ margin: 0 }}>
+            The other side of this transfer isn’t loaded, so it can’t be edited safely — changing
+            one half on its own would leave the two disagreeing. Open it from Activity, which has
+            both.
+          </p>
+          <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
   }
 
   return (

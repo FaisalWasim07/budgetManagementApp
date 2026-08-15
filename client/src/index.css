@@ -1063,12 +1063,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ── Hiding amounts ──────────────────────────────────────────────
    The figure is measured and rasterised before it goes, so the layout
    never jumps while the dust is in the air. */
-.money { position: relative; display: inline-block; }
+.money { display: inline-block; }
 .money .fig { display: inline-block; }
 .money.dusting { color: transparent !important; }
-.dust-host { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
-.dust-host canvas.dust {
-  position: absolute; top: 0; left: 0;
+/* Every figure's dust goes here, over the whole viewport. Fixed, so none of it
+   counts towards the page's scrollable area — dust drifting past the right
+   edge used to grow the document and put scrollbars on screen for the length
+   of the animation. Nothing inside a row, either, so a card with
+   overflow: hidden cannot clip it. */
+.dust-layer {
+  /* Above the page, below the scrim at 50: dust is never worth painting over
+     an open dialog. */
+  position: fixed; inset: 0; z-index: 45;
+  overflow: hidden; pointer-events: none;
+}
+.dust-layer canvas.dust {
+  position: absolute;
   pointer-events: none;
   will-change: transform, opacity, filter;
 }

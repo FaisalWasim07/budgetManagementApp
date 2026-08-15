@@ -36,7 +36,6 @@ export function Money({
   const target = amountsHidden ? MASK : real;
 
   const box = useRef(null);
-  const host = useRef(null);
   const was = useRef(amountsHidden);
   // `flash` only ever increments, and only when the eye was clicked: it keys
   // the inner span so the new figure remounts and plays its reveal. A figure
@@ -51,7 +50,7 @@ export function Money({
     was.current = amountsHidden;
 
     let live = true;
-    dust(box.current, host.current).then(() => {
+    dust(box.current).then(() => {
       if (live) setShown((current) => ({ text: target, flash: current.flash + 1 }));
     });
     return () => {
@@ -83,7 +82,6 @@ export function Money({
       <span className={shown.flash ? 'fig reveal' : 'fig'} key={shown.flash}>
         {shown.text}
       </span>
-      <span className="dust-host" ref={host} aria-hidden="true" />
     </span>
   );
 }

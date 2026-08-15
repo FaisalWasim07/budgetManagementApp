@@ -130,6 +130,31 @@ function deal({ canvas, width, height }, count) {
   });
 }
 
+// One fixed, viewport-sized layer for every figure's dust, rather than each
+// figure hosting its own inside itself.
+//
+// Two reasons, both of which were real bugs. A layer flies up and to the right,
+// so dust from the amount nearest the right edge of the page reached past it
+// and grew the document — which put a horizontal scrollbar on screen for the
+// length of the animation, and then a vertical one, because the horizontal bar
+// eats the height a page that exactly fitted no longer had. And dust hosted
+// inside a row was clipped by the card around it: .txn-list, .latest and the
+// ledger cells all set overflow: hidden, which is most of the rows on screen.
+//
+// Fixed rather than absolute is the load-bearing part: a fixed element and its
+// descendants do not contribute to the document's scrollable area at all, so
+// nothing here can move a scrollbar again.
+let overlay = null;
+
+function dustLayer() {
+  if (overlay && overlay.isConnected) return overlay;
+  overlay = document.createElement('div');
+  overlay.className = 'dust-layer';
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
 function fly(layer, index) {
   // Further out for the later layers, so the cloud spreads as it goes instead
   // of every layer travelling the same distance in convoy. The middle keyframe
@@ -169,10 +194,10 @@ function fly(layer, index) {
   return animation.finished.catch(() => {});
 }
 
-// Sends `el`'s current text off as dust, painting the layers into `host`.
-// Resolves when the figure is gone and the caller may swap the text.
-export function dust(el, host) {
-  if (!el || !host) return Promise.resolve();
+// Sends `el`'s current text off as dust. Resolves when the figure is gone and
+// the caller may swap the text.
+export function dust(el) {
+  if (!el) return Promise.resolve();
 
   const text = el.textContent;
   if (!text || reducedMotion() || !onScreen(el) || inFlight >= MAX_IN_FLIGHT) {
@@ -190,8 +215,16 @@ export function dust(el, host) {
     return Promise.resolve();
   }
 
+  // Placed where the figure is, in viewport coordinates, because the layer
+  // they go into is fixed to the viewport rather than to the row.
+  const at = el.getBoundingClientRect();
+  for (const layer of layers) {
+    layer.style.left = `${at.left}px`;
+    layer.style.top = `${at.top}px`;
+  }
+
   inFlight += 1;
-  host.replaceChildren(...layers);
+  dustLayer().append(...layers);
   el.classList.add('dusting');
 
   // The canvases go, but `dusting` stays: the element is left blank, and it is
@@ -199,9 +232,11 @@ export function dust(el, host) {
   // text in. Clearing it here would uncover the old figure for however long it
   // takes React to render — one frame, which is exactly long enough to look
   // like a glitch.
+  // Only this figure's own layers are taken away — the overlay is shared, and
+  // thirty other figures may still be mid-flight in it.
   const settle = () => {
     inFlight = Math.max(0, inFlight - 1);
-    host.replaceChildren();
+    for (const layer of layers) layer.remove();
   };
 
   return Promise.all(layers.map(fly)).then(settle, settle);
