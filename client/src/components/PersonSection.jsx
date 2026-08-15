@@ -39,8 +39,7 @@ export default function PersonSection({
   subscriptions = [],
   onChanged,
   onAddAccount,
-  onEditAccount,
-  onAddEntry,
+  onOpenAccount,
   readOnly = false,
 }) {
   const [editing, setEditing] = useState(false);
@@ -147,12 +146,8 @@ export default function PersonSection({
           <AccountRow
             key={account.id}
             account={account}
-            month={month}
             primaryCurrency={primaryCurrency}
-            recurring={subscriptions.filter((s) => s.account_id === account.id)}
-            onAdd={onAddEntry}
-            onEdit={onEditAccount}
-            readOnly={readOnly}
+            onOpen={onOpenAccount}
           />
         ))}
 

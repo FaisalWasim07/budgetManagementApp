@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
 import Recurring from './pages/Recurring';
 import Activity from './pages/Activity';
+import Account from './pages/Account';
 import HouseholdSetup from './pages/HouseholdSetup';
 import MonthSelector from './components/MonthSelector';
 import SettingsModal from './components/SettingsModal';
@@ -53,6 +54,9 @@ function usePhone() {
 
 export default function App({ user, onSignedOut }) {
   const [page, setPage] = useState('dashboard');
+  // Which account's screen is open. Held as an id rather than the account
+  // itself so it survives a reload of the summary — balances change under it.
+  const [accountId, setAccountId] = useState(null);
   const [month, setMonth] = useState(currentMonth());
   const [households, setHouseholds] = useState(null);
   const [householdId, setHouseholdId] = useState(() => {
@@ -132,6 +136,12 @@ export default function App({ user, onSignedOut }) {
 
   const accounts =
     summary?.persons.flatMap((p) => p.accounts.map((a) => ({ ...a, personName: p.name }))) ?? [];
+  const openAccount = accountId ? accounts.find((a) => a.id === accountId) : null;
+
+  const goTo = (key) => {
+    setAccountId(null);
+    setPage(key);
+  };
 
   // N for new. On a phone that means the sheet; at a desk it means the strip
   // that is already on screen, so it puts the cursor there instead.
@@ -183,7 +193,7 @@ export default function App({ user, onSignedOut }) {
         <Sidebar
           pages={PAGES}
           page={page}
-          onPage={setPage}
+          onPage={goTo}
           households={households}
           household={household}
           onSwitchHousehold={(id) => {
@@ -227,7 +237,9 @@ export default function App({ user, onSignedOut }) {
                   />
                 </>
               ) : (
-                <h1 className="page-title">{PAGES.find(([key]) => key === page)?.[1]}</h1>
+                <h1 className="page-title">
+                  {openAccount ? openAccount.name : PAGES.find(([key]) => key === page)?.[1]}
+                </h1>
               )}
 
               <span className="spacer" />
@@ -297,14 +309,28 @@ export default function App({ user, onSignedOut }) {
           </div>
         )}
 
-        {summary && !empty && page === 'dashboard' && (
+        {summary && !empty && page === 'dashboard' && openAccount && (
+          <Account
+            account={openAccount}
+            personName={openAccount.personName}
+            month={month}
+            primaryCurrency={summary.primaryCurrency}
+            onBack={() => setAccountId(null)}
+            onChanged={load}
+            onAddEntry={(account) => setSheet({ accountId: account.id })}
+            readOnly={readOnly}
+            phone={phone}
+          />
+        )}
+
+        {summary && !empty && page === 'dashboard' && !openAccount && (
           <Dashboard
             summary={summary}
             trend={trend}
             categories={categories}
             month={month}
             onChanged={load}
-            onAddEntry={(accountId) => setSheet({ accountId })}
+            onOpenAccount={(account) => setAccountId(account.id)}
             readOnly={readOnly}
           />
         )}
@@ -339,7 +365,7 @@ export default function App({ user, onSignedOut }) {
             key={key}
             className={page === key ? 'active' : ''}
             aria-current={page === key ? 'page' : undefined}
-            onClick={() => setPage(key)}
+            onClick={() => goTo(key)}
           >
             <Icon />
             {label}
@@ -358,7 +384,7 @@ export default function App({ user, onSignedOut }) {
             key={key}
             className={page === key ? 'active' : ''}
             aria-current={page === key ? 'page' : undefined}
-            onClick={() => setPage(key)}
+            onClick={() => goTo(key)}
           >
             <Icon />
             {label}

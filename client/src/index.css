@@ -515,6 +515,49 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .act-search input:focus { outline: none; }
 .act-search input::-webkit-search-cancel-button { cursor: pointer; }
 
+/* ── One account ─────────────────────────────────────────────────
+   Its own screen, so it can afford a balance, what moved, the recurring
+   items that charge it, and a ledger you can reconcile line by line. */
+.account-page { display: flex; flex-direction: column; gap: 16px; }
+.account-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.account-top .back { display: inline-flex; align-items: center; gap: 4px; }
+.account-hero .label { display: flex; align-items: center; gap: 9px; }
+.account-hero .label .tile { width: 30px; height: 30px; border-radius: 10px; }
+.account-figures {
+  display: grid; grid-template-columns: repeat(3, 1fr); text-align: center;
+  padding: 14px 16px; gap: 4px;
+}
+.account-figures > * + * { border-left: 1px solid var(--line-soft); }
+.account-figures .k { display: block; font-size: .75rem; color: var(--ink-3); }
+.account-figures .v { display: block; font-weight: 640; letter-spacing: -.02em; }
+.account-figures .v.in { color: var(--pos); }
+.account-figures .v.moved { color: var(--moved); }
+
+.ledger-table { display: grid; grid-template-columns: 84px minmax(0, 1fr) 150px 150px 52px; }
+.ledger-table .txn, .ledger-table .txn-head { display: contents; }
+.ledger-table .txn-head > * {
+  padding: 11px 10px 9px; font-size: .69rem; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink-3); font-weight: 640;
+  border-bottom: 1px solid var(--line);
+}
+.ledger-table .txn-head .r, .ledger-table .txn .amt { justify-content: flex-end; text-align: right; }
+.ledger-table .txn-head .r { display: flex; }
+.ledger-table .txn > * {
+  display: flex; align-items: center; min-width: 0; overflow: hidden;
+  padding: 11px 10px; border-bottom: 1px solid var(--line-soft);
+}
+.ledger-table .txn:last-child > * { border-bottom: 0; }
+.ledger-table .txn.tappable > * { cursor: pointer; }
+.ledger-table .txn:hover > * { background: var(--surface-2); }
+.ledger-table .txn:hover .tile { background: var(--surface); }
+.ledger-table .txn .on { color: var(--ink-3); font-size: .8rem; white-space: nowrap; }
+.ledger-table .txn .what { gap: 10px; }
+.ledger-table .txn .what .tile { width: 28px; height: 28px; border-radius: 9px; }
+/* The running balance is context, not the figure you came for. */
+.ledger-table .txn .amt.running { color: var(--ink-2); font-weight: 550; }
+.txn.opening { color: var(--ink-3); }
+.txn.opening b { font-weight: 550; }
+
 .txn-days { display: flex; flex-direction: column; gap: 16px; }
 .day-head {
   font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;

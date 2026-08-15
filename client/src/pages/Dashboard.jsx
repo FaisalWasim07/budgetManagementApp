@@ -13,7 +13,7 @@ export default function Dashboard({
   categories,
   month,
   onChanged,
-  onAddEntry,
+  onOpenAccount,
   readOnly = false,
 }) {
   const [accountModal, setAccountModal] = useState(null);
@@ -75,8 +75,7 @@ export default function Dashboard({
             onChanged={onChanged}
             readOnly={readOnly}
             onAddAccount={(p) => setAccountModal({ personId: p.id, personName: p.name })}
-            onEditAccount={(account) => setAccountModal({ account })}
-            onAddEntry={(account) => onAddEntry(account.id)}
+            onOpenAccount={onOpenAccount}
           />
         ))}
       </div>

@@ -158,18 +158,28 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(400);
   check('and everything brings it back', (await page.locator('.txn:not(.empty)').count()) === 1);
 
-  // --- account rows --------------------------------------------------------
+  // --- an account's own screen ---------------------------------------------
   await go('Home');
   await page.locator('.account-row:not(.add)').first().click();
+  await page.waitForSelector('.account-page', { timeout: 8000 });
   await page.waitForTimeout(700);
-  check('an account row opens', (await page.locator('.detail.open').count()) === 1);
+  check('an account row opens its own screen', (await page.locator('.account-page').count()) === 1);
   check(
-    'the open row lists that account’s entries',
-    (await page.locator('.detail.open .entries').textContent()).includes('Salary')
+    'the account screen lists that account’s entries',
+    (await page.locator('.ledger-table').textContent()).includes('Salary')
+  );
+  check(
+    'and the ledger ends at the opening balance',
+    (await page.locator('.txn.opening').count()) === 1
+  );
+  check(
+    'the top bar names the account',
+    (await page.locator('.page-title').textContent()).length > 0,
+    await page.locator('.page-title').textContent()
   );
 
   // --- adding from inside an account ---------------------------------------
-  await page.locator('.detail.open button:has-text("Add to this account")').click();
+  await page.locator('.account-page button:has-text("Add to this account")').click();
   await page.waitForTimeout(500);
   check('"add to this account" opens the sheet', (await page.locator('.sheet.open').count()) === 1);
   check('and it is preset to that account', Boolean(await page.locator('.sheet select').inputValue()));
@@ -324,11 +334,14 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('the month card counts the subscription', flowAfter.includes('1 item'), flowAfter.slice(0, 200));
 
   await page.locator('.account-row:not(.add)').first().click();
+  await page.waitForSelector('.account-page', { timeout: 8000 });
   await page.waitForTimeout(700);
   check(
-    'the subscription shows inside the account it comes out of',
-    (await page.locator('.detail.open .entries').textContent()).includes('Netflix')
+    'the subscription is listed above the account’s ledger',
+    (await page.locator('.account-page').textContent()).includes('Netflix')
   );
+  await page.click('.account-top .back');
+  await page.waitForTimeout(600);
 
   // --- stats ---------------------------------------------------------------
   await page.click('.side-nav button:has-text("Stats")');
