@@ -147,14 +147,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root { max-width: 1240px; margin: 0 auto; padding: 0 0 40px; }
+#root { padding: 0 0 40px; }
 main.stack { padding-top: 18px; }
 .spacer { flex: 1; }
 
 /* Navigation gets a column of its own at a desk. On a phone the sidebar is
    gone and this collapses to the single column it has always been. */
 .shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); align-items: start; }
-.pane { min-width: 0; padding: 0 22px; }
+.pane { min-width: 0; padding: 0 26px; }
 
 .sidebar {
   position: sticky; top: 0; height: 100vh; z-index: 20;
