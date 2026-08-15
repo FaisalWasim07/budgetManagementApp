@@ -233,6 +233,9 @@ export default function Account({
       <section className="account-ledger card">
         <div className="panel-h">
           This month
+          {/* Said once, in the card's own heading, on both shells — it used
+              to be a note above the list at a desk and a second one below it
+              on a phone. */}
           <small>
             {recurringNet === 0
               ? 'Every entry that touched this account, newest first'
@@ -339,12 +342,6 @@ export default function Account({
           )}
         </div>
 
-        {recurringNet !== 0 && phone && (
-          <p className="muted" style={{ fontSize: '.78rem', margin: '8px 2px 0' }}>
-            Recurring charges are counted in the balance above, but they belong to the month rather
-            than to a day, so they are listed separately.
-          </p>
-        )}
       </section>
       </div>
 
