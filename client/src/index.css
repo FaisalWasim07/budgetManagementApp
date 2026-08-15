@@ -316,7 +316,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 }
 .month-trigger:hover { background: var(--surface-2); }
 .month-trigger svg { color: var(--ink-3); }
-.month-trigger .short { display: none; }
+.month-trigger .short, .month-trigger .tiny-label { display: none; }
 
 .year-nav { display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 1.02rem; }
 .year-nav button {
@@ -1111,7 +1111,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .month-trigger { font-size: .82rem; padding: 5px 10px; }
   .month-trigger .long { display: none; }
   .month-trigger .short { display: inline; }
-  .household-trigger { max-width: 34vw; }
+  /* The bar holds five things at a width that fits about four. The household
+     name is the one with slack in it — it truncates and the rest keep their
+     size — and the gaps and icon buttons give up a few pixels each. Below this
+     the ⋮ was being pushed past the right edge, which put the menu, and with
+     it sign-out, out of reach on a small phone. */
+  .topbar-inner { gap: 6px; }
+  .household-trigger { max-width: 30vw; padding: 5px 7px; }
+  .topbar-inner .icon-button { width: 34px; height: 34px; }
+  .month-trigger { padding: 5px 9px; }
+
   .month-grid button { padding: 15px 4px; }
 
   /* No column for navigation, so the sidebar goes and its contents come back
@@ -1203,4 +1212,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .sheet { width: 100%; }
   .backdrop { padding: 12px; }
   .modal { padding: 16px; }
+}
+
+/* Small phones. Everything above assumes about 390px; a 320–380px screen has
+   to give something up, and it is the year on the month and half the household
+   name rather than the menu falling off the edge. */
+@media (max-width: 384px) {
+  .topbar-inner { gap: 5px; }
+  .household-trigger { max-width: 22vw; }
+  .month-trigger .short { display: none ; }
+  .month-trigger .tiny-label { display: inline; }
 }

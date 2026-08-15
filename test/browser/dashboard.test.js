@@ -148,6 +148,33 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(400);
   check('and everything brings it back', (await page.locator('.txn:not(.empty)').count()) === 1);
 
+  // --- data outlives the page it is on -------------------------------------
+  // Activity and Recurring used to hold their lists in their own state, so
+  // leaving threw them away and coming back fetched them again from an empty
+  // screen. What is already known must be on screen before anything settles.
+  await go('Activity');
+  const seen = await page.locator('.txn-table .txn').count();
+  check('Activity loads its entries', seen > 0, String(seen));
+  await go('Home');
+  await page.locator('.side-nav button', { hasText: /^Activity$/ }).click();
+  // No wait at all: this is the first frame after the click.
+  check(
+    'and they are still there on the way back, with no empty flash',
+    (await page.locator('.txn-table .txn').count()) === seen,
+    `${await page.locator('.txn-table .txn').count()} of ${seen}`
+  );
+  await page.waitForTimeout(900);
+  check('and it refreshed behind them anyway', (await page.locator('.txn-table .txn').count()) === seen);
+
+  // One button, refreshing whatever screen you are on.
+  check(
+    'the top bar offers a refresh',
+    (await page.locator('.topbar button[aria-label="Refresh"]').count()) === 1
+  );
+  await page.click('.topbar button[aria-label="Refresh"]');
+  await page.waitForTimeout(1400);
+  check('which leaves the list intact', (await page.locator('.txn-table .txn').count()) === seen);
+
   // --- Latest, on Home, is editable in place -------------------------------
   await go('Home');
   check(

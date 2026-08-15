@@ -328,3 +328,22 @@ export const Mark = ({ size = 26 }) => (
     <path d="M207 64 L352 177.5 V366" stroke="url(#bayt-teal)" opacity=".88" {...RIBBON} />
   </svg>
 );
+
+// A circular arrow, open at the top so it reads as "again" rather than as the
+// loop on the Recurring tab — the two sit on the same screen.
+export const Refresh = ({ size = 17 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M20 11a8 8 0 1 0-.6 4" />
+    <path d="M20 4.5V11h-6" />
+  </svg>
+);

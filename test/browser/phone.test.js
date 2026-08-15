@@ -126,6 +126,30 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await page.locator('.txn', { hasText: 'Netflix' }).count()) === 0
   );
 
+  // --- the bar fits, and refresh lives in the menu -------------------------
+  // At this width there is no room for a refresh button of its own; putting
+  // one there pushed the menu — and with it sign-out — off the right edge.
+  check(
+    'no refresh button crowds the bar',
+    (await page.locator('.topbar button[aria-label="Refresh"]').count()) === 0
+  );
+  check(
+    'the bar does not overflow',
+    !(await page.evaluate(() => {
+      const bar = document.querySelector('.topbar-inner');
+      return bar.scrollWidth > bar.clientWidth + 1;
+    }))
+  );
+  check(
+    'the menu is still reachable',
+    await page.locator('.topbar button[aria-label="Menu"]').isVisible()
+  );
+  await page.locator('.topbar button[aria-label="Menu"]').tap();
+  await page.waitForTimeout(300);
+  check('and refresh is in it', (await page.locator('.menu button:has-text("Refresh")').count()) === 1);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
   // --- a sheet holds the page still ---------------------------------------
   await page.locator('.tabbar button', { hasText: /^Activity$/ }).click();
   await page.waitForTimeout(900);

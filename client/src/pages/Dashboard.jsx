@@ -5,6 +5,7 @@ import PersonSection from '../components/PersonSection';
 import Latest from '../components/Latest';
 import AccountFormModal from '../components/AccountFormModal';
 import { listSubscriptions } from '../api/subscriptions';
+import { useLive } from '../utils/live';
 
 export default function Dashboard({
   summary,
@@ -18,7 +19,6 @@ export default function Dashboard({
   readOnly = false,
 }) {
   const [accountModal, setAccountModal] = useState(null);
-  const [subscriptions, setSubscriptions] = useState([]);
 
   const primaryCurrency = summary.primaryCurrency;
   const allAccounts = summary.persons.flatMap((p) =>
@@ -28,17 +28,13 @@ export default function Dashboard({
   const accountsById = Object.fromEntries(allAccounts.map((a) => [a.id, a]));
 
   // Recurring items are shown inside the account they come out of, and counted
-  // in the flow card. They are read once here rather than by every account row.
-  const loadSubscriptions = useCallback(() => {
-    listSubscriptions(month).then(
-      (list) => setSubscriptions(list.filter((s) => s.is_active && s.dueThisMonth)),
-      () => {}
-    );
-  }, [month]);
-
-  useEffect(() => {
-    loadSubscriptions();
-  }, [loadSubscriptions]);
+  // in the flow card. Read under the same key the Recurring page uses, so the
+  // two never disagree and opening one does not re-fetch what the other has.
+  const { data: allSubscriptions, reload: loadSubscriptions } = useLive(
+    `subscriptions:${month}`,
+    () => listSubscriptions(month)
+  );
+  const subscriptions = (allSubscriptions ?? []).filter((s) => s.is_active && s.dueThisMonth);
 
   const refresh = async () => {
     loadSubscriptions();

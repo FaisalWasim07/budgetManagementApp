@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
+import { useLive } from '../utils/live';
 import { Money } from '../utils/display';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
@@ -46,20 +47,15 @@ export default function Latest({
   onChanged,
   readOnly = false,
 }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  // The same list Activity reads, under the same key: one request serves both,
+  // and correcting an entry here updates it there without a second round trip.
+  const { data, reload: load } = useLive(`transactions:${month}`, () =>
     listTransactions({ month })
-      .then(setRows, () => {})
-      .finally(() => setLoading(false));
-  }, [month]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  );
+  const rows = data ?? [];
+  const loading = data === undefined;
 
   const shown = rows.slice(0, limit);
 

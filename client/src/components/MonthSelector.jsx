@@ -43,6 +43,10 @@ export default function MonthSelector({ month, onChange }) {
       >
         <span className="long">{formatMonth(month)}</span>
         <span className="short">{`${shortMonth(month)} ${selectedYear}`}</span>
+        {/* On a narrow phone the year goes too. The bar has to hold the
+            household, the month, the eye and the menu, and losing the menu off
+            the right edge costs more than losing four characters here. */}
+        <span className="tiny-label">{shortMonth(month)}</span>
         <ChevronDown />
       </button>
 

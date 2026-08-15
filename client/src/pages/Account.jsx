@@ -7,6 +7,7 @@ import { iconForAccount, iconForEntry, toneForEntry } from '../utils/categoryIco
 import TransactionEditModal from '../components/TransactionEditModal';
 import AccountFormModal from '../components/AccountFormModal';
 import ToolbarSlot from '../components/ToolbarSlot';
+import { useLive } from '../utils/live';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -43,29 +44,29 @@ export default function Account({
   readOnly = false,
   phone = false,
 }) {
-  const [entries, setEntries] = useState([]);
-  const [recurring, setRecurring] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [editingAccount, setEditingAccount] = useState(false);
   const { money } = useDisplay();
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      listTransactions({ accountId: account.id, month }).catch(() => []),
-      listSubscriptions(month).catch(() => []),
-    ])
-      .then(([rows, subs]) => {
-        setEntries(rows);
-        setRecurring(subs.filter((s) => s.account_id === account.id && s.is_active && s.dueThisMonth));
-      })
-      .finally(() => setLoading(false));
-  }, [account.id, account.balance, month]);
+  // Its own ledger, and the recurring list shared with every other screen.
+  // Both survive going back to Home and opening this account again.
+  const { data: entries0, reload: loadEntries } = useLive(
+    `ledger:${account.id}:${month}`,
+    () => listTransactions({ accountId: account.id, month })
+  );
+  const { data: subs, reload: loadSubs } = useLive(`subscriptions:${month}`, () =>
+    listSubscriptions(month)
+  );
+  const entries = entries0 ?? [];
+  const loading = entries0 === undefined;
+  const recurring = (subs ?? []).filter(
+    (s) => s.account_id === account.id && s.is_active && s.dueThisMonth
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const load = useCallback(() => {
+    loadEntries();
+    loadSubs();
+  }, [loadEntries, loadSubs]);
 
   const card = account.type === 'credit';
   const owed = card && account.balance < 0;

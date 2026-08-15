@@ -13,6 +13,7 @@ import { convert, dueIn, hasEnded, perMonth, startsLater } from '../utils/recurr
 import ToolbarSlot from '../components/ToolbarSlot';
 import { Pencil, Plus, Trash, Wallet } from '../components/icons';
 import { iconForCategory } from '../utils/categoryIcon';
+import { useLive } from '../utils/live';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -151,10 +152,16 @@ function Row({ item, rate, currency, month, readOnly, phone, onEdit, onStop, onR
 }
 
 export default function Recurring({ summary, month, onChanged, readOnly = false, phone = false }) {
-  const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
+
+  // Kept outside the page: leaving Recurring and coming back used to throw the
+  // list away and fetch it again from an empty screen.
+  const { data, error: loadError, reload: load } = useLive(`subscriptions:${month}`, () =>
+    listSubscriptions(month)
+  );
+  const items = data ?? [];
 
   const currency = summary.primaryCurrency;
   const accounts = summary.persons.flatMap((p) =>
@@ -162,14 +169,6 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
   );
   const accountsById = Object.fromEntries(accounts.map((a) => [a.id, a]));
   const rateFor = (item) => accountsById[item.account_id]?.rate;
-
-  const load = useCallback(() => {
-    listSubscriptions(month).then(setItems, (err) => setError(err.message));
-  }, [month]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const act = async (run) => {
     setError(null);
@@ -303,7 +302,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
         </div>
       )}
 
-      {error && <div className="card error-text">{error}</div>}
+      {(error || loadError) && <div className="card error-text">{error || loadError}</div>}
 
       {/* Outgoings only. Salary is the same every month and would flatten the
           shape it exists to show. */}

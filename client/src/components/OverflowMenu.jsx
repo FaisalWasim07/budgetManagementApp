@@ -1,5 +1,5 @@
 import Menu from './Menu';
-import { Auto, Dots, Moon, Sun } from './icons';
+import { Auto, Dots, Moon, Sun, Refresh } from './icons';
 
 const THEME_ICON = { auto: Auto, light: Sun, dark: Moon };
 const THEME_LABEL = { auto: 'Theme: follows your system', light: 'Theme: light', dark: 'Theme: dark' };
@@ -14,6 +14,11 @@ export default function OverflowMenu({
   onSharing,
   onSignOut,
   username,
+  // Only on a phone. At a desk refresh is a button of its own beside the
+  // month; here the bar is already full, and a control pushed off the edge is
+  // worse than one behind a menu.
+  onRefresh,
+  busy = false,
   // In the sidebar this sits at the foot of a full-height column, so a panel
   // that opens downwards opens off the bottom of the screen.
   align = 'right',
@@ -38,6 +43,21 @@ export default function OverflowMenu({
     >
       {({ close }) => (
         <>
+          {onRefresh && (
+            <>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  close();
+                  onRefresh();
+                }}
+              >
+                <Refresh size={16} />
+                <span className="grow">{busy ? 'Refreshing…' : 'Refresh'}</span>
+              </button>
+              <hr />
+            </>
+          )}
           <button onClick={onCycleTheme}>
             <ThemeIcon />
             <span className="grow">{THEME_LABEL[theme]}</span>

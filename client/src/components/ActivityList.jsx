@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
+import { useLive } from '../utils/live';
 import { Money, useDisplay } from '../utils/display';
 import { Pencil, Search, Trash } from './icons';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
@@ -97,24 +98,19 @@ export default function ActivityList({
   readOnly = false,
   phone = false,
 }) {
-  const [rows, setRows] = useState([]);
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
   const [person, setPerson] = useState(null);
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
   const { money } = useDisplay();
 
-  const load = useCallback(() => {
-    setLoading(true);
+  // Held outside the component, so coming back to Activity shows the month you
+  // were already looking at instead of an empty card and a spinner.
+  const { data, reload: load } = useLive(`transactions:${month}`, () =>
     listTransactions({ month })
-      .then(setRows, () => {})
-      .finally(() => setLoading(false));
-  }, [month]);
-
-  useEffect(() => {
-    load();
-  }, [load, accountsById]);
+  );
+  const rows = data ?? [];
+  const loading = data === undefined;
 
   async function remove(row) {
     const message = row.transfer_id

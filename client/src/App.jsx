@@ -14,13 +14,14 @@ import OverflowMenu from './components/OverflowMenu';
 import AddSheet from './components/AddSheet';
 import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
-import { Bars, Eye, EyeOff, Home, List, Mark, Plus, Repeat } from './components/icons';
+import { Bars, Eye, EyeOff, Home, List, Mark, Plus, Refresh, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
 import { setActiveHousehold } from './api/client';
 import { currentMonth } from './utils/month';
 import { DisplayContext } from './utils/display';
+import { clearLiveCache, useLiveData } from './utils/live';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
 // Four destinations, the same four on both shells. Activity is new: it was the
@@ -79,6 +80,10 @@ export default function App({ user, onSignedOut }) {
   const [amountsHidden, setAmountsHidden] = useState(true);
   const [theme, setTheme] = useState(loadTheme);
   const phone = usePhone();
+  // Every list on screen registers its own reload here, so one button can
+  // refresh whichever screen you happen to be on without the bar knowing which
+  // screen that is.
+  const { refreshAll, busy, register } = useLiveData();
 
   const household = households?.find((h) => h.id === householdId) ?? null;
   const readOnly = household?.role === 'viewer';
@@ -133,6 +138,9 @@ export default function App({ user, onSignedOut }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // The refresh button re-reads the household's figures as well as the lists.
+  useEffect(() => register(load), [register, load]);
 
   const accounts =
     summary?.persons.flatMap((p) => p.accounts.map((a) => ({ ...a, personName: p.name }))) ?? [];
@@ -196,6 +204,7 @@ export default function App({ user, onSignedOut }) {
           households={households}
           household={household}
           onSwitchHousehold={(id) => {
+            clearLiveCache();
             setSummary(null);
             setHouseholdId(id);
           }}
@@ -229,6 +238,7 @@ export default function App({ user, onSignedOut }) {
                     households={households}
                     current={household}
                     onSwitch={(id) => {
+                      clearLiveCache();
                       setSummary(null);
                       setHouseholdId(id);
                     }}
@@ -259,7 +269,23 @@ export default function App({ user, onSignedOut }) {
 
               <span className="spacer" />
 
-              {loading && <span className="spinner" aria-label="Updating" />}
+              {(loading || busy) && <span className="spinner" aria-label="Updating" />}
+
+              {/* Nothing here goes stale on its own — the other person in the
+                  household is what changes it — so refreshing is a thing you
+                  ask for rather than something that happens on a timer. A
+                  phone's bar has no room for it; there it is in the ⋮ menu. */}
+              {!phone && (
+                <button
+                  className="icon-button"
+                  onClick={refreshAll}
+                  disabled={loading || busy}
+                  title="Refresh"
+                  aria-label="Refresh"
+                >
+                  <Refresh />
+                </button>
+              )}
 
               <MonthSelector month={month} onChange={setMonth} />
 
@@ -292,6 +318,8 @@ export default function App({ user, onSignedOut }) {
                 <OverflowMenu
                   theme={theme}
                   username={user.username}
+                  onRefresh={refreshAll}
+                  busy={loading || busy}
                   onCycleTheme={() => setTheme(nextTheme)}
                   onSettings={() => setShowSettings(true)}
                   onSharing={() => setShowHousehold(true)}
