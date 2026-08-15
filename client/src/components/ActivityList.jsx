@@ -77,11 +77,16 @@ function describe(row, rows) {
 
 // On a cross-currency transfer the two legs hold different amounts, and the one
 // you are not looking at is the one you want to check.
-function counterAmount(row, rows, money) {
+//
+// Returned in parts rather than as a finished sentence: where there is room for
+// an element the figure goes through <Money>, so the eye turns it to dust like
+// every other amount. Joined into a line of text it can only be a string, and
+// there it merely masks.
+function counterLeg(row, rows) {
   if (!row.transfer_id) return null;
   const other = rows.find((x) => x.transfer_id === row.transfer_id && x.id !== row.id);
   if (!other || other.currency === row.currency) return null;
-  return `${row.kind === 'transfer_in' ? 'sent' : 'arrives as'} ${money(other.amount, other.currency)}`;
+  return { lead: row.kind === 'transfer_in' ? 'sent' : 'arrives as', ...other };
 }
 
 export default function ActivityList({
@@ -265,7 +270,10 @@ export default function ActivityList({
                           {[
                             row.account_name,
                             personsById[row.person_id]?.name,
-                            counterAmount(row, rows, money),
+                            (() => {
+                              const leg = counterLeg(row, rows);
+                              return leg && `${leg.lead} ${money(leg.amount, leg.currency)}`;
+                            })(),
                             row.created_by_username,
                           ]
                             .filter(Boolean)
@@ -305,7 +313,7 @@ export default function ActivityList({
           {visible.map((row) => {
             const label = describe(row, rows);
             const Icon = iconForEntry(row);
-            const counter = counterAmount(row, rows, money);
+            const counter = counterLeg(row, rows);
             // When there is no description of its own the title already *is*
             // the category, so repeating it in its own column says nothing.
             const category = row.description ? row.category : null;
@@ -332,7 +340,11 @@ export default function ActivityList({
                     currency={row.currency}
                     prefix={isCredit(row.kind) ? '+' : '−'}
                   />
-                  {counter && <small>{counter}</small>}
+                  {counter && (
+                    <small>
+                      {counter.lead} <Money amount={counter.amount} currency={counter.currency} />
+                    </small>
+                  )}
                 </span>
                 {actions(row, label)}
               </div>

@@ -20,6 +20,10 @@ export default function RecurringFormModal({
   month,
   onClose,
   onSaved,
+  onStop,
+  onResume,
+  onDelete,
+  stopped = false,
 }) {
   const editing = Boolean(item);
   const { money } = useDisplay();
@@ -110,8 +114,10 @@ export default function RecurringFormModal({
     try {
       if (editing) await updateSubscription(item.id, body, month);
       else await createSubscription(body);
-      await onSaved();
+      // The item is saved; the totals that depend on it catch up behind the
+      // closed dialog rather than holding it open for another three requests.
       onClose();
+      onSaved();
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -282,7 +288,39 @@ export default function RecurringFormModal({
 
         {error && <div className="error-text">{error}</div>}
 
-        <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
+        {/* Stop and delete live here as well as on the row, because on a phone
+            the row carries no buttons — this dialog is the only way to reach
+            them. Stop is the one that keeps history; delete says so. */}
+        <div className="row-tight" style={{ justifyContent: 'space-between' }}>
+          <span className="row-tight">
+            {editing && onDelete && (
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={() => {
+                  onClose();
+                  onDelete(item);
+                }}
+              >
+                Delete
+              </button>
+            )}
+            {editing && (stopped ? onResume : onStop) && (
+              <button
+                type="button"
+                className="subtle"
+                disabled={busy}
+                onClick={() => {
+                  onClose();
+                  (stopped ? onResume : onStop)(item);
+                }}
+              >
+                {stopped ? 'Restart' : 'Stop'}
+              </button>
+            )}
+          </span>
+          <span className="row-tight">
           <button type="button" onClick={onClose} disabled={busy}>
             Cancel
           </button>
@@ -290,8 +328,18 @@ export default function RecurringFormModal({
             {/* "Update", because editing one of these does not overwrite it —
                 it changes what it costs from this month on, and the months
                 before keep what they cost. */}
-            {busy ? (editing ? 'Updating…' : 'Adding…') : editing ? 'Update' : 'Add'}
+            {busy ? (
+              <>
+                <span className="spinner on-button" aria-hidden="true" />{' '}
+                {editing ? 'Updating…' : 'Adding…'}
+              </>
+            ) : editing ? (
+              'Update'
+            ) : (
+              'Add'
+            )}
           </button>
+          </span>
         </div>
       </form>
     </Modal>

@@ -7,7 +7,7 @@ import {
 } from '../api/subscriptions';
 import RecurringFormModal from '../components/RecurringFormModal';
 import RecurringYear from '../components/RecurringYear';
-import { Money, useDisplay } from '../utils/display';
+import { Money } from '../utils/display';
 import { formatMonth } from '../utils/month';
 import { convert, dueIn, hasEnded, perMonth, startsLater } from '../utils/recurring';
 import ToolbarSlot from '../components/ToolbarSlot';
@@ -23,8 +23,7 @@ const MONTH_NAMES = [
 // there is no rate to convert it with.
 const monthlyPrimary = (item, rate) => convert(perMonth(item), rate);
 
-function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, onDelete }) {
-  const { money } = useDisplay();
+function Row({ item, rate, currency, month, readOnly, phone, onEdit, onStop, onResume, onDelete }) {
   const ended = hasEnded(item, month);
   const later = startsLater(item, month);
   const yearly = item.cycle === 'yearly';
@@ -50,8 +49,30 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
   const Icon = iconForCategory(item.category || item.name, { fallback: income ? Wallet : null }) ||
     iconForCategory(item.name);
 
+  // A phone draws no buttons on the row — there is no width for three of them —
+  // so the row itself has to be the way in. Without this there was no way to
+  // edit, stop or delete a recurring item on a phone at all.
+  const tappable = !readOnly && phone;
+  const open = () => onEdit(item);
+
   return (
-    <div className={ended ? 'txn ended' : 'txn'}>
+    <div
+      className={`txn${ended ? ' ended' : ''}${tappable ? ' tappable' : ''}`}
+      {...(tappable
+        ? {
+            onClick: open,
+            role: 'button',
+            tabIndex: 0,
+            'aria-label': `Edit ${item.name}`,
+            onKeyDown: (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+              }
+            },
+          }
+        : {})}
+    >
       <span className={income ? 'tile in' : 'tile'}>
         <Icon />
       </span>
@@ -89,7 +110,7 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
       </span>
 
       {!readOnly && (
-        <span className="txn-acts">
+        <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
           <button
             className="icon-button small"
             title="Edit"
@@ -126,7 +147,6 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
-  const { money } = useDisplay();
 
   const currency = summary.primaryCurrency;
   const accounts = summary.persons.flatMap((p) =>
@@ -286,15 +306,26 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
       <section className="txn-list">
         <div className="panel-h">
           Goes out
+          {/* The figure goes through <Money> rather than into the sentence,
+              so it turns to dust with every other amount when the eye shuts. */}
           <small>
-            {out.length === 0
-              ? 'nothing yet'
-              : `${dueNow.length} of ${out.length} charge in ${formatMonth(month).split(' ')[0]}` +
-                (dueNow.length ? ` · ${money(
-                  dueNow.reduce((s, i) => s + (convert(i.amount, rateFor(i)) || 0), 0),
-                  currency,
-                  { compact: true }
-                )}` : '')}
+            {out.length === 0 ? (
+              'nothing yet'
+            ) : (
+              <>
+                {dueNow.length} of {out.length} charge in {formatMonth(month).split(' ')[0]}
+                {dueNow.length > 0 && (
+                  <>
+                    {' · '}
+                    <Money
+                      amount={dueNow.reduce((s, i) => s + (convert(i.amount, rateFor(i)) || 0), 0)}
+                      currency={currency}
+                      compact
+                    />
+                  </>
+                )}
+              </>
+            )}
           </small>
         </div>
 
@@ -307,6 +338,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
               currency={currency}
               month={month}
               readOnly={readOnly}
+              phone={phone}
               onEdit={setEditing}
               onStop={stop}
               onResume={resume}
@@ -330,7 +362,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
             Comes in
             <small>
               {income.length} item{income.length === 1 ? '' : 's'} ·{' '}
-              {money(inTotal.amount, currency, { compact: true })}
+              <Money amount={inTotal.amount} currency={currency} compact />
             </small>
           </div>
           <div>
@@ -342,6 +374,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
                 currency={currency}
                 month={month}
                 readOnly={readOnly}
+                phone={phone}
                 onEdit={setEditing}
                 onStop={stop}
                 onResume={resume}
@@ -370,6 +403,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
                 currency={currency}
                 month={month}
                 readOnly={readOnly}
+                phone={phone}
                 onEdit={setEditing}
                 onStop={stop}
                 onResume={resume}
@@ -383,6 +417,10 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
       {(adding || editing) && (
         <RecurringFormModal
           item={editing}
+          onStop={stop}
+          onResume={resume}
+          onDelete={remove}
+          stopped={Boolean(editing && hasEnded(editing, month))}
           accounts={accounts}
           categories={[...new Set(items.map((i) => i.category).filter(Boolean))]}
           month={month}

@@ -68,6 +68,16 @@ app.use((req, res, next) => {
   ensureSchema().then(() => next(), next);
 });
 
+// Nothing under /api may be held anywhere. Every response is one household's
+// money as of right now, and a CDN or a browser serving a stale copy of it
+// looks exactly like the app losing an entry you just saved. Locally there is
+// nothing between the browser and Express to cache it, which is why this only
+// ever bites in production.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  next();
+});
+
 app.use(attachUser);
 app.use('/api/auth', authRouter);
 

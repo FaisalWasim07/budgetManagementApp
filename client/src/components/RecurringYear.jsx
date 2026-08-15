@@ -1,4 +1,4 @@
-import { useDisplay } from '../utils/display';
+import { Money, useDisplay } from '../utils/display';
 import { shiftMonth, shortMonth, formatMonth } from '../utils/month';
 import { dueIn, convert } from '../utils/recurring';
 
@@ -48,7 +48,9 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
                 same text is the title, so it is reachable without a mouse. */}
             <i title={`${formatMonth(m)} · ${money(totals[i], currency, { compact: true })}`}>
               <b style={{ height: `${Math.max(4, (totals[i] / peak) * 100)}%` }} />
-              <em>{money(totals[i], currency, { compact: true })}</em>
+              <em>
+                <Money amount={totals[i]} currency={currency} compact />
+              </em>
             </i>
             <small>{shortMonth(m)}</small>
           </div>

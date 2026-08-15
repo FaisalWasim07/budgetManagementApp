@@ -675,7 +675,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   color: var(--ink-3); font-weight: 640; margin: 0 0 7px 2px;
 }
 
-.txn-table { display: grid; grid-template-columns: 76px minmax(0, 1fr) 146px 86px 98px 172px 62px; }
+/* The last column holds edit and delete, which are on the row now rather than
+   revealed by hovering it. Two 30px buttons and the cell's own padding need
+   84px; at 62 they spilled left, over the amount they sit beside. */
+.txn-table { display: grid; grid-template-columns: 76px minmax(0, 1fr) 146px 86px 98px 150px 88px; }
 .txn-table .txn, .txn-table .txn-head { display: contents; }
 .txn-table .txn-head > * {
   padding: 11px 10px 9px; font-size: .69rem; text-transform: uppercase;
@@ -1032,7 +1035,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .error-text { color: var(--neg); font-size: .84rem; }
 .loading { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--ink-2); }
 .spinner { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--action); border-radius: 50%; animation: spin .7s linear infinite; flex: none; }
+/* Inside a filled button, where the ring has to read against the brand rather
+   than against the page. */
+.spinner.on-button {
+  display: inline-block; vertical-align: -2px; width: 13px; height: 13px;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* A field that is almost never the reason you opened the form. Shown as one
+   line you can read past, and only unfolded when it already disagrees with the
+   month on screen. */
+.tuck { font-size: .8rem; color: var(--ink-3); }
+.tuck > summary { cursor: pointer; padding: 2px 0; list-style-position: inside; }
+.tuck > summary:hover { color: var(--ink); }
+.tuck[open] { display: flex; flex-direction: column; gap: 6px; }
 
 .warn-banner {
   background: color-mix(in srgb, var(--warn) 12%, var(--surface));

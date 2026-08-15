@@ -88,8 +88,8 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
         amount: Number(amount),
         ...(crossCurrency ? { to_amount: Number(toAmount) } : {}),
       });
-      onSaved();
       onClose();
+      onSaved();
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -176,7 +176,13 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             Cancel
           </button>
           <button type="submit" className="primary" disabled={busy || overdrawn}>
-            {busy ? 'Saving…' : 'Transfer'}
+            {busy ? (
+                <>
+                  <span className="spinner on-button" aria-hidden="true" /> Saving…
+                </>
+              ) : (
+                'Transfer'
+              )}
           </button>
         </div>
       </form>

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import MonthPicker from './MonthPicker';
+import { formatMonth } from '../utils/month';
 import { Trash } from './icons';
 import { updateTransaction } from '../api/transactions';
 
@@ -71,8 +73,8 @@ export default function TransactionEditModal({
       }
 
       await updateTransaction(isTransfer ? outLeg.id : entry.id, body);
-      await onSaved();
       onClose();
+      onSaved();
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -133,22 +135,28 @@ export default function TransactionEditModal({
           </div>
         )}
 
-        <div className="row">
-          <label className="field grow">
-            Description
-            <input type="text" value={form.description} onChange={set('description')} />
-          </label>
-          <label className="field">
-            Month
-            <input type="month" value={form.month} onChange={set('month')} />
-          </label>
-        </div>
+        <label className="field">
+          Description
+          <input type="text" value={form.description} onChange={set('description')} />
+        </label>
 
-        {form.month !== month && (
-          <span className="muted" style={{ fontSize: '0.8rem' }}>
-            Moving this to {form.month} takes it out of the month you're looking at.
-          </span>
-        )}
+        {/* Which month it counts in. Almost never what you opened this to
+            change, so it stays folded away — but a receipt typed in on the 2nd
+            for something bought on the 30th does need it, and it was the last
+            native month control left in the app. */}
+        <details className="tuck" open={form.month !== month}>
+          <summary>Counts in {formatMonth(form.month)}</summary>
+          <MonthPicker
+            label="Counts in"
+            value={form.month}
+            onChange={(v) => setForm((f) => ({ ...f, month: v }))}
+          />
+          {form.month !== month && (
+            <span className="muted" style={{ fontSize: '0.8rem' }}>
+              Moving this to {formatMonth(form.month)} takes it out of the month you’re looking at.
+            </span>
+          )}
+        </details>
 
         {error && <div className="error-text">{error}</div>}
 
@@ -168,7 +176,13 @@ export default function TransactionEditModal({
               Cancel
             </button>
             <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? (
+                <>
+                  <span className="spinner on-button" aria-hidden="true" /> Saving…
+                </>
+              ) : (
+                'Save'
+              )}
             </button>
           </span>
         </div>

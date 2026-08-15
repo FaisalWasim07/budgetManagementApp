@@ -64,8 +64,12 @@ export default function AddSheet({
         amount: value,
         category: category.trim() || null,
       });
-      await onSaved();
+      // Closed as soon as the entry is recorded. Waiting for the figures to be
+      // recomputed as well kept the sheet up for the length of four round
+      // trips, which on a slow connection is a form that looks frozen. The
+      // refresh runs behind it, with the top bar's spinner saying so.
       onClose();
+      onSaved();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -162,7 +166,13 @@ export default function AddSheet({
           disabled={busy}
           style={{ width: '100%', marginTop: 16, padding: '12px' }}
         >
-          Save
+          {busy ? (
+            <>
+              <span className="spinner on-button" aria-hidden="true" /> Saving…
+            </>
+          ) : (
+            'Save'
+          )}
         </button>
 
         <button

@@ -13,6 +13,9 @@ export const setActiveHousehold = (id) => {
 
 async function request(path, options = {}) {
   const response = await fetch(`/api${path}`, {
+    // Balances change under these URLs constantly, and a reply from a cache is
+    // the app quietly showing you last minute's money.
+    cache: 'no-store',
     ...options,
     headers: {
       'Content-Type': 'application/json',
