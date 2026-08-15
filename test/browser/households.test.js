@@ -129,10 +129,12 @@ async function signUp(page, username, password) {
       await b.waitForTimeout(500);
       await b.locator('.account-row:not(.add)').first().click();
       await b.waitForSelector('.account-page', { timeout: 8000 });
-      const buttons = await b.locator('.account-top button').count();
-      await b.click('.account-top .back');
+      // The account's actions live in the top bar now, so that is where a
+      // viewer must find nothing.
+      const buttons = await b.locator('#tool-slot button').count();
+      await b.click('.page-title .crumb');
       await b.waitForTimeout(400);
-      return buttons === 1;
+      return buttons === 0;
     })()
   );
 

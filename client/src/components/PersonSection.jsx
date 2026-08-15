@@ -42,6 +42,7 @@ export default function PersonSection({
   onOpenAccount,
   readOnly = false,
   yours = false,
+  tint = 0,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
@@ -79,7 +80,7 @@ export default function PersonSection({
           </div>
         ) : (
           <div className="who">
-            <span className="avatar" aria-hidden="true">
+            <span className={tint ? 'avatar alt' : 'avatar'} aria-hidden="true">
               {person.name.trim().charAt(0).toUpperCase()}
             </span>
             <h2
@@ -136,7 +137,10 @@ export default function PersonSection({
         {!readOnly && (
           <button className="account-row add" onClick={() => onAddAccount(person)}>
             <span className="name">
-              <b>+ Add an account</b>
+              {/* Named, because two of these sit side by side on a desk and
+                  "+ Add an account" twice says nothing about which column it
+                  lands in. */}
+              <b>+ Add an account for {person.name}</b>
             </span>
           </button>
         )}

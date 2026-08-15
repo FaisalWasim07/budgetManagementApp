@@ -1,4 +1,3 @@
-import { Money } from '../utils/display';
 import { shiftMonth, shortMonth, formatMonth } from '../utils/month';
 import { dueIn, convert } from '../utils/recurring';
 
@@ -11,6 +10,11 @@ import { dueIn, convert } from '../utils/recurring';
 // twelve identical bars say nothing. But the twelve months are also how you
 // see an item ending — the floor drops the month after it stops — and a strip
 // that comes and goes is one you never learn to look at. It stays.
+//
+// Each bar sits in a track rather than floating on the card: the empty part of
+// the track is what makes a tall month read as tall. The month you are in is
+// the one picked out, not the dearest — the dearest is already the tallest bar
+// and does not need a second colour to say so.
 export default function RecurringYear({ items, rateFor, currency, month }) {
   if (items.length === 0) return null;
 
@@ -25,43 +29,25 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
   const peak = Math.max(...totals);
   if (!(peak > 0)) return null;
 
-  const dearest = totals.indexOf(peak);
-  const floor = Math.min(...totals);
-
   return (
     <section className="card">
-      <div className="flow-top">
-        <h2>The year ahead</h2>
-        <span className="muted" style={{ fontSize: '.8rem' }}>
-          {peak > floor
-            ? `${formatMonth(months[dearest]).split(' ')[0]} is the expensive one`
-            : 'The same every month'}
-        </span>
+      <div className="panel-h">
+        The next twelve months
+        <small>
+          Yearly charges are the ones that surprise you — here they are, in the month they land
+        </small>
       </div>
 
-      <div className="year">
+      <div className="strip">
         {months.map((m, i) => (
-          <div className={i === dearest && peak > floor ? 'mo peak' : 'mo'} key={m}>
-            <div className="col" title={`${formatMonth(m)}`}>
-              <span style={{ height: `${peak > 0 ? Math.max(3, (totals[i] / peak) * 100) : 3}%` }} />
-            </div>
-            <span className="m">{shortMonth(m)}</span>
+          <div className={i === 0 ? 'now' : ''} key={m}>
+            <i title={formatMonth(m)}>
+              <b style={{ height: `${Math.max(4, (totals[i] / peak) * 100)}%` }} />
+            </i>
+            <small>{shortMonth(m)}</small>
           </div>
         ))}
       </div>
-
-      <p className="muted" style={{ fontSize: '.8rem', margin: '12px 0 0' }}>
-        {peak > floor ? (
-          <>
-            Highest is {formatMonth(months[dearest])} at{' '}
-            <Money amount={peak} currency={currency} compact />.
-          </>
-        ) : (
-          <>
-            <Money amount={peak} currency={currency} compact /> every month for the next year.
-          </>
-        )}
-      </p>
     </section>
   );
 }

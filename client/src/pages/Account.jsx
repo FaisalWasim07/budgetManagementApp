@@ -6,6 +6,7 @@ import { ChevronLeft, Pencil, Plus, Trash } from './../components/icons';
 import { iconForAccount, iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from '../components/TransactionEditModal';
 import AccountFormModal from '../components/AccountFormModal';
+import ToolbarSlot from '../components/ToolbarSlot';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -107,31 +108,44 @@ export default function Account({
       </span>
     );
 
+  const actions = !readOnly && (
+    <>
+      <button className="tiny subtle" onClick={() => setEditingAccount(true)}>
+        Edit account
+      </button>
+      <button className="primary add-top" onClick={() => onAddEntry(account)}>
+        <Plus size={16} /> Add to this account
+      </button>
+    </>
+  );
+
   return (
     <section className="account-page">
-      <div className="account-top">
-        <button className="tiny subtle back" onClick={onBack}>
-          <ChevronLeft /> Home
-        </button>
-        {!readOnly && (
-          <span className="row-tight">
-            <button className="tiny" onClick={() => onAddEntry(account)}>
-              <Plus size={14} /> Add to this account
-            </button>
-            <button className="tiny subtle" onClick={() => setEditingAccount(true)}>
-              Edit account
-            </button>
-          </span>
-        )}
-      </div>
+      {/* At a desk the bar already carries "Home › ADCB Current", so the
+          actions join it there rather than making a row of their own. A phone's
+          bar has neither, so the row stays. */}
+      {phone ? (
+        <div className="account-top">
+          <button className="tiny subtle back" onClick={onBack}>
+            <ChevronLeft /> Home
+          </button>
+          {!readOnly && <span className="row-tight">{actions}</span>}
+        </div>
+      ) : (
+        <ToolbarSlot>{actions}</ToolbarSlot>
+      )}
 
+      <div className="account-cols">
+      <div className="account-side">
       <div className="hero account-hero">
         <div>
+          {/* The bar already says which account this is, so the card says
+              whose it is and what it is counted in. */}
           <p className="label">
             <span className={card ? 'tile card' : 'tile'}>
               <TypeIcon />
             </span>
-            {account.name} · {personName} · {account.currency}
+            Balance · {personName} · {account.currency}
           </p>
           <p className="value">
             <Money
@@ -179,16 +193,12 @@ export default function Account({
       </div>
 
       {recurring.length > 0 && (
-        <section>
-          <div className="section-head">
-            <h2>Charges every month</h2>
-            {!phone && (
-              <span className="muted" style={{ fontSize: '.8rem' }}>
-                So “did rent go out?” needs no arithmetic
-              </span>
-            )}
+        <section className="txn-list">
+          <div className="panel-h">
+            Charges every month
+            <small>Listed here so “did rent go out?” needs no arithmetic</small>
           </div>
-          <div className="txn-list">
+          <div>
             {recurring.map((item) => (
               <div className="txn" key={`sub-${item.id}`}>
                 <span className={`tile ${item.direction === 'income' ? 'in' : ''}`}>
@@ -218,18 +228,19 @@ export default function Account({
         </section>
       )}
 
-      <section>
-        <div className="section-head">
-          <h2>This month</h2>
-          {recurringNet !== 0 && !phone && (
-            <span className="muted" style={{ fontSize: '.78rem' }}>
-              Recurring charges are in the balance above but not in the running column — they
-              belong to the month, not to a day.
-            </span>
-          )}
+      </div>
+
+      <section className="account-ledger card">
+        <div className="panel-h">
+          This month
+          <small>
+            {recurringNet === 0
+              ? 'Every entry that touched this account, newest first'
+              : 'Recurring charges are in the balance above but not in the running column — they belong to the month, not to a day'}
+          </small>
         </div>
 
-        <div className={phone ? 'txn-list' : 'txn-list ledger-table'}>
+        <div className={phone ? 'txn-list flat' : 'txn-list flat ledger-table'}>
           {!phone && (
             <div className="txn-head" role="row">
               <span>Date</span>
@@ -335,6 +346,7 @@ export default function Account({
           </p>
         )}
       </section>
+      </div>
 
       {editing && (
         <TransactionEditModal

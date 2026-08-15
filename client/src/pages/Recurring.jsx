@@ -10,6 +10,7 @@ import RecurringYear from '../components/RecurringYear';
 import { Money, useDisplay } from '../utils/display';
 import { formatMonth } from '../utils/month';
 import { convert, dueIn, hasEnded, perMonth, startsLater } from '../utils/recurring';
+import ToolbarSlot from '../components/ToolbarSlot';
 import { Pencil, Plus, Trash, Wallet } from '../components/icons';
 import { iconForCategory } from '../utils/categoryIcon';
 
@@ -34,14 +35,15 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
   // already accounted for and will stop on its own.
   const endsLater = item.end_month && !ended && item.end_month >= month;
 
-  const detail = [
-    `${item.personName ?? item.person_name} · ${item.accountName ?? item.account_name}`,
-    item.category,
-    yearly ? `every ${MONTH_NAMES[(item.billing_month || 1) - 1]}` : 'every month',
-    endsLater ? `until ${formatMonth(item.end_month)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // Everything except the cycle, which is set apart: a yearly renewal is the
+  // one fact on the row you must not skim past, so it is coloured rather than
+  // buried mid-sentence between the account and the end date.
+  // The category is already the icon on the left, and repeating it here was
+  // costing the line the room the cycle needs — "once a year, Nove…" is worse
+  // than no category at all.
+  const detail = `${item.personName ?? item.person_name} · ${
+    item.accountName ?? item.account_name
+  }`;
 
   // Recurring income is nearly always a salary, so that is the fallback
   // rather than the generic tag.
@@ -57,21 +59,33 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
         <b>{item.name}</b>
         <small>
           {detail}
+          {' · '}
+          {yearly ? (
+            <b className="cycle">once a year, {MONTH_NAMES[(item.billing_month || 1) - 1]}</b>
+          ) : (
+            'every month'
+          )}
+          {endsLater && ` · until ${formatMonth(item.end_month)}`}
           {ended && ` · stopped ${item.end_month ? formatMonth(item.end_month) : ''}`}
           {later && ` · starts ${formatMonth(item.start_month)}`}
         </small>
       </span>
 
       <span className={income ? 'amt in' : 'amt'}>
-        <Money amount={item.amount} currency={item.currency} compact />
+        <Money
+          amount={item.amount}
+          currency={item.currency}
+          compact
+          prefix={income ? '+' : '−'}
+        />
         {/* A yearly renewal and a monthly subscription are only comparable per
             month, so the yearly ones carry their own translation. */}
         {yearly && (
           <span className="sub">
-            <Money amount={perMonth(item)} currency={item.currency} compact /> a month
+            ≈<Money amount={perMonth(item)} currency={item.currency} compact /> / mo
           </span>
         )}
-        {!yearly && monthly == null && <span className="sub">no rate</span>}
+        {!yearly && monthly == null && <span className="sub">no rate yet</span>}
       </span>
 
       {!readOnly && (
@@ -107,7 +121,7 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
   );
 }
 
-export default function Recurring({ summary, month, onChanged, readOnly = false }) {
+export default function Recurring({ summary, month, onChanged, readOnly = false, phone = false }) {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -182,41 +196,76 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
   const inTotal = total(income);
   const dueNow = out.filter((i) => dueIn(i, month));
 
+  // How much of a month's income is spoken for before a single loose purchase.
+  // The whole point of the screen in one number.
+  const spokenFor =
+    inTotal.amount > 0 ? Math.round((outTotal.amount / inTotal.amount) * 100) : null;
+  // Yearly items averaged across the twelve months they sit in — the part of
+  // the monthly commitment that isn't actually charged monthly.
+  const yearlySpread = out
+    .filter((i) => i.cycle === 'yearly')
+    .reduce((sum, i) => sum + (monthlyPrimary(i, rateFor(i)) ?? 0), 0);
+
+  const addButton = (
+    <button className="primary add-top" onClick={() => setAdding(true)}>
+      <Plus size={16} /> Add item
+    </button>
+  );
+
   return (
     <>
       {/* No heading: the sidebar and the top bar both already say Recurring,
-          and on a phone the tab bar does. */}
-      <div className="section-head">
-        <span />
-        {!readOnly && accounts.length > 0 && (
-          <button className="primary tiny" onClick={() => setAdding(true)}>
-            <Plus size={14} /> Add recurring
-          </button>
-        )}
-      </div>
+          and on a phone the tab bar does. The action sits in the top bar at a
+          desk; a phone's bar has no room, so there it stays on the page. */}
+      {!readOnly && accounts.length > 0 && (
+        phone ? (
+          <div className="section-head">
+            <span />
+            {addButton}
+          </div>
+        ) : (
+          <ToolbarSlot>{addButton}</ToolbarSlot>
+        )
+      )}
 
       <div className="hero recurring-hero">
         <div>
-          <p className="label">Going out</p>
+          <p className="label">Committed every month</p>
           <p className="value">
             <Money amount={outTotal.amount} currency={currency} compact />
-            <span className="per"> a month</span>
           </p>
-          {/* The figure that actually changes behaviour. Nobody cancels over
-              AED 56 a month; they cancel over AED 672 a year. */}
+          {/* The figure that actually changes behaviour: not what the
+              subscriptions cost, but how much of the month they have already
+              taken. */}
           <p className="delta">
-            <strong>
-              <Money amount={outTotal.amount * 12} currency={currency} compact />
-            </strong>{' '}
-            a year
-            {income.length > 0 && (
+            {income.length > 0 ? (
               <>
-                {' · '}
-                <Money amount={inTotal.amount} currency={currency} compact /> a month coming in
+                against{' '}
+                <strong className="up">
+                  <Money amount={inTotal.amount} currency={currency} compact />
+                </strong>{' '}
+                that arrives
+                {spokenFor != null && ` — ${spokenFor}% spoken for before you spend anything`}
+              </>
+            ) : (
+              <>
+                <strong>
+                  <Money amount={outTotal.amount * 12} currency={currency} compact />
+                </strong>{' '}
+                a year
               </>
             )}
           </p>
         </div>
+
+        {yearlySpread > 0 && (
+          <div className="yearly">
+            <span className="k">Yearly items, spread</span>
+            <span className="v">
+              <Money amount={yearlySpread} currency={currency} compact /> / mo
+            </span>
+          </div>
+        )}
       </div>
 
       {(outTotal.missing > 0 || inTotal.missing > 0) && (
@@ -234,10 +283,10 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
       <RecurringYear items={out} rateFor={rateFor} currency={currency} month={month} />
 
       <div className="recurring-lists">
-      <section>
-        <div className="section-head">
-          <h2>Going out</h2>
-          <span className="muted" style={{ fontSize: '.8rem' }}>
+      <section className="txn-list">
+        <div className="panel-h">
+          Goes out
+          <small>
             {out.length === 0
               ? 'nothing yet'
               : `${dueNow.length} of ${out.length} charge in ${formatMonth(month).split(' ')[0]}` +
@@ -246,10 +295,10 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
                   currency,
                   { compact: true }
                 )}` : '')}
-          </span>
+          </small>
         </div>
 
-        <div className="txn-list">
+        <div>
           {out.map((item) => (
             <Row
               key={item.id}
@@ -276,14 +325,15 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
       </section>
 
       {income.length > 0 && (
-        <section>
-          <div className="section-head">
-            <h2>Coming in</h2>
-            <span className="muted" style={{ fontSize: '.8rem' }}>
-              {income.length} item{income.length === 1 ? '' : 's'}
-            </span>
+        <section className="txn-list">
+          <div className="panel-h">
+            Comes in
+            <small>
+              {income.length} item{income.length === 1 ? '' : 's'} ·{' '}
+              {money(inTotal.amount, currency, { compact: true })}
+            </small>
           </div>
-          <div className="txn-list">
+          <div>
             {income.map((item) => (
               <Row
                 key={item.id}
@@ -306,14 +356,12 @@ export default function Recurring({ summary, month, onChanged, readOnly = false 
       {/* Stopped items stay visible but out of the way: they are the record of
           what you used to pay, and they are how you restart something. */}
       {done.length > 0 && (
-        <section>
-          <div className="section-head">
-            <h2 className="muted">Stopped</h2>
-            <span className="muted" style={{ fontSize: '.8rem' }}>
-              still counted in the months they ran
-            </span>
+        <section className="txn-list">
+          <div className="panel-h">
+            Stopped
+            <small>still counted in the months they ran</small>
           </div>
-          <div className="txn-list">
+          <div>
             {done.map((item) => (
               <Row
                 key={item.id}

@@ -59,10 +59,14 @@ export default function Dashboard({
       {/* Both people beside each other, with the last few entries alongside
           rather than a screen below. */}
       <div className="home-cols">
-        {summary.persons.map((person) => (
+        {summary.persons.map((person, index) => (
           <PersonSection
             key={person.id}
             person={person}
+            /* Two columns of identical green initials are two columns you have
+               to read the names of. Alternating the tint makes each person's
+               column findable by colour. */
+            tint={index % 2}
             month={month}
             primaryCurrency={primaryCurrency}
             subscriptions={subscriptions}

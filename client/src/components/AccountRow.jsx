@@ -18,13 +18,16 @@ export default function AccountRow({ account, primaryCurrency, onOpen }) {
       </span>
       <span className="name">
         <b>{account.name}</b>
+        {/* Plain text, not badges. Three pills on every row turned a column of
+            six accounts into a column of eighteen little boxes, and none of
+            them was worth that much of the eye. */}
         <span className="meta">
-          <span className="badge currency">{account.currency}</span>
-          {account.type === 'savings' && <span className="badge">Savings</span>}
-          {card && <span className="badge card">Credit card</span>}
+          {[account.currency, account.type === 'savings' && 'savings', card && 'credit card']
+            .filter(Boolean)
+            .join(' · ')}
           {foreign && account.balancePrimary == null && (
             <span className="error-text">
-              no {account.currency}→{primaryCurrency} rate
+              {' · '}no {account.currency}→{primaryCurrency} rate
             </span>
           )}
         </span>

@@ -66,7 +66,12 @@ export default function Hero({ summary, trend, month }) {
   return (
     <div className="hero">
       <div>
-        <p className="label">Net worth</p>
+        {/* Whose money this is. Everything else on Home is one person's
+            column, so the total at the top has to say it is not. The qualifier
+            is the half that goes when there is no width for it. */}
+        <p className="label">
+          Net worth<span className="on-desk"> · everyone in this household</span>
+        </p>
         <p className="value">
           <Money amount={household.netWorth} currency={primaryCurrency} compact />
         </p>

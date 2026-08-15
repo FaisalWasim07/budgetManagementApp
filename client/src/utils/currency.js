@@ -15,7 +15,12 @@ export function formatCurrency(amount, currency = 'AED', { compact = false } = {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
-      ...(compact ? { maximumFractionDigits: 0 } : {}),
+      // A whole amount is written whole. A column of ".00" down the side of a
+      // list is two characters of nothing on every row, and the cents are
+      // still printed the moment an entry actually has any.
+      ...(compact
+        ? { maximumFractionDigits: 0 }
+        : { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 }),
     }).format(amount);
   } catch {
     return `${amount.toFixed(2)} ${currency}`;

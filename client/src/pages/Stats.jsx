@@ -12,12 +12,12 @@ export default function Stats({ summary, trend, categories, month }) {
 
   return (
     <>
-      <div className="section-head">
-        <h2>Stats</h2>
-        <span className="muted" style={{ fontSize: '.8rem' }}>
-          Twelve months to {formatMonth(month)}, in {currency}
-        </span>
-      </div>
+      {/* No "Stats" heading: the sidebar, the top bar and the tab bar all
+          already say it, and printing it a fourth time above the first card
+          was the page's own title repeated back at itself. */}
+      <p className="page-note">
+        Twelve months to {formatMonth(month)}, in {currency}
+      </p>
 
       {/* The four figures first, then the charts that explain them. */}
       <KpiRow summary={summary} trend={trend} month={month} />

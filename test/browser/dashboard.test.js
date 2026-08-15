@@ -169,7 +169,12 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
 
   // --- adding from inside an account ---------------------------------------
-  await page.locator('.account-page button:has-text("Add to this account")').click();
+  // In the top bar, not in a row of its own under it.
+  check(
+    'the account\u2019s add button is in the top bar',
+    (await page.locator('.topbar button:has-text("Add to this account")').count()) === 1
+  );
+  await page.locator('.topbar button:has-text("Add to this account")').click();
   await page.waitForTimeout(500);
   check('"add to this account" opens the sheet', (await page.locator('.sheet.open').count()) === 1);
   check('and it is preset to that account', Boolean(await page.locator('.sheet select').inputValue()));
@@ -276,7 +281,12 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // --- recurring, and how it shows on the dashboard ------------------------
   await page.click('.side-nav button:has-text("Recurring")');
   await page.waitForSelector('.txn-list');
-  await page.click('button:has-text("Add recurring")');
+  // The action is in the top bar now, not in a strip of its own under it.
+  check(
+    'recurring adds from the top bar',
+    (await page.locator('.topbar button:has-text("Add item")').count()) === 1
+  );
+  await page.click('.topbar button:has-text("Add item")');
   await page.waitForSelector('.modal');
   await page.locator('.modal input[aria-label="Amount"]').fill('56');
   await page.locator('.modal input[placeholder^="e.g."]').fill('Netflix');
@@ -284,9 +294,11 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(1600);
   check('a subscription can be added', (await page.locator('.txn:not(.empty)').count()) === 1);
   check(
-    'the page leads with what it costs a month and a year',
-    /a month/.test(await page.locator('.recurring-hero').textContent()) &&
-      /a year/.test(await page.locator('.recurring-hero').textContent()),
+    'the page leads with what is committed every month',
+    /Committed every month/.test(await page.locator('.recurring-hero').textContent()) &&
+      // Against what arrives, when something recurring does; otherwise the
+      // yearly figure, which is the one that makes people cancel things.
+      /a year|spoken for/.test(await page.locator('.recurring-hero').textContent()),
     await page.locator('.recurring-hero').textContent()
   );
 
@@ -332,7 +344,8 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     'the subscription is listed above the account’s ledger',
     (await page.locator('.account-page').textContent()).includes('Netflix')
   );
-  await page.click('.account-top .back');
+  // Back is the breadcrumb in the top bar now.
+  await page.click('.page-title .crumb');
   await page.waitForTimeout(600);
 
   // --- stats ---------------------------------------------------------------
@@ -347,8 +360,8 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('four figures head the page', (await page.locator('.kpi').count()) === 4);
   const kpiLabels = (await page.locator('.kpi .k').allTextContents()).join('|');
   check(
-    'and they are net worth, in, out and kept',
-    kpiLabels === 'Net worth|Came in|Went out|Kept',
+    'and they are in, out, kept and net worth',
+    kpiLabels === 'Came in|Went out|Kept|Net worth',
     kpiLabels
   );
   // Every tile has to say how it moved, or the figure is a number without a

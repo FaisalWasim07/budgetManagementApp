@@ -4,6 +4,7 @@ import { Money, useDisplay } from '../utils/display';
 import { Pencil, Search, Trash } from './icons';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
+import ToolbarSlot from './ToolbarSlot';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -94,6 +95,7 @@ export default function ActivityList({
   const [rows, setRows] = useState([]);
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [person, setPerson] = useState(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { money } = useDisplay();
@@ -120,8 +122,11 @@ export default function ActivityList({
     return true;
   }
 
+  const people = Object.values(personsById);
+
   const needle = query.trim().toLowerCase();
   const visible = rows.filter((row) => {
+    if (person && row.person_id !== person) return false;
     if (filter === 'transfers' && !row.transfer_id) return false;
     if (filter !== 'all' && filter !== 'transfers' && row.kind !== filter) return false;
     if (!needle) return true;
@@ -195,21 +200,24 @@ export default function ActivityList({
     </div>
   );
 
+  const search = (
+    <label className="act-search">
+      <Search />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search entries"
+        aria-label="Search entries"
+      />
+    </label>
+  );
+
   return (
     <section>
-      <div className="section-head">
-        <h2>This month</h2>
-        <label className="act-search">
-          <Search />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search entries"
-            aria-label="Search entries"
-          />
-        </label>
-      </div>
+      {/* The month, the search and the page's name belong on one line. On a
+          phone the top bar is already full, so search stays on the page. */}
+      {phone ? <div className="section-head">{search}</div> : <ToolbarSlot>{search}</ToolbarSlot>}
 
       <div className="filter-row">
         {FILTERS.map(([key, label]) => (
@@ -221,6 +229,18 @@ export default function ActivityList({
             {label}
           </button>
         ))}
+        {/* Who spent it is the other question this list gets asked, and with
+            two people it is one tap rather than a search. */}
+        {people.length > 1 &&
+          people.map((p) => (
+            <button
+              key={p.id}
+              className={person === p.id ? 'active' : ''}
+              onClick={() => setPerson(person === p.id ? null : p.id)}
+            >
+              {p.name}
+            </button>
+          ))}
       </div>
 
       {phone ? (

@@ -119,18 +119,6 @@ export default function KpiRow({ summary, trend, month }) {
   return (
     <div className="kpis">
       <Kpi
-        label="Net worth"
-        values={trend.map((t) => t.netWorth)}
-        current={household.netWorth}
-        previous={previous?.netWorth}
-        higherIsBetter
-        month={prevMonth}
-        format={moneyText}
-      >
-        {asMoney(household.netWorth)}
-      </Kpi>
-
-      <Kpi
         label="Came in"
         values={trend.map((t) => t.income)}
         current={household.income}
@@ -168,6 +156,19 @@ export default function KpiRow({ summary, trend, month }) {
       >
         {keptNow == null ? <span className="muted">—</span> : `${Math.round(keptNow)}%`}
       </Kpi>
+
+      <Kpi
+        label="Net worth"
+        values={trend.map((t) => t.netWorth)}
+        current={household.netWorth}
+        previous={previous?.netWorth}
+        higherIsBetter
+        month={prevMonth}
+        format={moneyText}
+      >
+        {asMoney(household.netWorth)}
+      </Kpi>
+
     </div>
   );
 }

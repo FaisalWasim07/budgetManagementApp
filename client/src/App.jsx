@@ -143,6 +143,10 @@ export default function App({ user, onSignedOut }) {
     setPage(key);
   };
 
+  // Pages that fill the toolbar slot with their own primary action: a second
+  // generic "+ Add" beside it would be two add buttons in one row.
+  const ownsAction = page === 'recurring' || Boolean(openAccount);
+
   // N for new. There is one way to record money now — the sheet — so the
   // shortcut opens that rather than reaching for a strip that is no longer on
   // the page.
@@ -234,7 +238,22 @@ export default function App({ user, onSignedOut }) {
                 </>
               ) : (
                 <h1 className="page-title">
-                  {openAccount ? openAccount.name : PAGES.find(([key]) => key === page)?.[1]}
+                  {/* An account is a screen you came to from somewhere, so the
+                      bar says where from rather than making the page carry a
+                      back button in a row of its own. */}
+                  {openAccount ? (
+                    <>
+                      <button className="crumb" onClick={() => setAccountId(null)}>
+                        Home
+                      </button>
+                      <span className="crumb-sep" aria-hidden="true">
+                        ›
+                      </span>
+                      {openAccount.name}
+                    </>
+                  ) : (
+                    PAGES.find(([key]) => key === page)?.[1]
+                  )}
                 </h1>
               )}
 
@@ -254,7 +273,12 @@ export default function App({ user, onSignedOut }) {
                 {amountsHidden ? <EyeOff /> : <Eye />}
               </button>
 
-              {!phone && !readOnly && (
+              {/* Where a page puts its own action, so the bar stays one row.
+                  Recurring adds an item here rather than in a strip of its
+                  own below the bar. */}
+              <span id="tool-slot" className="tool-slot" />
+
+              {!phone && !readOnly && !ownsAction && (
                 <button
                   className="primary add-top"
                   disabled={accounts.length === 0}
@@ -358,7 +382,13 @@ export default function App({ user, onSignedOut }) {
         )}
 
         {summary && !empty && page === 'recurring' && (
-          <Recurring summary={summary} month={month} onChanged={load} readOnly={readOnly} />
+          <Recurring
+            summary={summary}
+            month={month}
+            onChanged={load}
+            readOnly={readOnly}
+            phone={phone}
+          />
         )}
           </main>
         </div>

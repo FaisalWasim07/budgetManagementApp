@@ -196,7 +196,13 @@ main.stack { padding-top: 18px; }
 .side-you-name b { display: block; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-you-name small { display: block; font-size: .72rem; color: var(--ink-3); }
 
-.page-title { font-size: 1.1rem; font-weight: 640; letter-spacing: -.02em; }
+.page-title { font-size: 1.1rem; font-weight: 640; letter-spacing: -.02em; display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.page-title .crumb {
+  border: 0; background: none; padding: 0; font: inherit;
+  font-size: .84rem; font-weight: 500; color: var(--ink-3); cursor: pointer;
+}
+.page-title .crumb:hover { color: var(--ink); }
+.page-title .crumb-sep { font-size: .84rem; font-weight: 500; color: var(--ink-3); }
 
 /* A month field: the same grid the top bar opens, wearing an input's clothes. */
 .month-field {
@@ -415,6 +421,11 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .latest-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 18px 9px; }
 .latest .txn { padding: 11px 18px; }
 .add-top { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+/* Where a page paints its own toolbar action. Empty on most pages, and an
+   empty flex item with no gap of its own takes up nothing. */
+.tool-slot { display: contents; }
+/* A line of context under the bar, where a page needs one — not a heading. */
+.page-note { margin: -2px 2px 0; font-size: .8rem; color: var(--ink-3); }
 
 /* Going out and coming in read as a pair at a desk; on a phone they stack,
    which is the only thing that fits. */
@@ -463,10 +474,7 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .account-row[aria-expanded='true']:hover { background: var(--surface); }
 .account-row .name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .account-row .name b { font-weight: 550; font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-row .meta { font-size: .74rem; color: var(--ink-3); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.account-row .meta .badge { background: none; color: inherit; padding: 0; font-size: 1em; letter-spacing: 0; text-transform: none; }
-.account-row .meta .badge.currency { color: inherit; }
-.account-row .meta .badge + .badge::before { content: '· '; }
+.account-row .meta { display: block; font-size: .74rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-row .bal { text-align: right; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 .account-row .bal .sub { display: block; font-size: .73rem; font-weight: 500; color: var(--ink-3); }
 .account-row .bal.owed { color: var(--neg); }
@@ -508,6 +516,10 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
   font-size: .78rem; font-weight: 650; letter-spacing: .01em;
 }
 
+/* The second person on Home. Same shape, different tint, so a column is
+   findable by colour before you read the name on it. */
+.avatar.alt { background: var(--gradient-alt, linear-gradient(140deg, #7C6BF0, #4F46E5)); }
+
 .badge { display: inline-block; font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); }
 .badge.currency { background: var(--tint); color: var(--brand-deep); }
 .badge.card { color: var(--warn); }
@@ -537,18 +549,27 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 
 /* ── Activity list ───────────────────────────────────────────────── */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+
+/* A card's own heading, inside its border. A title floating above a card is a
+   heading for the gap between two cards; a title inside one belongs to the
+   thing under it. */
+.panel-h { font-size: .88rem; font-weight: 620; padding: 13px 16px 2px; }
+.panel-h small { display: block; font-weight: 500; font-size: .74rem; color: var(--ink-3); margin-top: 2px; }
+.panel-h + div { margin-top: 8px; }
 .txn-list { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
 .txn { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
 .txn:last-child { border-bottom: 0; }
 .txn:hover { background: var(--surface-2); }
 .txn:hover .txn-acts { opacity: 1; }
 .txn .what { flex: 1; min-width: 0; }
-.txn .what b { display: block; font-weight: 550; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txn .what > b { display: block; font-weight: 550; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .txn .what small {
   display: block; color: var(--ink-3); font-size: .76rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .txn .amt { font-weight: 600; white-space: nowrap; letter-spacing: -.01em; }
+/* The one fact on the row you must not skim past. */
+.txn .what small b.cycle { color: var(--warn); font-weight: 620; }
 .txn .amt.in { color: var(--pos); }
 .txn-acts { display: flex; gap: 4px; opacity: 0; transition: opacity .15s ease; flex: none; }
 @media (hover: none) { .txn-acts { opacity: 1; } }
@@ -576,6 +597,25 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
    Its own screen, so it can afford a balance, what moved, the recurring
    items that charge it, and a ledger you can reconcile line by line. */
 .account-page { display: flex; flex-direction: column; gap: 16px; }
+/* A ledger wants width and everything else wants a column beside it. The side
+   column is written first so a phone, which is one column, gets the balance
+   before the list without any reordering. */
+.account-cols { display: grid; gap: 16px; }
+.account-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.account-ledger { min-width: 0; padding: 0; overflow: hidden; }
+@media (min-width: 701px) {
+  .account-cols { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
+  .account-side { grid-column: 2; grid-row: 1; }
+  .account-ledger { grid-column: 1; grid-row: 1; }
+  /* Narrower than the full page: the running column no longer needs 150px of
+     its own once the ledger is two-thirds of the width. */
+  .account-ledger .ledger-table { grid-template-columns: 72px minmax(0, 1fr) 118px 118px 44px; }
+  /* A figure sized for the width of a page does not fit a third of one. */
+  .account-hero { padding: 18px; }
+  .account-hero .value { font-size: 1.85rem; }
+}
+/* A list already inside a card brings no border or shadow of its own. */
+.txn-list.flat { background: none; border: 0; box-shadow: none; border-radius: 0; }
 .account-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .account-top .back { display: inline-flex; align-items: center; gap: 4px; }
 .account-hero .label { display: flex; align-items: center; gap: 9px; }
@@ -666,22 +706,30 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .txn.ended { opacity: .55; }
 .txn.ended .amt { font-weight: 500; }
 
-/* ── The year ahead ──────────────────────────────────────────────
-   Twelve months of commitments. Only drawn when yearly items make the
-   months differ — otherwise it is twelve identical bars. */
-.year { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-top: 16px; }
-.year .mo { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
-.year .col { width: 100%; height: 64px; display: flex; align-items: flex-end; }
-.year .col span { display: block; width: 100%; border-radius: 4px 4px 2px 2px; background: var(--series-in); transition: height .7s cubic-bezier(.22,.9,.3,1); }
-.year .mo.peak .col span { background: var(--warn); }
-.year .m { font-size: .68rem; color: var(--ink-3); }
-.year .mo.peak .m { color: var(--warn); font-weight: 600; }
+/* ── The next twelve months ──────────────────────────────────────
+   Twelve months of commitments, each bar in its own track: the empty part
+   of the track is what makes a tall month read as tall. */
+.strip { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding: 12px 0 2px; }
+.strip > div { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.strip i { width: 100%; height: 64px; border-radius: 8px; background: var(--surface-2); display: flex; align-items: flex-end; }
+.strip i b {
+  width: 100%; border-radius: 8px;
+  background: color-mix(in srgb, var(--brand) 50%, transparent);
+  transition: height .7s cubic-bezier(.22,.9,.3,1);
+}
+.strip > div.now i b { background: var(--brand-deep); }
+.strip small { font-size: .66rem; color: var(--ink-3); }
+.strip > div.now small { color: var(--ink); font-weight: 620; }
 
 /* No padding-bottom override any more. That dated from when the hero was a
    bare block above the page and closing the gap under it was right; it is a
    card now, and a card whose last line sits on its own border looks broken. */
-.recurring-hero { grid-template-columns: 1fr; }
-.recurring-hero .value .per { font-size: .32em; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.recurring-hero .value { font-size: clamp(1.6rem, 3.6vw, 1.85rem); }
+/* Classes, not element selectors: <Money> is itself a span, so `.yearly span`
+   would restyle the figure as well as its label. */
+.recurring-hero .yearly { text-align: right; white-space: nowrap; }
+.recurring-hero .yearly .k { display: block; font-size: .73rem; color: var(--ink-3); }
+.recurring-hero .yearly .v { display: block; font-weight: 640; font-size: 1.05rem; letter-spacing: -.015em; }
 
 .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 11px; }
 .filter-row button {
@@ -851,7 +899,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   padding: 14px 16px 0; box-shadow: var(--shadow);
   display: flex; flex-direction: column; gap: 2px; min-width: 0;
 }
-.kpi .k { font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.kpi .k { font-size: .73rem; font-weight: 550; color: var(--ink-3); }
 .kpi .v { font-size: 1.3rem; font-weight: 650; letter-spacing: -.025em; white-space: nowrap; }
 .kpi .d { font-size: .74rem; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi .d b { font-weight: 620; }
@@ -1006,6 +1054,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    becomes the middle of the bar. */
 @media (max-width: 700px) {
   #root { padding: 0 14px 116px; }
+  /* Qualifiers that are worth a line at a desk and not worth one on a phone. */
+  .on-desk { display: none; }
   .topbar { margin: 0 -14px; padding: 0 14px; }
   .topbar-inner { gap: 8px; }
   .wordmark { display: none; }
