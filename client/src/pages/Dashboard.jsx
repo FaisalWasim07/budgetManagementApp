@@ -24,6 +24,8 @@ export default function Dashboard({
   const allAccounts = summary.persons.flatMap((p) =>
     p.accounts.map((a) => ({ ...a, personName: p.name }))
   );
+  // The editor needs to know what it may move an entry to, same as Activity's.
+  const accountsById = Object.fromEntries(allAccounts.map((a) => [a.id, a]));
 
   // Recurring items are shown inside the account they come out of, and counted
   // in the flow card. They are read once here rather than by every account row.
@@ -78,7 +80,13 @@ export default function Dashboard({
           />
         ))}
 
-        <Latest month={month} onSeeAll={onSeeActivity} />
+        <Latest
+          month={month}
+          onSeeAll={onSeeActivity}
+          accountsById={accountsById}
+          onChanged={refresh}
+          readOnly={readOnly}
+        />
       </div>
 
       {accountModal && (

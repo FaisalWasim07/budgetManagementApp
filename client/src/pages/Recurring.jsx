@@ -55,6 +55,13 @@ function Row({ item, rate, currency, month, readOnly, phone, onEdit, onStop, onR
   const tappable = !readOnly && phone;
   const open = () => onEdit(item);
 
+  // Stop keeps the months an item has already charged and ends it from here on;
+  // delete erases it from every one of them. Those are different things — but
+  // only once it has actually charged. An item that starts this month has no
+  // history to keep, so stopping it removes it, which is exactly what delete
+  // does, and offering both was two buttons for one outcome.
+  const keepsHistory = item.start_month < month;
+
   return (
     <div
       className={`txn${ended ? ' ended' : ''}${tappable ? ' tappable' : ''}`}
@@ -119,11 +126,12 @@ function Row({ item, rate, currency, month, readOnly, phone, onEdit, onStop, onR
           >
             <Pencil />
           </button>
-          {ended ? (
+          {ended && (
             <button className="tiny subtle" onClick={() => onResume(item)}>
               Restart
             </button>
-          ) : (
+          )}
+          {!ended && keepsHistory && (
             <button className="tiny subtle" onClick={() => onStop(item)}>
               Stop
             </button>
@@ -174,12 +182,11 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
     }
   };
 
+  // Only offered for items that have charged before this month, so there is
+  // always history for it to keep.
   const stop = (item) =>
-    window.confirm(
-      item.start_month >= month
-        ? `${item.name} hasn't been charged yet, so stopping it removes it. Go ahead?`
-        : `Stop ${item.name} from ${formatMonth(month)}? Earlier months keep it.`
-    ) && act(() => stopSubscription(item.id, month));
+    window.confirm(`Stop ${item.name} from ${formatMonth(month)}? Earlier months keep it.`) &&
+    act(() => stopSubscription(item.id, month));
 
   const resume = (item) => act(() => resumeSubscription(item.id, month));
 
@@ -421,6 +428,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
           onResume={resume}
           onDelete={remove}
           stopped={Boolean(editing && hasEnded(editing, month))}
+          keepsHistory={Boolean(editing && editing.start_month < month)}
           accounts={accounts}
           categories={[...new Set(items.map((i) => i.category).filter(Boolean))]}
           month={month}

@@ -99,9 +99,14 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await row.tap();
   await page.waitForSelector('.modal', { timeout: 8000 });
   check('tapping it opens the editor', (await page.locator('.modal').count()) === 1);
-  // Stop and delete have nowhere else to live on this shell.
-  check('the editor carries stop', (await page.locator('.modal button:has-text("Stop")').count()) === 1);
-  check('and delete', (await page.locator('.modal button:has-text("Delete")').count()) === 1);
+  // Delete has nowhere else to live on this shell. Stop is not offered here:
+  // the item starts this month, so stopping it would remove it, which is what
+  // delete already does.
+  check('the editor carries delete', (await page.locator('.modal button:has-text("Delete")').count()) === 1);
+  check(
+    'and no Stop, which would do the same thing to this one',
+    (await page.locator('.modal button:has-text("Stop")').count()) === 0
+  );
   await page.locator('.modal input[aria-label="Amount"]').fill('61');
   await page.locator('.modal button:has-text("Update")').tap();
   await page.waitForTimeout(1800);
@@ -111,16 +116,25 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.locator('.txn', { hasText: 'Netflix' }).first().textContent()
   );
 
-  // Stopping from inside the dialog is the only way to stop one here. This one
-  // starts this month and has not charged yet, so stopping it removes it
-  // outright rather than leaving a stopped row — there is no history to keep.
+  // Deleting from inside the dialog is the only way to remove one here.
   await page.locator('.recurring-lists .txn', { hasText: 'Netflix' }).first().tap();
   await page.waitForSelector('.modal', { timeout: 8000 });
-  await page.locator('.modal button:has-text("Stop")').tap();
+  await page.locator('.modal button:has-text("Delete")').tap();
   await page.waitForTimeout(1800);
   check(
-    'stopping works from the dialog',
+    'deleting works from the dialog',
     (await page.locator('.txn', { hasText: 'Netflix' }).count()) === 0
+  );
+
+  // --- a sheet holds the page still ---------------------------------------
+  await page.locator('.tabbar button', { hasText: /^Activity$/ }).click();
+  await page.waitForTimeout(900);
+  await page.evaluate(() => window.scrollTo(0, 40));
+  await page.locator('.tabbar button.add').tap();
+  await page.waitForSelector('.sheet.open', { timeout: 8000 });
+  check(
+    'the page is locked behind the add sheet',
+    (await page.evaluate(() => document.body.style.overflow)) === 'hidden'
   );
 
   await browser.close();

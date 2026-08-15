@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createTransaction } from '../api/transactions';
 import { Exchange } from './icons';
+import { useScrollLock } from '../utils/scrollLock';
 
 // The phone half of entering money: thumb at the bottom of the screen, the
 // amount the biggest thing on it, and one tap to save. Also what "Add to this
@@ -22,6 +23,8 @@ export default function AddSheet({
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const amountField = useRef(null);
+  // The sheet slides over the page; the page must not slide with it.
+  useScrollLock(open);
 
   // Each opening starts clean, on whichever account it was opened from.
   useEffect(() => {

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listTransactions } from '../api/transactions';
+import { listTransactions, deleteTransaction } from '../api/transactions';
 import { Money } from '../utils/display';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
+import TransactionEditModal from './TransactionEditModal';
+import { Pencil, Trash } from './icons';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -36,9 +38,17 @@ function describe(row, rows) {
 // has the whole month; this is the "is that already in?" glance you take after
 // paying for something, and it does not cost Home its length the way the full
 // list did.
-export default function Latest({ month, onSeeAll, limit = 5 }) {
+export default function Latest({
+  month,
+  onSeeAll,
+  limit = 5,
+  accountsById = {},
+  onChanged,
+  readOnly = false,
+}) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -53,6 +63,26 @@ export default function Latest({ month, onSeeAll, limit = 5 }) {
 
   const shown = rows.slice(0, limit);
 
+  // These are the same entries Activity lists, so they open the same editor.
+  // A row you can read but not correct is a row that sends you to another
+  // screen to do the obvious thing with it.
+  const open = (row) =>
+    setEditing({
+      ...row,
+      legs: row.transfer_id ? rows.filter((x) => x.transfer_id === row.transfer_id) : null,
+    });
+
+  const remove = async (row) => {
+    const message = row.transfer_id
+      ? 'Delete this transfer? Both sides of it are removed.'
+      : 'Delete this entry?';
+    if (!window.confirm(message)) return false;
+    await deleteTransaction(row.id);
+    load();
+    onChanged?.();
+    return true;
+  };
+
   return (
     <section className="card latest">
       <div className="latest-head">
@@ -66,13 +96,31 @@ export default function Latest({ month, onSeeAll, limit = 5 }) {
 
       {shown.map((row) => {
         const Icon = iconForEntry(row);
+        const label = describe(row, rows);
         return (
-          <div className="txn" key={row.id}>
+          <div
+            className={readOnly ? 'txn' : 'txn tappable'}
+            key={row.id}
+            {...(readOnly
+              ? {}
+              : {
+                  onClick: () => open(row),
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `Edit ${label}`,
+                  onKeyDown: (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      open(row);
+                    }
+                  },
+                })}
+          >
             <span className={`tile ${toneForEntry(row.kind)}`}>
               <Icon />
             </span>
             <span className="what">
-              <b>{describe(row, rows)}</b>
+              <b>{label}</b>
               <small>
                 {[row.account_name, when(row.entry_date || row.created_at)]
                   .filter(Boolean)
@@ -87,6 +135,27 @@ export default function Latest({ month, onSeeAll, limit = 5 }) {
                 compact
               />
             </span>
+
+            {!readOnly && (
+              <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="icon-button small"
+                  title="Edit"
+                  aria-label={`Edit ${label}`}
+                  onClick={() => open(row)}
+                >
+                  <Pencil />
+                </button>
+                <button
+                  className="icon-button small danger"
+                  title="Delete"
+                  aria-label={`Delete ${label}`}
+                  onClick={() => remove(row)}
+                >
+                  <Trash />
+                </button>
+              </span>
+            )}
           </div>
         );
       })}
@@ -97,6 +166,22 @@ export default function Latest({ month, onSeeAll, limit = 5 }) {
             {loading ? 'Loading…' : 'Nothing recorded this month yet.'}
           </span>
         </div>
+      )}
+
+      {editing && (
+        <TransactionEditModal
+          entry={editing}
+          accountsById={accountsById}
+          month={month}
+          onClose={() => setEditing(null)}
+          onDelete={async (row) => {
+            if (await remove(row)) setEditing(null);
+          }}
+          onSaved={async () => {
+            load();
+            await onChanged?.();
+          }}
+        />
       )}
     </section>
   );

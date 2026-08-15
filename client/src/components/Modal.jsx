@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '../utils/scrollLock';
 
 // A dialog, optionally in tabs.
 //
@@ -12,6 +13,7 @@ import { createPortal } from 'react-dom';
 // they always did.
 export default function Modal({ title, onClose, tabs, children }) {
   const [active, setActive] = useState(tabs?.[0]?.[0] ?? null);
+  useScrollLock();
 
   useEffect(() => {
     const onKey = (e) => {

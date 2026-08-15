@@ -148,6 +148,42 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(400);
   check('and everything brings it back', (await page.locator('.txn:not(.empty)').count()) === 1);
 
+  // --- Latest, on Home, is editable in place -------------------------------
+  await go('Home');
+  check(
+    'Latest rows carry edit and delete',
+    (await page.locator('.latest .txn').first().locator('.txn-acts button').count()) === 2
+  );
+  const wasFirst = (await page.locator('.latest .txn').first().textContent()).trim();
+  await page.locator('.latest .txn').first().click();
+  await page.waitForSelector('.modal', { timeout: 8000 });
+  check('clicking one opens the same editor Activity uses', (await page.locator('.modal').count()) === 1);
+  await page.locator('.modal input[type="number"]').first().fill('4242');
+  await page.click('.modal button:has-text("Save")');
+  await page.waitForTimeout(2200);
+  check(
+    'and the correction lands without leaving Home',
+    (await page.locator('.latest .txn').first().textContent()).includes('4,242'),
+    await page.locator('.latest .txn').first().textContent()
+  );
+  check('the row actually changed', wasFirst !== (await page.locator('.latest .txn').first().textContent()).trim());
+
+  // --- a dialog holds the page still ---------------------------------------
+  await page.evaluate(() => window.scrollTo(0, 60));
+  await page.locator('.latest .txn').first().click();
+  await page.waitForSelector('.modal', { timeout: 8000 });
+  const held = await page.evaluate(() => window.scrollY);
+  await page.mouse.move(700, 400);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(300);
+  check('the page cannot scroll behind an open dialog', (await page.evaluate(() => window.scrollY)) === held);
+  await page.click('.modal button[aria-label="Close"]');
+  await page.waitForTimeout(300);
+  check(
+    'and it is handed back when the dialog closes',
+    (await page.evaluate(() => document.body.style.overflow)) === ''
+  );
+
   // --- an account's own screen ---------------------------------------------
   await go('Home');
   await page.locator('.account-row:not(.add)').first().click();
@@ -293,6 +329,12 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('.modal button:has-text("Add")');
   await page.waitForTimeout(1600);
   check('a subscription can be added', (await page.locator('.txn:not(.empty)').count()) === 1);
+  // It starts this month, so stopping it would remove it outright — which is
+  // what delete does. One outcome gets one button.
+  check(
+    'a not-yet-charged item offers no Stop, only Delete',
+    (await page.locator('.recurring-lists .txn button:has-text("Stop")').count()) === 0
+  );
   check(
     'the page leads with what is committed every month',
     /Committed every month/.test(await page.locator('.recurring-hero').textContent()) &&

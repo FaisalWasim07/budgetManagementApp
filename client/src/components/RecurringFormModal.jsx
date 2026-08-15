@@ -24,6 +24,7 @@ export default function RecurringFormModal({
   onResume,
   onDelete,
   stopped = false,
+  keepsHistory = false,
 }) {
   const editing = Boolean(item);
   const { money } = useDisplay();
@@ -306,7 +307,7 @@ export default function RecurringFormModal({
                 Delete
               </button>
             )}
-            {editing && (stopped ? onResume : onStop) && (
+            {editing && (stopped || keepsHistory) && (stopped ? onResume : onStop) && (
               <button
                 type="button"
                 className="subtle"

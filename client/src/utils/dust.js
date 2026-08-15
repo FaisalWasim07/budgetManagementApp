@@ -15,11 +15,21 @@ const LAYERS = 8;
 const DURATION = 520;
 const STEP = 60;
 
-// The most figures allowed in the air at once. A dashboard can hold forty, and
-// forty simultaneous rasterisations is a visible stall for an effect nobody
-// asked to wait for. The rest swap over instantly, which is what they did
-// before this existed.
-const MAX_IN_FLIGHT = 14;
+// The most figures allowed in the air at once. This used to be 14, which is
+// fewer than any screen in the app actually shows — Recurring puts 29 in view —
+// so the first fourteen crumbled and the rest blinked, in the same glance. An
+// effect that only some of the numbers get looks like a bug in the effect, and
+// it was reported as one.
+//
+// The cap stays, because it is a real guard against a screen full of figures
+// stalling on a toggle nobody asked to wait for. It is just set above what a
+// screen holds now, and the cost per figure is what gives instead: past
+// BUSY_AT the dust is dealt into fewer layers, which is the expensive part.
+// Four layers still crumbles; it simply has a coarser grain nobody can see
+// while thirty of them are moving at once.
+const MAX_IN_FLIGHT = 48;
+const BUSY_AT = 12;
+const BUSY_LAYERS = 4;
 
 let inFlight = 0;
 
@@ -81,13 +91,13 @@ function rasterise(el, text) {
 // Every opaque pixel is dealt to one layer. The deal is biased by how far right
 // the pixel sits, so the number crumbles from its end, and mixed with enough
 // randomness that the boundary between one layer and the next is never a line.
-function deal({ canvas, width, height }) {
+function deal({ canvas, width, height }, count) {
   const source = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
   const pixels = source.data;
   const w = canvas.width;
 
   const layers = [];
-  for (let i = 0; i < LAYERS; i += 1) {
+  for (let i = 0; i < count; i += 1) {
     layers.push(new ImageData(canvas.width, canvas.height));
   }
 
@@ -97,8 +107,8 @@ function deal({ canvas, width, height }) {
       if (pixels[i + 3] === 0) continue;
       const fromRight = 1 - x / w;
       const pick = Math.min(
-        LAYERS - 1,
-        Math.floor(LAYERS * (fromRight * 0.7 + Math.random() * 0.32))
+        count - 1,
+        Math.floor(count * (fromRight * 0.7 + Math.random() * 0.32))
       );
       const target = layers[pick].data;
       target[i] = pixels[i];
@@ -173,7 +183,7 @@ export function dust(el, host) {
   try {
     const prepared = rasterise(el, text);
     if (!prepared) return Promise.resolve();
-    layers = deal(prepared);
+    layers = deal(prepared, inFlight >= BUSY_AT ? BUSY_LAYERS : LAYERS);
   } catch {
     // A canvas that won't rasterise (no 2d context, memory pressure) is not
     // worth failing a privacy toggle over.
