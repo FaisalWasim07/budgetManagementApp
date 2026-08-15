@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Modal from './Modal';
 import { createSubscription, updateSubscription } from '../api/subscriptions';
 import { useDisplay } from '../utils/display';
-import { formatMonth, shiftMonth } from '../utils/month';
+import { currentMonth, formatMonth, shiftMonth } from '../utils/month';
 import { perMonth } from '../utils/recurring';
 
 const MONTH_NAMES = [
@@ -31,6 +31,7 @@ export default function RecurringFormModal({
     cycle: item?.cycle ?? 'monthly',
     billing_month: String(item?.billing_month || Number(month.split('-')[1])),
     category: item?.category ?? '',
+    end_month: item?.end_month ?? '',
   }));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +50,16 @@ export default function RecurringFormModal({
       form.cycle !== item.cycle);
   const hasHistory = editing && item.start_month < month;
 
+  // Last month is the floor. Ending an item last month means it no longer
+  // runs from now on — the same thing Stop does — and every month it charged
+  // keeps its charge. Anything earlier would take money back out of months
+  // already recorded.
+  const thisMonth = currentMonth();
+  const earliestEnd = shiftMonth(thisMonth, -1);
+  const endTooEarly = form.end_month && form.end_month < earliestEnd;
+  const endBeforeStart =
+    form.end_month && editing && form.end_month < item.start_month;
+
   async function submit(e) {
     e.preventDefault();
     setError(null);
@@ -65,6 +76,16 @@ export default function RecurringFormModal({
       setError('Enter an amount greater than zero.');
       return;
     }
+    if (endTooEarly) {
+      setError(
+        `The earliest it can end is ${formatMonth(earliestEnd)} — anything before that has already been charged.`
+      );
+      return;
+    }
+    if (endBeforeStart) {
+      setError(`It cannot end before it starts, in ${formatMonth(item.start_month)}.`);
+      return;
+    }
 
     const body = {
       account_id: account.id,
@@ -74,6 +95,7 @@ export default function RecurringFormModal({
       cycle: form.cycle,
       billing_month: form.cycle === 'yearly' ? Number(form.billing_month) : null,
       category: form.category.trim() || null,
+      end_month: form.end_month || null,
     };
 
     setBusy(true);
@@ -169,6 +191,23 @@ export default function RecurringFormModal({
             </label>
           )}
         </div>
+
+        {/* Optional, and the only way to say "this runs until" without having
+            to remember to press Stop when the month arrives. */}
+        <label className="field">
+          <span className="label">Runs until</span>
+          <input
+            type="month"
+            value={form.end_month}
+            min={editing ? item.start_month : earliestEnd}
+            onChange={set('end_month')}
+          />
+          <span className="muted" style={{ fontSize: '.78rem' }}>
+            {form.end_month
+              ? `Charges through ${formatMonth(form.end_month)}, then stops.`
+              : 'Leave empty and it runs until you stop it.'}
+          </span>
+        </label>
 
         <label className="field">
           <span className="label">Category</span>

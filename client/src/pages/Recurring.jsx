@@ -30,10 +30,15 @@ function Row({ item, rate, currency, month, readOnly, onEdit, onStop, onResume, 
   const income = item.direction === 'income';
   const monthly = monthlyPrimary(item, rate);
 
+  // An end date that has not arrived yet is the useful half: it says this is
+  // already accounted for and will stop on its own.
+  const endsLater = item.end_month && !ended && item.end_month >= month;
+
   const detail = [
     `${item.personName ?? item.person_name} · ${item.accountName ?? item.account_name}`,
     item.category,
     yearly ? `every ${MONTH_NAMES[(item.billing_month || 1) - 1]}` : 'every month',
+    endsLater ? `until ${formatMonth(item.end_month)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');

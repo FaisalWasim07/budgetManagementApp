@@ -158,6 +158,103 @@ const SEP = '2026-09';
   check('deleting removes it from every month it ever charged', (await spendIn(JUL)) === 56,
     String(await spendIn(JUL)));
 
+  // --- an end month you set yourself -------------------------------------
+  // Stop ends something from today. An end month says "this was always going
+  // to finish in June" — school fees, a fixed-term policy — without having to
+  // remember to come back and press Stop when June arrives.
+  //
+  // These months are relative to today on purpose: the rule they check is
+  // about the past, so a hardcoded month would test something different every
+  // year.
+  const shift = (month, by) => {
+    const [y, m] = month.split('-').map(Number);
+    const at = y * 12 + (m - 1) + by;
+    return `${Math.floor(at / 12)}-${String((at % 12) + 1).padStart(2, '0')}`;
+  };
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const lastYear = shift(thisMonth, 11);
+
+  const fees = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'School fees',
+    amount: 500,
+    cycle: 'monthly',
+    start_month: thisMonth,
+    end_month: lastYear,
+  });
+  check('an end month can be set when creating an item', fees.status === 201, String(fees.status));
+  check('and it is stored', fees.data.end_month === lastYear, String(fees.data.end_month));
+
+  const listAt = async (month) =>
+    (await me.get(`/api/subscriptions?month=${month}`)).data.find((i) => i.id === fees.data.id);
+
+  check('it charges in its final month', (await listAt(lastYear))?.dueThisMonth === true);
+  check('and not the month after', (await listAt(shift(lastYear, 1)))?.dueThisMonth === false);
+
+  const spendFinal = await spendIn(lastYear);
+  const spendAfter = await spendIn(shift(lastYear, 1));
+  check('the final month counts it', spendFinal >= 500, String(spendFinal));
+  check('the month after does not', spendAfter === spendFinal - 500,
+    `${spendAfter} vs ${spendFinal}`);
+
+  // An end month already gone would take charges back out of months that are
+  // already recorded — which is exactly what stopping exists to avoid.
+  const longRunning = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'Old policy',
+    amount: 30,
+    cycle: 'monthly',
+    start_month: shift(thisMonth, -8),
+  });
+  const backdated = await me.patch(`/api/subscriptions/${longRunning.data.id}`, {
+    end_month: shift(thisMonth, -4),
+    from_month: thisMonth,
+  });
+  check('an end month before last month is refused', backdated.status === 400, String(backdated.status));
+  check('and says why',
+    String(backdated.data.error).includes('already recorded'), String(backdated.data.error));
+
+  const createPast = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'Already over',
+    amount: 10,
+    cycle: 'monthly',
+    start_month: shift(thisMonth, -6),
+    end_month: shift(thisMonth, -4),
+  });
+  check('creating one that already ended is refused too', createPast.status === 400,
+    String(createPast.status));
+
+  // Something you stopped months ago keeps the date it stopped on; renaming it
+  // must not trip the same rule.
+  const old = await me.post('/api/subscriptions', {
+    account_id: main.id,
+    name: 'Old gym',
+    amount: 40,
+    cycle: 'monthly',
+    start_month: shift(thisMonth, -6),
+  });
+  await me.post(`/api/subscriptions/${old.data.id}/stop`, { from_month: shift(thisMonth, -2) });
+  const relabelled = await me.patch(`/api/subscriptions/${old.data.id}`, {
+    name: 'Old gym, cancelled',
+    from_month: thisMonth,
+  });
+  check('an item that ended in the past can still be renamed', relabelled.status === 200,
+    String(relabelled.status));
+
+  const cleared = await me.patch(`/api/subscriptions/${fees.data.id}`, {
+    end_month: null,
+    from_month: thisMonth,
+  });
+  check('clearing the end month makes it open-ended again', cleared.status === 200,
+    String(cleared.status));
+  check('and it charges past where it used to end',
+    (await listAt(shift(lastYear, 1)))?.dueThisMonth === true);
+
+  await me.del(`/api/subscriptions/${fees.data.id}`);
+  await me.del(`/api/subscriptions/${old.data.id}`);
+  await me.del(`/api/subscriptions/${longRunning.data.id}`);
+
   // --- and none of it escapes the household ------------------------------
   const other = client();
   await other.post('/api/auth/signup', { username: `outsider_${u}`, password: 'outsider123' });
@@ -170,5 +267,6 @@ const SEP = '2026-09';
   check('nor restart it',
     (await other.post(`/api/subscriptions/${netflix.id}/resume`, { from_month: AUG })).status === 404);
 
-  module.exports.result = report('Recurring money');
+  const { failed } = report('Recurring money');
+  process.exit(failed ? 1 : 0);
 })();

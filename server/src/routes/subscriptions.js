@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/pool');
 const summaryService = require('../services/summaryService');
+const { shiftMonth } = require('../services/summaryService');
 const recurringService = require('../services/recurringService');
 const { h } = require('../util/route');
 
@@ -60,7 +61,7 @@ router.get(
   })
 );
 
-function validate(body, { partial = false } = {}) {
+function validate(body, { partial = false, wasEndMonth = null } = {}) {
   const {
     account_id: accountId,
     name,
@@ -88,6 +89,17 @@ function validate(body, { partial = false } = {}) {
   }
   if (startMonth && endMonth && endMonth < startMonth) {
     return 'end_month cannot be before start_month';
+  }
+  // The floor is last month, not this one. An item ending last month is one
+  // that no longer runs from now on — exactly what stopping does — and every
+  // month it charged is left alone. Anything earlier takes charges back out
+  // of months already recorded, which would restate what April cost.
+  //
+  // An item that already ended keeps the date it ended on: this is about
+  // setting a new one, not about being unable to rename something you
+  // stopped in March.
+  if (endMonth && endMonth !== wasEndMonth && endMonth < shiftMonth(summaryService.currentMonth(), -1)) {
+    return 'end_month cannot be before last month — earlier months are already recorded';
   }
   return null;
 }
@@ -163,7 +175,10 @@ router.patch(
     }
 
     const { from_month: _ignored, ...patch } = req.body;
-    const error = validate({ ...existing, ...patch }, { partial: true });
+    const error = validate({ ...existing, ...patch }, {
+      partial: true,
+      wasEndMonth: existing.end_month,
+    });
     if (error) return res.status(400).json({ error });
 
     // A change to what an item costs starts a new period rather than restating
