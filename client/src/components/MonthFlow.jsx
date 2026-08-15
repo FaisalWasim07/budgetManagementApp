@@ -75,7 +75,7 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
   return (
     <section className="card">
       <div className="flow-top">
-        <h2>Where {formatMonth(month).split(' ')[0]} went</h2>
+        <h2>{formatMonth(month).split(' ')[0]}</h2>
         <span className="in-total">
           <small>came in</small>
           <Money amount={household.income} currency={primaryCurrency} compact />
@@ -102,57 +102,41 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
         />
       </div>
 
+      {/* One line of keys rather than four labelled blocks. The card sits
+          beside net worth now, not across the page, and the percentages were
+          the first thing that stopped fitting — the bar already shows share. */}
       <div className="breakdown">
-        <div>
-          <span className="k">
-            <i style={{ background: 'var(--neg)' }} />
-            Spent
-          </span>
-          <span className="v">
+        <span className="k">
+          <i style={{ background: 'var(--neg)' }} />
+          Spent
+          <b>
             <Money amount={spent} currency={primaryCurrency} compact />
-          </span>
-          <span className="pct">{percent(spent)} of what came in</span>
-        </div>
-        <div>
-          <span className="k">
-            <i style={{ background: 'var(--warn)' }} />
-            Subscriptions
-          </span>
-          <span className="v">
+          </b>
+        </span>
+        <span className="k">
+          <i style={{ background: 'var(--warn)' }} />
+          Subscriptions
+          <b>
             <Money amount={subs} currency={primaryCurrency} compact />
-          </span>
-          <span className="pct">
-            {percent(subs)}
-            {subscriptionCount > 0 && ` · ${subscriptionCount} item${subscriptionCount === 1 ? '' : 's'}`}
-          </span>
-        </div>
-        {/* A month can go either way, and "Moved to savings: −AED 2,000" is a
-            sentence nobody should have to parse. Same slot, same colour, the
-            label does the work. */}
-        <div>
-          <span className="k">
-            <i style={{ background: 'var(--moved)' }} />
-            {moved < 0 ? 'Taken from savings' : 'Moved to savings'}
-          </span>
-          <span className="v">
+          </b>
+          {subscriptionCount > 0 && (
+            <small>· {subscriptionCount} item{subscriptionCount === 1 ? '' : 's'}</small>
+          )}
+        </span>
+        <span className="k">
+          <i style={{ background: 'var(--moved)' }} />
+          {moved < 0 ? 'From savings' : 'Moved'}
+          <b>
             <Money amount={Math.abs(moved)} currency={primaryCurrency} compact />
-          </span>
-          <span className="pct">
-            {moved < 0 ? 'money you dipped into' : `${percent(moved)} · not spent`}
-          </span>
-        </div>
-        <div>
-          <span className="k">
-            <i style={{ background: 'var(--pos)' }} />
-            Left over
-          </span>
-          <span className="v" style={left < 0 ? { color: 'var(--neg)' } : undefined}>
+          </b>
+        </span>
+        <span className="k">
+          <i style={{ background: 'var(--pos)' }} />
+          Left
+          <b style={left < 0 ? { color: 'var(--neg)' } : undefined}>
             <Money amount={left} currency={primaryCurrency} compact />
-          </span>
-          <span className="pct">
-            {left < 0 ? 'more went out than came in' : `${percent(left)} · still sitting there`}
-          </span>
-        </div>
+          </b>
+        </span>
       </div>
 
       {household.unconvertedCurrencies?.length > 0 && (

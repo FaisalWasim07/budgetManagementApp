@@ -114,33 +114,6 @@ export default function PersonSection({
         </span>
       </div>
 
-      <div className="person-figures">
-        <div>
-          <span className="k">Came in</span>
-          <span className="v in">
-            <Money amount={person.income} currency={primaryCurrency} compact />
-          </span>
-        </div>
-        <div>
-          <span className="k">Spent</span>
-          <span className="v out">
-            <Money amount={person.expenses} currency={primaryCurrency} compact />
-          </span>
-        </div>
-        <div>
-          <span className="k">Subscriptions</span>
-          <span className="v">
-            <Money amount={person.subscriptions} currency={primaryCurrency} compact />
-          </span>
-        </div>
-        <div>
-          <span className="k">Left over</span>
-          <span className="v" style={leftover < 0 ? { color: 'var(--neg)' } : undefined}>
-            <Money amount={leftover} currency={primaryCurrency} compact />
-          </span>
-        </div>
-      </div>
-
       <div className="rows">
         {person.accounts.map((account) => (
           <AccountRow

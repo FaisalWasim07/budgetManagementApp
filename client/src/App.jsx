@@ -143,24 +143,19 @@ export default function App({ user, onSignedOut }) {
     setPage(key);
   };
 
-  // N for new. On a phone that means the sheet; at a desk it means the strip
-  // that is already on screen, so it puts the cursor there instead.
+  // N for new. There is one way to record money now — the sheet — so the
+  // shortcut opens that rather than reaching for a strip that is no longer on
+  // the page.
   useEffect(() => {
     if (readOnly) return undefined;
     const shortcut = (e) => {
       if (e.key?.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
-      const quick = document.getElementById('quick-amount');
-      if (isPhone() || !quick || page !== 'dashboard') {
-        if (accounts.length > 0) setSheet({ accountId: null });
-      } else {
-        e.preventDefault();
-        quick.focus();
-      }
+      if (accounts.length > 0) setSheet({ accountId: null });
     };
     document.addEventListener('keydown', shortcut);
     return () => document.removeEventListener('keydown', shortcut);
-  }, [readOnly, page, accounts.length]);
+  }, [readOnly, accounts.length]);
 
   // Same screen the auth check was already showing, so a cold open is one
   // unbroken splash rather than two that swap.
@@ -258,6 +253,16 @@ export default function App({ user, onSignedOut }) {
                 {amountsHidden ? <EyeOff /> : <Eye />}
               </button>
 
+              {!phone && !readOnly && (
+                <button
+                  className="primary add-top"
+                  disabled={accounts.length === 0}
+                  onClick={() => setSheet({ accountId: null })}
+                >
+                  <Plus size={16} /> Add
+                </button>
+              )}
+
               {phone && (
                 <OverflowMenu
                   theme={theme}
@@ -331,6 +336,7 @@ export default function App({ user, onSignedOut }) {
             month={month}
             onChanged={load}
             onOpenAccount={(account) => setAccountId(account.id)}
+            onSeeActivity={() => goTo('activity')}
             readOnly={readOnly}
           />
         )}

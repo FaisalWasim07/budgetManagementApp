@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { addMoney, openTransfer } = require('./helpers');
 
 // The redesigned dashboard, driven the way a person drives it: type an amount
 // into the strip, correct it, delete it, open an account, add from inside it.
@@ -94,27 +95,16 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.waitForTimeout(500);
   };
 
-  // --- the quick-add strip -------------------------------------------------
-  await page.fill('#quick-amount', '9000');
-  await page.locator('.quick button:has-text("Received")').click();
-  await page.locator('.quick input[aria-label="Category"]').fill('Salary');
-  await page.locator('.quick button[type="submit"]').click();
-  await page.waitForTimeout(1500);
+  // --- recording money -----------------------------------------------------
+  await addMoney(page, { amount: '9000', kind: 'Received', category: 'Salary' });
 
-  check(
-    'the strip clears but stays put, ready for the next one',
-    (await page.inputValue('#quick-amount')) === '' && (await page.locator('.quick').count()) === 1
-  );
+  check('the sheet closes once it has saved', (await page.locator('.sheet.open').count()) === 0);
 
   await go('Activity');
   check('an entry can be recorded from the strip', (await page.locator('.txn:not(.empty)').count()) === 1);
   await go('Home');
 
-  await page.fill('#quick-amount', '240');
-  await page.locator('.quick button:has-text("Spent")').click();
-  await page.locator('.quick input[aria-label="Category"]').fill('Groceries');
-  await page.locator('.quick button[type="submit"]').click();
-  await page.waitForTimeout(1500);
+  await addMoney(page, { amount: '240', kind: 'Spent', category: 'Groceries' });
   await go('Activity');
   check('a second entry lands too', (await page.locator('.txn:not(.empty)').count()) === 2);
   await go('Home');
@@ -231,16 +221,18 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   // --- moving money between accounts ---------------------------------------
   await go('Home');
+  await page.click('.add-top');
+  await page.waitForSelector('.sheet.open', { timeout: 8000 });
   check(
-    'the strip offers two kinds of entry, not three',
-    (await page.locator('.quick .seg-mini button').count()) === 2
+    'the sheet offers two kinds of entry, not three',
+    (await page.locator('.sheet .seg button').count()) === 2
   );
   check(
     'and moving money is its own button',
-    (await page.locator('.quick button:has-text("Move money")').count()) === 1
+    (await page.locator('.sheet button:has-text("Move money")').count()) === 1
   );
 
-  await page.click('.quick button:has-text("Move money")');
+  await page.click('.sheet button:has-text("Move money")');
   await page.waitForSelector('.modal');
   const selects = page.locator('.modal select');
   await selects.nth(0).selectOption({ index: 0 });
@@ -403,7 +395,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('button[aria-label="Show amounts"]');
   await page.waitForTimeout(1600);
 
-  await page.click('.quick button:has-text("Move money")');
+  await openTransfer(page);
   await page.waitForSelector('.modal');
   const legs = page.locator('.modal select');
   await pickIn(legs.nth(0), 'Main Account');
@@ -454,7 +446,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   };
 
   const move = async (from, to, amount) => {
-    await page.click('.quick button:has-text("Move money")');
+    await openTransfer(page);
     await page.waitForSelector('.modal');
     const both = page.locator('.modal select');
     await pickIn(both.nth(0), from);
@@ -464,13 +456,15 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.waitForTimeout(1800);
   };
 
+  // The month card's keys are one line each now, so the savings one is the
+  // key that says Moved or From savings rather than a labelled block.
   const savingsTile = () =>
-    page.locator('.breakdown > div').filter({ hasText: 'savings' }).first();
+    page.locator('.breakdown .k').filter({ hasText: /Moved|From savings/ }).first();
 
   // Intl separates the currency code from the number with a non-breaking
   // space, which does not compare equal to the one you type.
   const figure = async () =>
-    (await savingsTile().locator('.v').textContent()).replace(/\s+/g, ' ').trim();
+    (await savingsTile().locator('b').textContent()).replace(/\s+/g, ' ').trim();
 
   await addAccount('Rainy Day', 'savings', 5000);
   await addAccount('House Fund', 'savings', 0);
@@ -486,7 +480,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await move('Rainy Day', 'Main Account', 2000);
   check(
     'taking money out of savings says so',
-    (await savingsTile().textContent()).includes('Taken from savings'),
+    (await savingsTile().textContent()).includes('From savings'),
     await savingsTile().textContent()
   );
   check(

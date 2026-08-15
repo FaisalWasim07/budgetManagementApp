@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { addMoney } = require('./helpers');
 
 // CHROMIUM_PATH covers machines with a browser already installed elsewhere;
 // otherwise Playwright uses the one it downloaded.
@@ -60,13 +61,8 @@ async function signUp(page, username, password) {
   check('household name is in the top bar', (await a.locator('.household-name').textContent()) === 'Faisal Home');
 
   // --- record money -------------------------------------------------------
-  // The quick-add strip: one row at the top of the dashboard, kept open so
-  // several entries can be typed in a row.
-  await a.fill('#quick-amount', '9000');
-  await a.locator('.quick button:has-text("Received")').click();
-  await a.locator('.quick input[aria-label="Category"]').fill('Salary');
-  await a.locator('.quick button[type="submit"]').click();
-  await a.waitForTimeout(1500);
+  // Money is recorded through the sheet the + opens, on either shell.
+  await addMoney(a, { amount: '9000', kind: 'Received', category: 'Salary' });
 
   await a.click('.side-nav button:has-text("Activity")');
   await a.waitForTimeout(600);
@@ -121,7 +117,7 @@ async function signUp(page, username, password) {
   await b.click('.side-nav button:has-text("Activity")');
   await b.waitForTimeout(600);
   check('a viewer sees the money', (await b.locator('.txn-list').textContent()).includes('Salary'));
-  check('a viewer gets no quick-add strip', await b.locator('.quick').count() === 0);
+  check('a viewer gets no way to add money', await b.locator('.add-top').count() === 0);
   check('a viewer cannot add an account', await b.locator('.account-row.add').count() === 0);
   check('a viewer gets no edit or delete buttons', await b.locator('.txn-acts').count() === 0);
   // A disabled + is a promise already broken; it is not in their bar at all.
@@ -157,7 +153,7 @@ async function signUp(page, username, password) {
     !(await b.locator('.txn-list').textContent()).includes('Salary'));
   await b.click('.side-nav button:has-text("Home")');
   await b.waitForTimeout(600);
-  check('in their own household they can write again', await b.locator('.quick').count() === 1);
+  check('in their own household they can write again', await b.locator('.add-top').count() === 1);
 
   await b.click('.household-trigger');
   const options = await b.locator('.menu button').allTextContents();

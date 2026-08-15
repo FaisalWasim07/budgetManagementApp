@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Hero from '../components/Hero';
 import MonthFlow from '../components/MonthFlow';
-import QuickAdd from '../components/QuickAdd';
 import PersonSection from '../components/PersonSection';
+import Latest from '../components/Latest';
 import AccountFormModal from '../components/AccountFormModal';
-import TransferModal from '../components/TransferModal';
 import { listSubscriptions } from '../api/subscriptions';
 
 export default function Dashboard({
@@ -14,17 +13,16 @@ export default function Dashboard({
   month,
   onChanged,
   onOpenAccount,
+  onSeeActivity,
   readOnly = false,
 }) {
   const [accountModal, setAccountModal] = useState(null);
-  const [showTransfer, setShowTransfer] = useState(false);
   const [subscriptions, setSubscriptions] = useState([]);
 
   const primaryCurrency = summary.primaryCurrency;
   const allAccounts = summary.persons.flatMap((p) =>
     p.accounts.map((a) => ({ ...a, personName: p.name }))
   );
-  const categoryNames = categories.map((c) => c.category);
 
   // Recurring items are shown inside the account they come out of, and counted
   // in the flow card. They are read once here rather than by every account row.
@@ -46,25 +44,20 @@ export default function Dashboard({
 
   return (
     <>
-      <Hero summary={summary} trend={trend} month={month} />
-
-      {!readOnly && allAccounts.length > 0 && (
-        <QuickAdd
-          accounts={allAccounts}
-          categories={categoryNames}
+      {/* Net worth and the month read as one answer to "how are we doing",
+          so they sit on one line rather than one under the other. */}
+      <div className="home-top">
+        <Hero summary={summary} trend={trend} month={month} />
+        <MonthFlow
+          summary={summary}
           month={month}
-          onSaved={refresh}
-          onMove={() => setShowTransfer(true)}
+          subscriptionCount={subscriptions.filter((s) => s.direction !== 'income').length}
         />
-      )}
+      </div>
 
-      <MonthFlow
-        summary={summary}
-        month={month}
-        subscriptionCount={subscriptions.filter((s) => s.direction !== 'income').length}
-      />
-
-      <div className="people">
+      {/* Both people beside each other, with the last few entries alongside
+          rather than a screen below. */}
+      <div className="home-cols">
         {summary.persons.map((person) => (
           <PersonSection
             key={person.id}
@@ -78,6 +71,8 @@ export default function Dashboard({
             onOpenAccount={onOpenAccount}
           />
         ))}
+
+        <Latest month={month} onSeeAll={onSeeActivity} />
       </div>
 
       {accountModal && (
@@ -90,14 +85,6 @@ export default function Dashboard({
         />
       )}
 
-      {showTransfer && (
-        <TransferModal
-          accounts={allAccounts}
-          month={month}
-          onClose={() => setShowTransfer(false)}
-          onSaved={onChanged}
-        />
-      )}
     </>
   );
 }

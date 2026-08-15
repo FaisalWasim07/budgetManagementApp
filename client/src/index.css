@@ -358,22 +358,33 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 
 /* ── Where the month went ────────────────────────────────────────── */
 .flow-top { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.flow-top .in-total { font-size: 1.26rem; font-weight: 620; letter-spacing: -.02em; color: var(--pos); }
-.flow-top .in-total small { font-size: .62em; font-weight: 500; color: var(--ink-3); margin-right: .35em; }
+.flow-top .in-total { font-size: .85rem; font-weight: 600; letter-spacing: -.01em; color: var(--ink-3); }
+.flow-top .in-total small { font-size: .88em; font-weight: 500; color: var(--ink-3); margin-right: .3em; }
 
 .bar { height: 12px; border-radius: 999px; margin-top: 15px; background: var(--surface-2); overflow: hidden; }
 .bar .track { height: 100%; border-radius: 999px; transition: width .9s cubic-bezier(.22,.9,.3,1); }
 
-.breakdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; }
-.breakdown > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.breakdown .k { display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; color: var(--ink-2); }
-.breakdown .k i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
-.breakdown .v { font-size: 1.14rem; font-weight: 620; letter-spacing: -.02em; }
-.breakdown .pct { font-size: .74rem; color: var(--ink-3); }
+/* One line of keys under the bar. The card is a column beside net worth now,
+   not the full width of the page. */
+.breakdown { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 13px; }
+.breakdown .k { display: inline-flex; align-items: baseline; gap: 6px; font-size: .82rem; color: var(--ink-2); }
+.breakdown .k i { width: 9px; height: 9px; border-radius: 3px; flex: none; align-self: center; }
+.breakdown .k b { font-weight: 640; color: var(--ink); letter-spacing: -.01em; }
+.breakdown .k small { font-size: .74rem; color: var(--ink-3); }
 
 /* ── People and accounts ─────────────────────────────────────────
    Accounts are rows in a ledger, not cards in a grid: six accounts
    read as six lines rather than six boxes. */
+/* Home. Net worth and the month on one line, then a column per person with
+   the latest entries beside them. */
+.home-top { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; align-items: stretch; }
+.home-top > * { margin: 0; }
+.home-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px; align-items: start; }
+.latest { padding: 0; overflow: hidden; }
+.latest-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 18px 9px; }
+.latest .txn { padding: 11px 18px; }
+.add-top { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+
 /* Going out and coming in read as a pair at a desk; on a phone they stack,
    which is the only thing that fits. */
 .recurring-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
@@ -980,7 +991,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
      being padded as though it were a bare block. */
   .hero { grid-template-columns: 1fr; align-items: start; gap: 8px; padding: 18px 16px 16px; }
   .hero .spark { width: 100%; height: 44px; }
-  .breakdown { grid-template-columns: 1fr 1fr; gap: 13px 12px; }
+  
   /* Four across in one strip rather than a 2x2 grid of tiny labelled boxes:
      the labels go small and quiet above the figures, which is the part worth
      reading, and the four read as one line of the same thing. */
@@ -989,6 +1000,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .person-figures .k { font-size: .63rem; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .person-figures .v { font-size: .84rem; letter-spacing: -.02em; }
   .charts { grid-template-columns: minmax(0, 1fr); }
+  .home-top, .home-cols { grid-template-columns: minmax(0, 1fr); }
   .recurring-lists { grid-template-columns: minmax(0, 1fr); }
   /* Two by two rather than four across: four of these on a phone is four
      figures too small to read. */
