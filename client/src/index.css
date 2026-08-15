@@ -497,6 +497,70 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 @media (hover: none) { .txn-acts { opacity: 1; } }
 
 .txn .amt .sub { display: block; font-size: .73rem; font-weight: 500; color: var(--ink-3); text-align: right; }
+
+/* ── Activity ────────────────────────────────────────────────────
+   Two shapes for one list. On a phone it is grouped under day headings,
+   because a month in one undivided column is a wall. At a desk the width
+   buys columns, and a column can be scanned straight down. */
+.act-search {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  height: 34px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--ink-3);
+}
+.act-search:focus-within { border-color: var(--action); }
+.act-search input {
+  border: 0; background: none; padding: 0; height: auto; width: 180px;
+  font-size: .86rem; color: var(--ink);
+}
+.act-search input:focus { outline: none; }
+.act-search input::-webkit-search-cancel-button { cursor: pointer; }
+
+.txn-days { display: flex; flex-direction: column; gap: 16px; }
+.day-head {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-3); font-weight: 640; margin: 0 0 7px 2px;
+}
+
+.txn-table { display: grid; grid-template-columns: 76px minmax(0, 1fr) 146px 86px 98px 172px 62px; }
+.txn-table .txn, .txn-table .txn-head { display: contents; }
+.txn-table .txn-head > * {
+  padding: 11px 10px 9px; font-size: .69rem; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink-3); font-weight: 640;
+  border-bottom: 1px solid var(--line);
+}
+/* Every cell draws the row's own rule. They only line up if the cells
+   stretch, so nothing here may be vertically centred as a whole row. */
+.txn-table .txn > * {
+  display: flex; align-items: center; min-width: 0; overflow: hidden;
+  padding: 11px 10px; border-bottom: 1px solid var(--line-soft);
+}
+.txn-table .txn:last-child > * { border-bottom: 0; }
+.txn-table .txn:hover > * { background: var(--surface-2); }
+.txn-table .txn:hover .tile, .txn-table .txn:hover .chip { background: var(--surface); }
+.txn-table .txn .on { color: var(--ink-3); font-size: .8rem; white-space: nowrap; }
+.txn-table .txn .what { gap: 10px; }
+.txn-table .txn .what b { min-width: 0; }
+.txn-table .txn .what .tile { width: 28px; height: 28px; border-radius: 9px; }
+.txn-table .txn .col { color: var(--ink-2); font-size: .86rem; white-space: nowrap; }
+.txn-table .txn .col.who { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; }
+.txn-table .txn .col.who small { font-size: .72rem; color: var(--ink-3); }
+.txn-table .txn .amt {
+  flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px;
+  text-align: right;
+}
+.txn-table .txn .amt small {
+  font-size: .72rem; font-weight: 500; color: var(--ink-3);
+  white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.txn-table .txn .txn-acts { justify-content: flex-end; }
+/* The empty row is one message, not seven cells. */
+.txn-table .txn.empty { display: block; grid-column: 1 / -1; }
+.txn-table .txn.tappable > * { cursor: pointer; }
+.chip {
+  font-size: .75rem; color: var(--ink-2); background: var(--surface-2);
+  padding: 3px 8px; border-radius: 6px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* Stopped items are the record of what you used to pay: present, and plainly
    not running. */
 .txn.ended { opacity: .55; }

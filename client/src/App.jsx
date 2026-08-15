@@ -314,7 +314,13 @@ export default function App({ user, onSignedOut }) {
         )}
 
         {summary && !empty && page === 'activity' && (
-          <Activity summary={summary} month={month} onChanged={load} readOnly={readOnly} />
+          <Activity
+            summary={summary}
+            month={month}
+            onChanged={load}
+            readOnly={readOnly}
+            phone={phone}
+          />
         )}
 
         {summary && !empty && page === 'recurring' && (

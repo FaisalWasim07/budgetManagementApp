@@ -108,6 +108,13 @@ export const Bars = ({ size = 21 }) => (
   </svg>
 );
 
+export const Search = ({ size = 15 }) => (
+  <svg {...base(size)}>
+    <circle cx="11" cy="11" r="7" {...stroke} />
+    <path d="m20 20-3.5-3.5" {...stroke} />
+  </svg>
+);
+
 // A list of things that happened.
 export const List = ({ size = 21 }) => (
   <svg {...base(size)}>

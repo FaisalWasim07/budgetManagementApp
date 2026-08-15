@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listTransactions, deleteTransaction } from '../api/transactions';
 import { Money, useDisplay } from '../utils/display';
-import { Pencil, Trash } from './icons';
+import { Pencil, Search, Trash } from './icons';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
 
@@ -31,6 +31,38 @@ function when(value) {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
+// The key a day heading groups on. Entries with no date of their own fall into
+// one bucket at the end rather than each becoming a heading of its own.
+const dayKey = (row) => (row.entry_date || row.created_at || '').slice(0, 10);
+
+// "Today" and "Yesterday" are worth the words; anything older reads better as
+// the date, because by then you are looking for a day, not counting back.
+function dayLabel(key) {
+  if (!key) return 'No date';
+  const date = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 'No date';
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const days = Math.round((midnight - date) / 86400000);
+  const full = date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  if (days === 0) return `Today · ${full}`;
+  if (days === 1) return `Yesterday · ${full}`;
+  return full;
+}
+
+// Grouped in the order the rows arrive, which is newest first — sorting the
+// keys separately would only risk disagreeing with the list.
+function byDay(rows) {
+  const groups = [];
+  for (const row of rows) {
+    const key = dayKey(row);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.rows.push(row);
+    else groups.push({ key, rows: [row] });
+  }
+  return groups;
+}
+
 // "Transfer out" tells you nothing you could not already see from the minus
 // sign. The useful half is the account at the other end, which is the sibling
 // row sharing this one's transfer_id.
@@ -51,10 +83,18 @@ function counterAmount(row, rows, money) {
   return `${row.kind === 'transfer_in' ? 'sent' : 'arrives as'} ${money(other.amount, other.currency)}`;
 }
 
-export default function ActivityList({ month, accountsById, personsById, onChanged, readOnly = false }) {
+export default function ActivityList({
+  month,
+  accountsById,
+  personsById,
+  onChanged,
+  readOnly = false,
+  phone = false,
+}) {
   const [rows, setRows] = useState([]);
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { money } = useDisplay();
 
@@ -80,19 +120,95 @@ export default function ActivityList({ month, accountsById, personsById, onChang
     return true;
   }
 
+  const needle = query.trim().toLowerCase();
   const visible = rows.filter((row) => {
-    if (filter === 'all') return true;
-    if (filter === 'transfers') return Boolean(row.transfer_id);
-    return row.kind === filter;
+    if (filter === 'transfers' && !row.transfer_id) return false;
+    if (filter !== 'all' && filter !== 'transfers' && row.kind !== filter) return false;
+    if (!needle) return true;
+    // Searched over everything the row shows, so what you can read you can
+    // find — including the person and the account, not just the words typed.
+    return [
+      describe(row, rows),
+      row.category,
+      row.description,
+      row.account_name,
+      personsById[row.person_id]?.name,
+    ]
+      .filter(Boolean)
+      .some((field) => field.toLowerCase().includes(needle));
   });
+
+  const openRow = (row) =>
+    setEditing({
+      ...row,
+      legs: row.transfer_id ? rows.filter((x) => x.transfer_id === row.transfer_id) : null,
+    });
+
+  const rowProps = (row, label) =>
+    readOnly
+      ? { className: 'txn' }
+      : {
+          className: 'txn tappable',
+          onClick: () => openRow(row),
+          role: 'button',
+          tabIndex: 0,
+          'aria-label': `Edit ${label}`,
+          onKeyDown: (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              openRow(row);
+            }
+          },
+        };
+
+  const actions = (row, label) =>
+    !readOnly && (
+      <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="icon-button small"
+          title="Edit"
+          aria-label={`Edit ${label}`}
+          onClick={() => openRow(row)}
+        >
+          <Pencil />
+        </button>
+        <button
+          className="icon-button small danger"
+          title="Delete"
+          aria-label={`Delete ${label}`}
+          onClick={() => remove(row)}
+        >
+          <Trash />
+        </button>
+      </span>
+    );
+
+  const nothing = (
+    <div className="txn empty">
+      <span className="what muted">
+        {loading
+          ? 'Loading…'
+          : needle
+            ? `Nothing this month matches “${query.trim()}”.`
+            : 'Nothing recorded this month yet.'}
+      </span>
+    </div>
+  );
 
   return (
     <section>
       <div className="section-head">
         <h2>This month</h2>
-        <span className="muted" style={{ fontSize: '.8rem' }}>
-          Subscriptions live on Recurring
-        </span>
+        <label className="act-search">
+          <Search />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search entries"
+            aria-label="Search entries"
+          />
+        </label>
       </div>
 
       <div className="filter-row">
@@ -107,95 +223,104 @@ export default function ActivityList({ month, accountsById, personsById, onChang
         ))}
       </div>
 
-      <div className="txn-list">
-        {visible.map((row) => {
-          const date = when(row.entry_date || row.created_at);
-          const person = personsById[row.person_id]?.name;
-          const label = describe(row, rows);
-          // The icon comes from what you called it, so a list of money can be
-          // scanned rather than read.
-          const Icon = iconForEntry(row);
-          const open = () =>
-            setEditing({
-              ...row,
-              legs: row.transfer_id
-                ? rows.filter((x) => x.transfer_id === row.transfer_id)
-                : null,
-            });
-          return (
-            // Tapping the row opens the editor. The two icon buttons are
-            // hidden on a phone, where they cost every entry a second line, so
-            // the row itself has to be the way in.
-            <div
-              className={readOnly ? 'txn' : 'txn tappable'}
-              key={row.id}
-              onClick={readOnly ? undefined : open}
-              role={readOnly ? undefined : 'button'}
-              tabIndex={readOnly ? undefined : 0}
-              onKeyDown={(e) => {
-                if (readOnly) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  open();
-                }
-              }}
-            >
-              <span className={`tile ${toneForEntry(row.kind)}`}>
-                <Icon />
-              </span>
-              <span className="what">
-                <b>{label}</b>
-                <small>
-                  {[
-                    row.account_name,
-                    person,
-                    date,
-                    counterAmount(row, rows, money),
-                    row.created_by_username,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </small>
-              </span>
-              <span className={isCredit(row.kind) ? 'amt in' : 'amt'}>
-                <Money
-                  amount={row.amount}
-                  currency={row.currency}
-                  prefix={isCredit(row.kind) ? '+' : '−'}
-                />
-              </span>
-              {!readOnly && (
-                <span className="txn-acts" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="icon-button small"
-                    title="Edit"
-                    aria-label={`Edit ${label}`}
-                    onClick={open}
-                  >
-                    <Pencil />
-                  </button>
-                  <button
-                    className="icon-button small danger"
-                    title="Delete"
-                    aria-label={`Delete ${label}`}
-                    onClick={() => remove(row)}
-                  >
-                    <Trash />
-                  </button>
-                </span>
-              )}
+      {phone ? (
+        // Grouped by day. A month of entries in one undivided list is a wall;
+        // the headings are what let you find last Tuesday.
+        <div className="txn-days">
+          {byDay(visible).map((group) => (
+            <div className="txn-day" key={group.key || 'undated'}>
+              <h3 className="day-head">{dayLabel(group.key)}</h3>
+              <div className="txn-list">
+                {group.rows.map((row) => {
+                  const label = describe(row, rows);
+                  const Icon = iconForEntry(row);
+                  return (
+                    <div key={row.id} {...rowProps(row, label)}>
+                      <span className={`tile ${toneForEntry(row.kind)}`}>
+                        <Icon />
+                      </span>
+                      <span className="what">
+                        <b>{label}</b>
+                        <small>
+                          {[
+                            row.account_name,
+                            personsById[row.person_id]?.name,
+                            counterAmount(row, rows, money),
+                            row.created_by_username,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </small>
+                      </span>
+                      <span className={isCredit(row.kind) ? 'amt in' : 'amt'}>
+                        <Money
+                          amount={row.amount}
+                          currency={row.currency}
+                          prefix={isCredit(row.kind) ? '+' : '−'}
+                        />
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          );
-        })}
-
-        {visible.length === 0 && (
-          <div className="txn empty">
-            <span className="what muted">
-              {loading ? 'Loading…' : 'Nothing recorded this month yet.'}
+          ))}
+          {visible.length === 0 && <div className="txn-list">{nothing}</div>}
+        </div>
+      ) : (
+        // At a desk the width buys columns, and a column can be scanned
+        // straight down in a way a stack of two-line rows cannot.
+        <div className="txn-list txn-table" role="table">
+          <div className="txn-head" role="row">
+            <span role="columnheader">Date</span>
+            <span role="columnheader">What</span>
+            <span role="columnheader">Account</span>
+            <span role="columnheader">Person</span>
+            <span role="columnheader">Category</span>
+            <span role="columnheader" className="r">
+              Amount
             </span>
+            <span />
           </div>
-        )}
-      </div>
+          {visible.map((row) => {
+            const label = describe(row, rows);
+            const Icon = iconForEntry(row);
+            const counter = counterAmount(row, rows, money);
+            // When there is no description of its own the title already *is*
+            // the category, so repeating it in its own column says nothing.
+            const category = row.description ? row.category : null;
+            return (
+              <div key={row.id} {...rowProps(row, label)} role="row">
+                <span className="on">{when(row.entry_date || row.created_at)}</span>
+                <span className="what">
+                  <span className={`tile ${toneForEntry(row.kind)}`}>
+                    <Icon />
+                  </span>
+                  <b>{label}</b>
+                </span>
+                <span className="col">{row.account_name}</span>
+                <span className="col who">
+                  {personsById[row.person_id]?.name}
+                  {row.created_by_username && <small>by {row.created_by_username}</small>}
+                </span>
+                <span className="col">
+                  {category ? <span className="chip">{category}</span> : null}
+                </span>
+                <span className={isCredit(row.kind) ? 'amt in' : 'amt'}>
+                  <Money
+                    amount={row.amount}
+                    currency={row.currency}
+                    prefix={isCredit(row.kind) ? '+' : '−'}
+                  />
+                  {counter && <small>{counter}</small>}
+                </span>
+                {actions(row, label)}
+              </div>
+            );
+          })}
+          {visible.length === 0 && nothing}
+        </div>
+      )}
 
       {editing && (
         <TransactionEditModal
