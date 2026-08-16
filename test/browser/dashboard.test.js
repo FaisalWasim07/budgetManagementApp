@@ -580,10 +580,24 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // affordable together, and you should find that out while you are typing.
   await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
+
+  // The salary basis is recurring income paid into the source account, so the
+  // account needs one before there is anything to measure against.
+  const hh = await page.evaluate(() => localStorage.getItem('budget.householdId'));
+  const mainAccountId = await page.evaluate(async (id) => {
+    const r = await fetch('/api/accounts', { headers: { 'X-Household-Id': id } });
+    const list = await r.json();
+    return list.find((a) => a.name === 'Main Account').id;
+  }, hh);
+
   await openTransfer(page);
   await page.waitForSelector('.modal');
   await pickIn(page.locator('.modal select').nth(0), 'Main Account');
   await page.waitForTimeout(300);
+  check(
+    'with no recurring income into it, Salary is not offered',
+    await page.locator('.basis button:has-text("Salary")').isDisabled()
+  );
 
   const destinations = await page
     .locator('.split-row select')
@@ -656,6 +670,107 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await page.locator('.split-total').textContent()).replace(/\s+/g, '').includes('1,000'),
     (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
   );
+
+  // --- shares, and what they are shares of --------------------------------
+  // The basis only decides what the percentages are measured against. It is
+  // never sent and never stored, so nothing below it changes what lands.
+  check('shares are measured against the balance by default', (await page.locator('.basis button.active').textContent()).includes('This balance'));
+
+  // Pay a recurring salary into that account and it becomes measurable.
+  await page.evaluate(
+    async ([id, accountId, m]) => {
+      await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Household-Id': id },
+        body: JSON.stringify({
+          account_id: accountId,
+          name: 'Salary',
+          amount: 20000,
+          cycle: 'monthly',
+          direction: 'income',
+          start_month: m,
+          category: 'Salary',
+        }),
+      });
+    },
+    [hh, mainAccountId, await page.evaluate(() => new Date().toISOString().slice(0, 7))]
+  );
+  // Reopening remounts the dialog, which is what re-reads the recurring list.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  await openTransfer(page);
+  await page.waitForSelector('.modal');
+  await pickIn(page.locator('.modal select').nth(0), 'Main Account');
+  await page.waitForTimeout(700);
+
+  check(
+    'once income is paid into it, Salary can be chosen',
+    !(await page.locator('.basis button:has-text("Salary")').isDisabled())
+  );
+  await page.click('.basis button:has-text("Salary")');
+  await page.waitForTimeout(300);
+  check(
+    'and it reads the recurring income paid into that account',
+    (await page.locator('.basis-figure').textContent()).includes('recurring income paid into this account') &&
+      (await page.locator('.basis-figure').textContent()).replace(/\s+/g, '').includes('20,000'),
+    (await page.locator('.basis-figure').textContent()).replace(/\s+/g, ' ')
+  );
+
+  // A fifth of twenty thousand is four thousand — arithmetic anyone can check.
+  const destAgain = await page
+    .locator('.split-row select')
+    .first()
+    .evaluate((s) => [...s.options].slice(1).map((o) => o.value));
+  await page.locator('.split-row').nth(0).locator('select').selectOption(destAgain[0]);
+  await page.locator('.split-row').nth(0).locator('.split-amount').fill('4000');
+  await page.waitForTimeout(400);
+  check(
+    'a row shows its share of the salary',
+    (await page.locator('.split-share').first().textContent()).trim() === '20%',
+    (await page.locator('.split-share').first().textContent()).trim()
+  );
+  check(
+    'and the total says what share it is',
+    /20% of salary/.test((await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')),
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
+  );
+
+  // Switching to shares rewrites what is typed rather than rereading it.
+  const asAmount = await page.locator('.split-amount').first().inputValue();
+  await page.click('.enter-as button:has-text("Enter shares")');
+  await page.waitForTimeout(400);
+  const asShare = await page.locator('.split-amount').first().inputValue();
+  check(
+    'switching to shares converts what was typed',
+    asShare !== asAmount && Number(asShare) > 0 && Number(asShare) < 100,
+    `${asAmount} -> ${asShare}`
+  );
+  check(
+    'and the money is shown beside it instead',
+    /\d/.test((await page.locator('.split-share').first().textContent()).trim()) &&
+      !/%/.test((await page.locator('.split-share').first().textContent()).trim()),
+    (await page.locator('.split-share').first().textContent()).trim()
+  );
+
+  // A share typed against a custom figure is arithmetic anyone can check: half
+  // of ten thousand is five thousand.
+  await page.click('.basis button:has-text("Custom")');
+  await page.waitForTimeout(300);
+  await page.locator('.basis-figure input').fill('10000');
+  await page.locator('.split-amount').first().fill('50');
+  await page.waitForTimeout(400);
+  check(
+    'half of a custom ten thousand is five thousand',
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, '').includes('5,000'),
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
+  );
+
+  // Back to amounts for the save below, so the figures are the plain ones.
+  await page.click('.enter-as button:has-text("Enter amounts")');
+  await page.click('.basis button:has-text("This balance")');
+  await page.waitForTimeout(400);
+  await page.locator('.split-row').nth(0).locator('.split-amount').fill('1000');
+  await page.waitForTimeout(300);
 
   // And a real two-destination transfer lands as two separate transfers.
   await addRow(1, destinations[1], 500);

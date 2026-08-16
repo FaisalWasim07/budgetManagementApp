@@ -776,23 +776,47 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .modal:has(.split-rows) { max-width: 560px; }
 .split-rows { display: flex; flex-direction: column; gap: 10px; }
 .split-row { display: flex; flex-direction: column; gap: 6px; }
-.split-main { display: grid; grid-template-columns: minmax(0, 1fr) 128px 30px; gap: 8px; align-items: center; }
+.split-main { display: grid; grid-template-columns: minmax(0, 1fr) 104px 78px 30px; gap: 8px; align-items: center; }
 /* Left, like every other amount you type in this app. It was right-aligned to
    line the figures up as a column you could compare down — but these are boxes
    being typed into, not a table being read, and one input in the app behaving
    differently from the rest is worse than the column being ragged. */
 .split-main .split-amount { font-weight: 600; font-variant-numeric: tabular-nums; }
 /* No remove button on a lone row, so the column would otherwise sit empty. */
-.split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr) 128px; }
+.split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr) 104px 78px; }
+/* The share of what you typed, opposite the box you typed it in — a percentage
+   when entering amounts, the amount when entering percentages. */
+.split-share {
+  font-size: .82rem; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* What the shares are shares of. A row of its own because it applies to every
+   line under it, not to any one of them. */
+.basis { display: flex; flex-direction: column; gap: 6px; }
+.basis .seg { margin-bottom: 0; }
+.basis .seg button { padding: 7px 4px; font-size: .82rem; }
+.basis .seg button:disabled { opacity: .45; cursor: not-allowed; }
+.basis-figure { font-size: .8rem; }
+.basis-figure b { color: var(--ink); font-weight: 620; }
+.enter-as { margin-bottom: 0; }
+.enter-as button { padding: 7px 4px; font-size: .82rem; }
+.enter-as button:disabled { opacity: .45; cursor: not-allowed; }
+
+.split-total .of-basis {
+  font-size: .8rem; color: var(--ink-2);
+  padding: 2px 8px; border-radius: 999px; background: var(--surface);
+}
+.split-total.over .of-basis { background: transparent; }
 .split-arriving { padding-left: 10px; border-left: 2px solid var(--line); }
 
 /* On a phone the three columns leave the account name about a hundred pixels,
    which is not enough to tell "Emirates NBD Savings" from "Emirates Islamic".
    The name gets the full width and the amount sits under it. */
 @media (max-width: 700px) {
-  .split-main { grid-template-columns: minmax(0, 1fr) 34px; }
+  .split-main { grid-template-columns: minmax(0, 1fr) 78px 34px; }
   .split-main select { grid-column: 1 / -1; }
-  .split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr); }
+  .split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr) 78px; }
   .split-row { padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
   .split-row:last-child { padding-bottom: 0; border-bottom: 0; }
 }
