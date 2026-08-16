@@ -573,8 +573,84 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await arriving.inputValue()) === '70000',
     await arriving.inputValue()
   );
-  await page.click('.modal button:has-text("Cancel")');
+
+  // --- one source, several destinations -----------------------------------
+  // The reason the total is computed here and not just on the server: four
+  // amounts that are each affordable are not the same as four that are
+  // affordable together, and you should find that out while you are typing.
+  await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
+  await openTransfer(page);
+  await page.waitForSelector('.modal');
+  await pickIn(page.locator('.modal select').nth(0), 'Main Account');
+  await page.waitForTimeout(300);
+
+  const destinations = await page
+    .locator('.split-row select')
+    .first()
+    .evaluate((s) => [...s.options].slice(1).map((o) => o.value));
+  const addRow = async (index, value, amount) => {
+    if (index > 0) await page.click('button:has-text("Add another account")');
+    const row = page.locator('.split-row').nth(index);
+    await row.locator('select').selectOption(value);
+    await row.locator('.split-amount').fill(String(amount));
+    await page.waitForTimeout(200);
+  };
+
+  await addRow(0, destinations[0], 1000);
+  await addRow(1, destinations[1], 2000);
+  check('rows can be added for more than one destination', (await page.locator('.split-row').count()) === 2);
+  check(
+    'the running total is what they come to',
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, '').includes('3,000'),
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
+  );
+  const canSend = !(await page.locator('.modal button[type="submit"]').isDisabled());
+  check('and it can be sent while it fits', canSend);
+
+  // Now push it past the balance.
+  await page.locator('.split-row').nth(1).locator('.split-amount').fill('9999999');
+  await page.waitForTimeout(400);
+  check('going over the balance is flagged', (await page.locator('.split-total.over').count()) === 1);
+  check(
+    'it says how far over',
+    /more than/.test(await page.locator('.split-total').textContent()),
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
+  );
+  check(
+    'and the transfer button is disabled',
+    await page.locator('.modal button[type="submit"]').isDisabled()
+  );
+
+  // Bring it back and the button comes back with it.
+  await page.locator('.split-row').nth(1).locator('.split-amount').fill('2000');
+  await page.waitForTimeout(400);
+  check('reducing it enables the button again', !(await page.locator('.modal button[type="submit"]').isDisabled()));
+  check('and clears the warning', (await page.locator('.split-total.over').count()) === 0);
+
+  // A row removed comes back out of the total.
+  await page.locator('.split-row').nth(1).locator('button[aria-label^="Remove"]').click();
+  await page.waitForTimeout(300);
+  check('removing a row drops it from the total', (await page.locator('.split-row').count()) === 1);
+  check(
+    'and the total follows',
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, '').includes('1,000'),
+    (await page.locator('.split-total').textContent()).replace(/\s+/g, ' ')
+  );
+
+  // And a real two-destination transfer lands as two separate transfers.
+  await addRow(1, destinations[1], 500);
+  const beforeSplit = await page.locator('.txn').count();
+  await page.click('.modal button[type="submit"]');
+  await page.waitForTimeout(2400);
+  check('a split transfer saves', (await page.locator('.modal').count()) === 0);
+  await go('Activity');
+  const movedRows = await page.locator('.txn-table .txn', { hasText: 'To ' }).count();
+  check('and shows as separate entries, one per destination', movedRows >= 2, String(movedRows));
+
+  // The dialog closed itself on save, so there is nothing to cancel — and the
+  // next block adds an account, which is done from Home.
+  await go('Home');
 
   // --- savings to savings is not saving -------------------------------------
   // Adding up only what arrives counted this as money saved, because the

@@ -767,6 +767,45 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 }
 .filter-row button.active { background: var(--ink); border-color: transparent; color: var(--paper); font-weight: 550; }
 
+/* ── Moving money to several places at once ──────────────────────
+   One row per destination. The amount column is fixed so the figures line
+   up down the list — a column of amounts you can compare by eye is most of
+   what makes a split legible. */
+/* Wider than an ordinary dialog: this one carries a select, an amount and a
+   remove button on one line, several times over. */
+.modal:has(.split-rows) { max-width: 560px; }
+.split-rows { display: flex; flex-direction: column; gap: 10px; }
+.split-row { display: flex; flex-direction: column; gap: 6px; }
+.split-main { display: grid; grid-template-columns: minmax(0, 1fr) 128px 30px; gap: 8px; align-items: center; }
+.split-main .split-amount { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* No remove button on a lone row, so the column would otherwise sit empty. */
+.split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr) 128px; }
+.split-arriving { padding-left: 10px; border-left: 2px solid var(--line); }
+
+/* On a phone the three columns leave the account name about a hundred pixels,
+   which is not enough to tell "Emirates NBD Savings" from "Emirates Islamic".
+   The name gets the full width and the amount sits under it. */
+@media (max-width: 700px) {
+  .split-main { grid-template-columns: minmax(0, 1fr) 34px; }
+  .split-main select { grid-column: 1 / -1; }
+  .split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr); }
+  .split-row { padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+  .split-row:last-child { padding-bottom: 0; border-bottom: 0; }
+}
+
+.add-destination { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+
+.split-total {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 11px 13px; border-radius: 12px;
+  background: var(--surface-2); font-size: .88rem;
+}
+.split-total .k { color: var(--ink-3); font-size: .8rem; }
+.split-total b { font-size: 1.05rem; font-weight: 640; letter-spacing: -.015em; }
+.split-total .rest { margin-left: auto; color: var(--ink-2); font-size: .82rem; }
+.split-total.over { background: color-mix(in srgb, var(--neg) 12%, transparent); }
+.split-total.over b, .split-total.over .rest { color: var(--neg); }
+
 /* ── Forms ───────────────────────────────────────────────────────── */
 input, select, button, textarea { font-family: inherit; font-size: .92rem; }
 

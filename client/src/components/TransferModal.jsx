@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import { createTransfer } from '../api/transactions';
-import { useDisplay } from '../utils/display';
+import { Money, useDisplay } from '../utils/display';
 import { formatNumber } from '../utils/currency';
+import { Plus, Trash } from './icons';
 
 // Both accounts carry their own rate into the household's primary currency, so
 // going from one to the other is just via that: AED per PKR divided by AED per
@@ -18,75 +19,118 @@ function convertBetween(amount, from, to) {
   return converted >= 1000 ? Math.round(converted) : Math.round(converted * 100) / 100;
 }
 
+let nextKey = 1;
+const blankRow = (toId = '') => ({ key: nextKey++, toId: String(toId), amount: '', toAmount: '', own: false });
+
+// Money out of one account and into one or more others.
+//
+// The several-destinations case is not a different feature: it is the same
+// transfer repeated, and it is how a salary actually gets allocated — some to
+// savings, some put aside, some left where it is. Doing that as four separate
+// trips through this dialog meant re-picking the source four times and adding
+// the total up in your head to know whether it fitted.
 export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const [fromId, setFromId] = useState(accounts[0]?.id ?? '');
-  const [toId, setToId] = useState(accounts[1]?.id ?? '');
-  const [amount, setAmount] = useState('');
-  const [toAmount, setToAmount] = useState('');
-  // Once you type your own arriving amount, the estimate stops overwriting it —
-  // the bank's number always wins over the app's guess.
-  const [ownAmount, setOwnAmount] = useState(false);
+  const [rows, setRows] = useState(() => [blankRow(accounts[1]?.id ?? '')]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const { money } = useDisplay();
 
   const from = useMemo(() => accounts.find((a) => a.id === Number(fromId)), [accounts, fromId]);
-  const to = useMemo(() => accounts.find((a) => a.id === Number(toId)), [accounts, toId]);
-  const crossCurrency = from && to && from.currency !== to.currency;
-  const estimate = crossCurrency ? convertBetween(Number(amount), from, to) : null;
+  const others = useMemo(
+    () => accounts.filter((a) => a.id !== Number(fromId)),
+    [accounts, fromId]
+  );
 
-  // Changing either account changes the whole question, so the estimate takes
-  // over again.
+  // Changing the source changes every arithmetic on screen, and can leave a row
+  // pointing at the account the money is now coming out of.
   useEffect(() => {
-    setOwnAmount(false);
-  }, [fromId, toId]);
+    setRows((current) =>
+      current.map((row) =>
+        Number(row.toId) === Number(fromId)
+          ? { ...row, toId: '', amount: row.amount, toAmount: '', own: false }
+          : { ...row, toAmount: '', own: false }
+      )
+    );
+  }, [fromId]);
 
+  const setRow = (key, patch) =>
+    setRows((current) => current.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const legs = rows.map((row) => {
+    const to = accounts.find((a) => a.id === Number(row.toId));
+    const amount = Number(row.amount) || 0;
+    const crossCurrency = Boolean(from && to && from.currency !== to.currency);
+    const estimate = crossCurrency ? convertBetween(amount, from, to) : null;
+    return { row, to, amount, crossCurrency, estimate };
+  });
+
+  // The estimate fills the arriving amount until you type your own, and then it
+  // leaves it alone — the bank's number always wins over the app's guess.
   useEffect(() => {
-    if (!ownAmount) setToAmount(estimate == null ? '' : String(estimate));
-  }, [estimate, ownAmount]);
-
-  // What the numbers on screen actually imply, so a stray digit is obvious
-  // before it is saved rather than a month later.
-  const impliedRate =
-    crossCurrency && Number(amount) > 0 && Number(toAmount) > 0
-      ? Number(toAmount) / Number(amount)
-      : null;
+    for (const leg of legs) {
+      if (leg.crossCurrency && !leg.row.own) {
+        const next = leg.estimate == null ? '' : String(leg.estimate);
+        if (leg.row.toAmount !== next) setRow(leg.row.key, { toAmount: next });
+      }
+    }
+    // legs is rebuilt every render; the values that matter are inside it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, fromId]);
 
   // Cards are allowed to go negative — that's borrowing, not an overdraft.
   const fromIsCredit = from?.type === 'credit';
   const available = from ? from.balance : 0;
-  const overdrawn = !fromIsCredit && Number(amount) > available;
+  // The total is the figure that has to fit. Four amounts that are each
+  // affordable on their own are not the same as four amounts that are
+  // affordable together, and it is the second one that decides.
+  const total = legs.reduce((sum, leg) => sum + leg.amount, 0);
+  const overdrawn = !fromIsCredit && total > available;
+  const remaining = available - total;
+
+  const chosen = legs.filter((leg) => leg.to).map((leg) => leg.to.id);
+  const duplicated = new Set(chosen).size !== chosen.length;
+  const missingArrival = legs.some(
+    (leg) => leg.amount > 0 && leg.crossCurrency && !(Number(leg.row.toAmount) > 0)
+  );
+  const nothingToSend = !legs.some((leg) => leg.to && leg.amount > 0);
+  const blocked = overdrawn || duplicated || nothingToSend || missingArrival;
 
   async function submit(e) {
     e.preventDefault();
     setError(null);
-    if (Number(fromId) === Number(toId)) {
-      setError('Pick two different accounts.');
+    if (nothingToSend) {
+      setError('Pick an account and an amount greater than zero.');
       return;
     }
-    if (!(Number(amount) > 0)) {
-      setError('Enter an amount greater than zero.');
+    if (duplicated) {
+      setError('The same account is listed twice. Put it in one row, or remove one.');
       return;
     }
     if (overdrawn) {
       setError(
-        `${from.name} only has ${money(available, from.currency)} available. ` +
-          `Reduce the amount, or move money in first.`
+        `That comes to ${money(total, from.currency)}, and ${from.name} only has ` +
+          `${money(available, from.currency)}. Reduce a row, or move money in first.`
       );
       return;
     }
-    if (crossCurrency && !(Number(toAmount) > 0)) {
-      setError(`Enter how much arrives in ${to.currency}.`);
+    if (missingArrival) {
+      setError('Enter how much arrives for every account in another currency.');
       return;
     }
+
     setBusy(true);
     try {
       await createTransfer({
         from_account_id: Number(fromId),
-        to_account_id: Number(toId),
         month,
-        amount: Number(amount),
-        ...(crossCurrency ? { to_amount: Number(toAmount) } : {}),
+        to: legs
+          .filter((leg) => leg.to && leg.amount > 0)
+          .map((leg) => ({
+            account_id: leg.to.id,
+            amount: leg.amount,
+            ...(leg.crossCurrency ? { to_amount: Number(leg.row.toAmount) } : {}),
+          })),
       });
       onClose();
       onSaved();
@@ -96,93 +140,160 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
     }
   }
 
-  const label = (a) => `${a.personName} · ${a.name} (${a.currency}) — ${money(a.balance, a.currency, { compact: true })}`;
+  // The source carries its balance, because that is the figure everything else
+  // on screen is measured against. A destination does not: in a column this
+  // narrow the balance pushed the account's own name out of view, and the name
+  // is the part you are picking by.
+  const sourceLabel = (a) =>
+    `${a.personName} · ${a.name} (${a.currency}) — ${money(a.balance, a.currency, { compact: true })}`;
+  const label = (a) => `${a.personName} · ${a.name} (${a.currency})`;
 
   return (
     <Modal title="Move money between accounts" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
         <label className="field">
-          From
+          <span className="label">From</span>
           <select value={fromId} onChange={(e) => setFromId(e.target.value)}>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
-                {label(a)}
+                {sourceLabel(a)}
               </option>
             ))}
           </select>
-        </label>
-
-        <label className="field">
-          To
-          <select value={toId} onChange={(e) => setToId(e.target.value)}>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {label(a)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          Amount leaving {from ? `(${from.currency})` : ''}
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            autoFocus
-          />
           {from && (
-            <span className={overdrawn ? 'error-text' : 'muted'}>
+            <span className="muted">
               {fromIsCredit
-                ? 'Credit card — spending on it adds to what you owe.'
+                ? 'Credit card — moving off it adds to what you owe.'
                 : `Available: ${money(available, from.currency)}`}
             </span>
           )}
         </label>
 
-        {crossCurrency && (
-          <label className="field">
-            Amount arriving ({to.currency})
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={toAmount}
-              onChange={(e) => {
-                setOwnAmount(true);
-                setToAmount(e.target.value);
-              }}
-            />
-            <span className="muted">
-              {estimate == null
-                ? `These accounts use different currencies, and there is no ${from.currency}→${to.currency} rate, so enter what actually lands in ${to.currency}.`
-                : 'Estimated at today’s rate. Change it to what your bank actually gave you.'}
-              {impliedRate != null && (
+        <div className="split-rows">
+          {legs.map(({ row, to, crossCurrency, estimate }) => (
+            <div className="split-row" key={row.key}>
+              <div className="split-main">
+                <select
+                  value={row.toId}
+                  aria-label="To account"
+                  onChange={(e) => setRow(row.key, { toId: e.target.value, own: false })}
+                >
+                  <option value="">Which account?</option>
+                  {others.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {label(a)}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="split-amount"
+                  placeholder="0"
+                  aria-label={`Amount to send${to ? ` to ${to.name}` : ''}`}
+                  value={row.amount}
+                  onChange={(e) => setRow(row.key, { amount: e.target.value })}
+                />
+
+                {/* Only once there is more than one — a lone row has nothing to
+                    be removed from. */}
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    className="icon-button small danger"
+                    title="Remove"
+                    aria-label={`Remove ${to ? to.name : 'this row'}`}
+                    onClick={() => setRows((c) => c.filter((r) => r.key !== row.key))}
+                  >
+                    <Trash />
+                  </button>
+                )}
+              </div>
+
+              {crossCurrency && (
+                <label className="field split-arriving">
+                  <span className="label">Arriving in {to.currency}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.toAmount}
+                    aria-label={`Amount arriving in ${to.name}`}
+                    onChange={(e) => setRow(row.key, { toAmount: e.target.value, own: true })}
+                  />
+                  <span className="muted">
+                    {estimate == null
+                      ? `No ${from.currency}→${to.currency} rate, so enter what actually lands.`
+                      : 'Estimated at today’s rate. Change it to what your bank gave you.'}
+                    {Number(row.amount) > 0 && Number(row.toAmount) > 0 && (
+                      <>
+                        {' '}
+                        1 {from.currency} ={' '}
+                        <strong>
+                          {formatNumber(Number(row.toAmount) / Number(row.amount))} {to.currency}
+                        </strong>
+                        .
+                      </>
+                    )}
+                  </span>
+                </label>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {others.length > rows.length && (
+          <button
+            type="button"
+            className="subtle add-destination"
+            onClick={() => setRows((c) => [...c, blankRow()])}
+          >
+            <Plus size={14} /> Add another account
+          </button>
+        )}
+
+        {/* What it comes to, and what is left. The second number is the one you
+            are really deciding about. */}
+        {from && (
+          <div className={overdrawn ? 'split-total over' : 'split-total'}>
+            <span className="k">Sending</span>
+            <b>
+              <Money amount={total} currency={from.currency} compact />
+            </b>
+            <span className="rest">
+              {overdrawn ? (
                 <>
-                  {' '}
-                  That works out to <strong>1 {from.currency} = {formatNumber(impliedRate)} {to.currency}</strong>.
+                  <Money amount={total - available} currency={from.currency} compact /> more than{' '}
+                  {from.name} has
+                </>
+              ) : (
+                <>
+                  <Money amount={remaining} currency={from.currency} compact /> stays
                 </>
               )}
             </span>
-          </label>
+          </div>
         )}
 
+        {duplicated && (
+          <div className="error-text">The same account is listed twice.</div>
+        )}
         {error && <div className="error-text">{error}</div>}
 
         <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy || overdrawn}>
+          <button type="submit" className="primary" disabled={busy || blocked}>
             {busy ? (
-                <>
-                  <span className="spinner on-button" aria-hidden="true" /> Saving…
-                </>
-              ) : (
-                'Transfer'
-              )}
+              <>
+                <span className="spinner on-button" aria-hidden="true" /> Saving…
+              </>
+            ) : (
+              'Transfer'
+            )}
           </button>
         </div>
       </form>
