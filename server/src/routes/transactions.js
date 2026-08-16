@@ -82,8 +82,20 @@ router.post(
   })
 );
 
-// A transfer is two linked rows. Cross-currency transfers take a separate
-// to_amount, since the receiving account is denominated differently.
+// A transfer is two linked rows sharing a transfer_id. Cross-currency transfers
+// take a separate to_amount, since the receiving account is denominated
+// differently.
+//
+// One source, one or many destinations. Splitting a salary across four accounts
+// is four ordinary transfers, each with its own id, exactly as making them one
+// at a time would produce — the only thing the batch adds is that they are
+// checked and written together.
+//
+// Which matters, because the check is the reason this is one request. Four
+// separate calls each pass their own "is there enough?" against the same
+// starting balance, so four times five thousand leaves an account holding six
+// thousand and every one of them is allowed. The sum is what has to fit, and
+// either all of them are written or none are.
 router.post(
   '/transfer',
   h(async (req, res) => {
@@ -93,62 +105,110 @@ router.post(
       month,
       amount,
       to_amount: toAmountRaw,
+      to: toList,
       description = null,
     } = req.body;
 
-    if (!fromId || !toId || !month) {
-      return res
-        .status(400)
-        .json({ error: 'from_account_id, to_account_id and month are required' });
+    // The single-destination shape is the many-destination shape with one in
+    // it, so there is one code path below rather than two that must agree.
+    const destinations = Array.isArray(toList)
+      ? toList
+      : [{ account_id: toId, amount, to_amount: toAmountRaw }];
+
+    if (!fromId || !month) {
+      return res.status(400).json({ error: 'from_account_id and month are required' });
     }
-    if (Number(fromId) === Number(toId)) {
+    if (destinations.length === 0) {
+      return res.status(400).json({ error: 'send to at least one account' });
+    }
+    if (destinations.some((d) => !d.account_id)) {
+      return res.status(400).json({ error: 'every destination needs an account_id' });
+    }
+    if (destinations.some((d) => Number(d.account_id) === Number(fromId))) {
       return res.status(400).json({ error: 'cannot transfer to the same account' });
     }
-    if (typeof amount !== 'number' || !(amount > 0)) {
+    // Two rows pointing at one account is two transfers into it, which is never
+    // what was meant and reads as a duplicate in the ledger.
+    const ids = destinations.map((d) => Number(d.account_id));
+    if (new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: 'each account can only appear once' });
+    }
+    if (destinations.some((d) => typeof d.amount !== 'number' || !(d.amount > 0))) {
       return res.status(400).json({ error: 'amount must be a positive number' });
     }
 
-    const [from, to] = await Promise.all([
+    const [from, ...tos] = await Promise.all([
       db.get('SELECT * FROM accounts WHERE id = ? AND household_id = ?', [fromId, req.household.id]),
-      db.get('SELECT * FROM accounts WHERE id = ? AND household_id = ?', [toId, req.household.id]),
+      ...ids.map((id) =>
+        db.get('SELECT * FROM accounts WHERE id = ? AND household_id = ?', [id, req.household.id])
+      ),
     ]);
-    if (!from || !to) return res.status(404).json({ error: 'account not found' });
+    if (!from || tos.some((t) => !t)) return res.status(404).json({ error: 'account not found' });
 
-    const toAmount = typeof toAmountRaw === 'number' ? toAmountRaw : amount;
-    if (from.currency !== to.currency && typeof toAmountRaw !== 'number') {
-      return res.status(400).json({
-        error: `accounts use different currencies (${from.currency} -> ${to.currency}); send to_amount for the receiving side`,
-      });
-    }
-    if (!(toAmount > 0)) {
-      return res.status(400).json({ error: 'to_amount must be a positive number' });
+    const legs = destinations.map((d, i) => {
+      const to = tos[i];
+      // `given` is what the caller actually sent, kept apart from the value
+      // used: a same-currency transfer defaults the arriving amount to the
+      // leaving one, and checking the defaulted value would mean the
+      // cross-currency guard below could never fire.
+      const given = typeof d.to_amount === 'number' ? d.to_amount : null;
+      return {
+        to,
+        amount: d.amount,
+        given,
+        toAmount: given ?? d.amount,
+        sameCurrency: from.currency === to.currency,
+      };
+    });
+
+    for (const leg of legs) {
+      if (!leg.sameCurrency && leg.given == null) {
+        return res.status(400).json({
+          error: `accounts use different currencies (${from.currency} -> ${leg.to.currency}); send to_amount for the receiving side`,
+        });
+      }
+      if (!(leg.toAmount > 0)) {
+        return res.status(400).json({ error: 'to_amount must be a positive number' });
+      }
     }
 
-    // You can only move money you actually have. A credit card is exempt: going
-    // negative there is borrowing, which is what a card is for.
+    // You can only move money you actually have, and it is the total that has
+    // to fit. A credit card is exempt: going negative there is borrowing, which
+    // is what a card is for.
+    const total = legs.reduce((sum, leg) => sum + leg.amount, 0);
     if (from.type !== 'credit') {
       const available = await summaryService.accountBalance(from, month);
-      if (amount > available) {
+      if (total > available) {
         return res.status(400).json({
-          error: `${from.name} only has ${available.toFixed(2)} ${from.currency} available in this month.`,
+          error:
+            legs.length > 1
+              ? `That comes to ${total.toFixed(2)} ${from.currency}, and ${from.name} only has ${available.toFixed(2)} ${from.currency} available in this month.`
+              : `${from.name} only has ${available.toFixed(2)} ${from.currency} available in this month.`,
           available,
+          total,
           currency: from.currency,
         });
       }
     }
 
-    const transferId = crypto.randomUUID();
     const rows = await db.tx(async (t) => {
-      const insert = (accountId, kind, value) =>
+      const insert = (accountId, kind, value, transferId) =>
         t.get(
           `INSERT INTO transactions (account_id, month, kind, amount, description, transfer_id, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
           [accountId, month, kind, value, description, transferId, req.user.id]
         );
-      return [
-        await insert(fromId, 'transfer_out', amount),
-        await insert(toId, 'transfer_in', toAmount),
-      ];
+
+      const written = [];
+      for (const leg of legs) {
+        // Its own id per destination: each pair is an ordinary transfer that
+        // edits, stops and deletes on its own, and nothing downstream has to
+        // learn about batches.
+        const transferId = crypto.randomUUID();
+        written.push(await insert(fromId, 'transfer_out', leg.amount, transferId));
+        written.push(await insert(leg.to.id, 'transfer_in', leg.toAmount, transferId));
+      }
+      return written;
     });
 
     res.status(201).json(rows);

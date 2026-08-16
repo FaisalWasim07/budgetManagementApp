@@ -16,6 +16,7 @@ const BASE = `http://localhost:${PORT}`;
 
 const SUITES = [
   'api/money.test.js',
+  'api/split.test.js',
   'api/editing.test.js',
   'api/recurring.test.js',
   'api/rates.test.js',
