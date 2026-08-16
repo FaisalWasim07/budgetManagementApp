@@ -598,7 +598,26 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   };
 
   await addRow(0, destinations[0], 1000);
-  await addRow(1, destinations[1], 2000);
+  // An unfinished row holds the send. Sending anyway and dropping it silently
+  // would mean asking for two destinations and getting one, with nothing said.
+  await page.click('button:has-text("Add another account")');
+  await page.waitForTimeout(300);
+  check(
+    'a row with no account yet disables the transfer',
+    await page.locator('.modal button[type="submit"]').isDisabled()
+  );
+  await page.locator('.split-row').nth(1).locator('select').selectOption(destinations[1]);
+  await page.waitForTimeout(300);
+  check(
+    'and an account with no amount still disables it',
+    await page.locator('.modal button[type="submit"]').isDisabled()
+  );
+  check(
+    'with a word on why',
+    (await page.locator('.modal').textContent()).includes('Every row needs an account and an amount')
+  );
+  await page.locator('.split-row').nth(1).locator('.split-amount').fill('2000');
+  await page.waitForTimeout(300);
   check('rows can be added for more than one destination', (await page.locator('.split-row').count()) === 2);
   check(
     'the running total is what they come to',

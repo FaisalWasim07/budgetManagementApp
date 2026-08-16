@@ -777,7 +777,11 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .split-rows { display: flex; flex-direction: column; gap: 10px; }
 .split-row { display: flex; flex-direction: column; gap: 6px; }
 .split-main { display: grid; grid-template-columns: minmax(0, 1fr) 128px 30px; gap: 8px; align-items: center; }
-.split-main .split-amount { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Left, like every other amount you type in this app. It was right-aligned to
+   line the figures up as a column you could compare down — but these are boxes
+   being typed into, not a table being read, and one input in the app behaving
+   differently from the rest is worse than the column being ragged. */
+.split-main .split-amount { font-weight: 600; font-variant-numeric: tabular-nums; }
 /* No remove button on a lone row, so the column would otherwise sit empty. */
 .split-main:not(:has(.icon-button)) { grid-template-columns: minmax(0, 1fr) 128px; }
 .split-arriving { padding-left: 10px; border-left: 2px solid var(--line); }

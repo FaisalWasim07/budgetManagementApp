@@ -94,13 +94,21 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
     (leg) => leg.amount > 0 && leg.crossCurrency && !(Number(leg.row.toAmount) > 0)
   );
   const nothingToSend = !legs.some((leg) => leg.to && leg.amount > 0);
-  const blocked = overdrawn || duplicated || nothingToSend || missingArrival;
+  // A row you added and have not finished blocks the send. Sending anyway and
+  // quietly leaving it out is the worst of the options: you asked for four
+  // destinations and got three, and nothing said so.
+  const unfinished = legs.some((leg) => !leg.to || !(leg.amount > 0));
+  const blocked = overdrawn || duplicated || nothingToSend || unfinished || missingArrival;
 
   async function submit(e) {
     e.preventDefault();
     setError(null);
     if (nothingToSend) {
       setError('Pick an account and an amount greater than zero.');
+      return;
+    }
+    if (unfinished) {
+      setError('Every row needs an account and an amount. Fill it in, or remove the row.');
       return;
     }
     if (duplicated) {
@@ -277,6 +285,11 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
           </div>
         )}
 
+        {/* Only once something has been entered — saying it over an untouched
+            form would be telling you off for having just opened it. */}
+        {unfinished && total > 0 && (
+          <span className="muted">Every row needs an account and an amount.</span>
+        )}
         {duplicated && (
           <div className="error-text">The same account is listed twice.</div>
         )}
