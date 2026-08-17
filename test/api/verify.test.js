@@ -123,6 +123,52 @@ const RP_ID = process.env.RP_ID || 'localhost';
   });
   check('your own still works after all that', good.status === 200 && good.data.ok === true);
 
+  // --- the setting lives on the account -----------------------------------
+  // It follows you between devices, which is the point of it not being a flag
+  // in one browser's storage.
+  const fresh = client();
+  const soloName = `vf3_${u}`;
+  await fresh.post('/api/auth/signup', { username: soloName, password });
+  const noKey = await fresh.post('/api/auth/lock-amounts', { on: true });
+  check(
+    'it cannot be switched on without a passkey to switch it back off',
+    noKey.status === 400 && /add a passkey/i.test(noKey.data.error),
+    `${noKey.status} ${noKey.data.error}`
+  );
+  check(
+    'and the account still reports it off',
+    (await fresh.get('/api/auth/me')).data.user.lock_amounts === false,
+    JSON.stringify((await fresh.get('/api/auth/me')).data.user)
+  );
+
+  const turnedOn = await me.post('/api/auth/lock-amounts', { on: true });
+  check('with one, it can be switched on', turnedOn.status === 200 && turnedOn.data.lock_amounts === true);
+  check(
+    'and every session of that account is told',
+    (await me.get('/api/auth/me')).data.user.lock_amounts === true
+  );
+
+  // Signing in somewhere else brings the setting with it — the whole reason it
+  // is on the account rather than in one device's storage.
+  const elsewhere = client();
+  const there = await elsewhere.post('/api/auth/login', { username, password });
+  const finished = await elsewhere.post('/api/auth/login/passkey', {
+    challengeId: there.data.challengeId,
+    response: device.authenticate(there.data.options.challenge, ORIGIN),
+  });
+  check(
+    'a new sign-in on another device already knows to ask',
+    finished.data.user?.lock_amounts === true,
+    JSON.stringify(finished.data.user)
+  );
+
+  const off = await me.post('/api/auth/lock-amounts', { on: false });
+  check('and it can always be switched off again', off.status === 200 && off.data.lock_amounts === false);
+  check(
+    'switching off never needs a passkey — that is the way out',
+    (await me.get('/api/auth/me')).data.user.lock_amounts === false
+  );
+
   const { failed } = report('Verifying it is you');
   process.exit(failed ? 1 : 0);
 })();

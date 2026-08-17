@@ -82,7 +82,7 @@ async function createSession(userId) {
 async function getSessionUser(token) {
   if (!token) return null;
   const row = await db.get(
-    `SELECT s.token, s.expires_at, u.id, u.username
+    `SELECT s.token, s.expires_at, u.id, u.username, u.lock_amounts
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ?`,
     [token]
@@ -92,7 +92,9 @@ async function getSessionUser(token) {
     await destroySession(token);
     return null;
   }
-  return { id: row.id, username: row.username };
+  // Carried on the session so the very first render already knows whether to
+  // ask, rather than flashing the figures and then deciding.
+  return { id: row.id, username: row.username, lock_amounts: row.lock_amounts };
 }
 
 const destroySession = (token) => db.run('DELETE FROM sessions WHERE token = ?', [token]);

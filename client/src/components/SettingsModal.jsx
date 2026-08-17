@@ -22,6 +22,8 @@ export default function SettingsModal({
   onSignedOut,
   onClose,
   onSaved,
+  locked,
+  onLockedChange,
 }) {
   const [currency, setCurrency] = useState(primaryCurrency);
   const [manual, setManual] = useState({});
@@ -212,7 +214,7 @@ export default function SettingsModal({
           behind the dialog straight away. */}
       <LoginSettings user={user} onSignedOut={onSignedOut} onChanged={onSaved} />
       <hr className="divider" />
-      <PasskeySettings />
+      <PasskeySettings locked={locked} onLockedChange={onLockedChange} />
     </div>
   );
 

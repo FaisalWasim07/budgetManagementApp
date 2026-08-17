@@ -8,7 +8,8 @@ import {
 } from '../api/auth';
 import { Shield, Trash } from './icons';
 import { createPasskey, passkeysSupported, wasCancelled } from '../utils/passkey';
-import { amountsLocked, setAmountsLocked, UNLOCK_MINUTES } from '../utils/lock';
+import { setLockAmounts } from '../api/auth';
+import { UNLOCK_MINUTES } from '../utils/lock';
 
 const when = (value) => {
   if (!value) return null;
@@ -73,11 +74,12 @@ function RecoveryCodes({ codes, onDone }) {
 // Passkeys are the app's second factor. The password gets you as far as a
 // challenge; the device signs it. Nothing here is a secret worth stealing —
 // the server holds only public keys.
-export default function PasskeySettings() {
+export default function PasskeySettings({ locked, onLockedChange }) {
   const [passkeys, setPasskeys] = useState(null);
   const [codesLeft, setCodesLeft] = useState(0);
   const [codes, setCodes] = useState(null);
   const [confirming, setConfirming] = useState(null); // { id, label } | 'codes'
+  const [savingLock, setSavingLock] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
@@ -166,22 +168,34 @@ export default function PasskeySettings() {
         </div>
       )}
 
-      {/* Only worth offering once there is a passkey to check against, and only
-          for this device — the worry it answers is about a device, not an
-          account. */}
+      {/* Only worth offering once there is a passkey to open it with. The
+          server refuses to turn it on without one for the same reason. */}
       {on && (
         <label className="lock-amounts">
           <input
             type="checkbox"
-            defaultChecked={amountsLocked()}
-            onChange={(e) => setAmountsLocked(e.target.checked)}
+            checked={Boolean(locked)}
+            disabled={savingLock}
+            onChange={async (e) => {
+              const next = e.target.checked;
+              setSavingLock(true);
+              setError(null);
+              try {
+                await setLockAmounts(next);
+                onLockedChange?.(next);
+              } catch (err) {
+                setError(err.message);
+              } finally {
+                setSavingLock(false);
+              }
+            }}
           />
           <span>
-            <b>Ask before showing amounts on this device</b>
+            <b>Ask before showing my amounts</b>
             <small>
               The eye asks for your face, fingerprint or device PIN before any figure appears, and
-              hides them again after {UNLOCK_MINUTES} minutes. Just this device — your other ones,
-              and everyone else in the household, are unaffected.
+              hides them again after {UNLOCK_MINUTES} minutes. It follows your account, so it
+              applies wherever you sign in. Everyone else in the household answers for themselves.
             </small>
           </span>
         </label>

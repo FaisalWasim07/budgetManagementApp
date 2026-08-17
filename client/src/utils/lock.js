@@ -1,25 +1,15 @@
 import { startVerify, finishVerify } from '../api/auth';
 import { usePasskey, passkeysSupported, wasCancelled } from './passkey';
 
-// Whether this device asks for a passkey before it will show any figure.
+// How long a successful check is good for is below; whether it is asked for at
+// all lives on the account, not here. It used to be a localStorage flag, which
+// meant setting it on your phone did nothing for the same account on a laptop —
+// and the thing it protects is the account's figures, which follow you.
 //
-// Kept on the device rather than on the account, because the worry it answers
-// is about a device: this phone, in someone else's hand. Arooj's phone has its
-// own answer, and neither of you has to inherit the other's. It also means
-// there is nothing to migrate and nothing to sync.
-//
-// It is not the security boundary — the passkey is. Someone who can reach this
-// setting to switch it off is someone holding your unlocked phone with the
-// developer tools open, and they could read the figures out of the page long
-// before they thought to look here.
-const KEY = 'budget.lockAmounts';
-
-export const amountsLocked = () => localStorage.getItem(KEY) === 'true';
-
-export const setAmountsLocked = (on) => {
-  if (on) localStorage.setItem(KEY, 'true');
-  else localStorage.removeItem(KEY);
-};
+// It is not the security boundary either way: the passkey is. Somebody who can
+// reach a setting to switch it off is holding your unlocked phone with the
+// developer tools open, and could read the figures out of the page long before
+// they thought to look.
 
 // How long a successful check is good for. Long enough to read a screen and
 // move to another; short enough that a phone left on a table re-locks itself.

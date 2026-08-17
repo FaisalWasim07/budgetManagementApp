@@ -102,11 +102,25 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
   check('and now the setting is offered', (await page.locator('.lock-amounts input').count()) === 1);
 
-  await page.locator('.lock-amounts input').check();
-  await page.waitForTimeout(300);
+  // click(), not check(): check() asserts the box flipped the instant it is
+  // clicked, and this one is controlled by the account — it only ticks once the
+  // save has come back.
+  await page.locator('.lock-amounts input').click();
+  await page.waitForTimeout(1500);
   check(
-    'turning it on is remembered on this device only',
-    (await page.evaluate(() => localStorage.getItem('budget.lockAmounts'))) === 'true'
+    'the box ticks once the account has taken it',
+    await page.locator('.lock-amounts input').isChecked()
+  );
+  check(
+    'turning it on is saved against the account, not the browser',
+    (await page.evaluate(async () => {
+      const r = await fetch('/api/auth/me');
+      return (await r.json()).user.lock_amounts;
+    })) === true
+  );
+  check(
+    'and nothing is left behind in this browser',
+    (await page.evaluate(() => localStorage.getItem('budget.lockAmounts'))) === null
   );
   await page.keyboard.press('Escape');
   await page.waitForTimeout(600);
@@ -143,8 +157,8 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('button[aria-label="Hide amounts"]');
   await page.waitForTimeout(1400);
   await openSettings();
-  await page.locator('.lock-amounts input').uncheck();
-  await page.waitForTimeout(300);
+  await page.locator('.lock-amounts input').click();
+  await page.waitForTimeout(1500);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(600);
   await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
@@ -155,6 +169,29 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     !(await masked()),
     await value()
   );
+
+  // Signing in fresh has to arrive already knowing, or the figures show for a
+  // moment before the app works out that they should not.
+  await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: true });
+  await openSettings();
+  await page.locator('.lock-amounts input').click();
+  await page.waitForTimeout(1500);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  check(
+    'a reload knows to ask before it has drawn anything',
+    (await page.evaluate(async () => {
+      const r = await fetch('/api/auth/status');
+      return (await r.json()).user.lock_amounts;
+    })) === true
+  );
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.hero', { timeout: 15000 });
+  await page.waitForTimeout(1200);
+  await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(2600);
+  check('and still refuses after the reload', await masked(), await value());
 
   await browser.close();
   console.log(ok.concat(bad).join('\n'));

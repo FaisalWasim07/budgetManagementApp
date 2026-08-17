@@ -42,3 +42,5 @@ export const startVerify = () => post('/auth/verify/start');
 
 export const finishVerify = (challengeId, response) =>
   post('/auth/verify/finish', { challengeId, response });
+
+export const setLockAmounts = (on) => post('/auth/lock-amounts', { on });

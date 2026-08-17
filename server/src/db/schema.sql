@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS users (
   -- retrofit through signup and settings.
   email         text,
   password_hash text NOT NULL,
+  -- Whether this person's amounts stay hidden until a passkey says otherwise.
+  -- On the account rather than the device, so it follows you between them; each
+  -- member of a household answers for themselves.
+  lock_amounts  boolean NOT NULL DEFAULT false,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 

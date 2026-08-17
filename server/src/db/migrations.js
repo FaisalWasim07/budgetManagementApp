@@ -149,6 +149,15 @@ async function run() {
     notes.push('accounts can now hold an email address');
   }
 
+  // Asking for a passkey before showing amounts. Off for everyone who already
+  // existed: turning a lock on for people who never asked for one, on an
+  // account that may have no passkey to open it with, would be locking them
+  // out of their own figures.
+  if ((await tableExists('users')) && !(await columnExists('users', 'lock_amounts'))) {
+    await db.exec('ALTER TABLE users ADD COLUMN lock_amounts boolean NOT NULL DEFAULT false');
+    notes.push('amounts can be kept behind a passkey');
+  }
+
   // Recurring items gained a direction when salary joined subscriptions.
   // Everything that existed before was money going out.
   if ((await tableExists('subscriptions')) && !(await columnExists('subscriptions', 'direction'))) {

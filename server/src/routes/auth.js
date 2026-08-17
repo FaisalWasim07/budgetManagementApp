@@ -53,7 +53,18 @@ async function signIn(res, user) {
   await authService.purgeExpiredSessions();
   const { token, expiresAt } = await authService.createSession(user.id);
   setSessionCookie(res, token, expiresAt);
-  res.json({ user: { id: user.id, username: user.username } });
+  // Read here rather than taken from the caller's row. Three routes sign people
+  // in and they select different columns; one of them selecting id and username
+  // alone is exactly how a freshly signed-in client was told the amounts were
+  // not locked when they were.
+  const prefs = await db.get('SELECT lock_amounts FROM users WHERE id = ?', [user.id]);
+  res.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      lock_amounts: Boolean(prefs?.lock_amounts),
+    },
+  });
 }
 
 function validPassword(password) {
@@ -225,7 +236,10 @@ router.get(
   '/me',
   requireAuth,
   h(async (req, res) => {
-    const row = await db.get('SELECT id, username, email FROM users WHERE id = ?', [req.user.id]);
+    const row = await db.get(
+      'SELECT id, username, email, lock_amounts FROM users WHERE id = ?',
+      [req.user.id]
+    );
     res.json({ user: row });
   })
 );
@@ -297,6 +311,26 @@ router.post(
     await authService.setPassword(user.id, newPassword);
     clearSessionCookie(res);
     res.json({ ok: true, signedOut: true });
+  })
+);
+
+// Whether this account keeps its amounts behind a passkey. Held here rather
+// than on each device, so signing in anywhere brings the choice with you.
+//
+// It can only be turned on when there is a passkey to turn it off with. A lock
+// whose key does not exist is not a lock, it is a locked-out person.
+router.post(
+  '/lock-amounts',
+  requireAuth,
+  h(async (req, res) => {
+    const on = Boolean(req.body?.on);
+    if (on && !(await webauthnService.hasPasskeys(req.user.id))) {
+      return res.status(400).json({
+        error: 'Add a passkey first — otherwise there would be no way to show your amounts again.',
+      });
+    }
+    await db.run('UPDATE users SET lock_amounts = ? WHERE id = ?', [on, req.user.id]);
+    res.json({ lock_amounts: on });
   })
 );
 

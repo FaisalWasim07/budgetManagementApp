@@ -22,7 +22,7 @@ import { setActiveHousehold } from './api/client';
 import { currentMonth } from './utils/month';
 import { DisplayContext } from './utils/display';
 import { clearLiveCache, useLiveData } from './utils/live';
-import { amountsLocked, proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
+import { proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
 // Four destinations, the same four on both shells. Activity is new: it was the
@@ -86,6 +86,9 @@ export default function App({ user, onSignedOut }) {
   // eye can say it is waiting rather than looking broken.
   const [proving, setProving] = useState(false);
   const [lockError, setLockError] = useState(null);
+  // The account's answer, carried on the session so the first render already
+  // knows — rather than showing the figures and then deciding to hide them.
+  const [locked, setLocked] = useState(Boolean(user.lock_amounts));
   const [theme, setTheme] = useState(loadTheme);
   const phone = usePhone();
   // Every list on screen registers its own reload here, so one button can
@@ -133,13 +136,13 @@ export default function App({ user, onSignedOut }) {
   // the app already hides it; this covers the phone left face-up on a table,
   // which is the same exposure with nobody there to notice.
   useEffect(() => {
-    if (amountsHidden || !amountsLocked()) return undefined;
+    if (amountsHidden || !locked) return undefined;
     const timer = setTimeout(() => {
       setInstantHide(true);
       setAmountsHidden(true);
     }, UNLOCK_MINUTES * 60 * 1000);
     return () => clearTimeout(timer);
-  }, [amountsHidden]);
+  }, [amountsHidden, locked]);
 
   // Which household the API talks to has to be set before any data request, so
   // it is pushed into the client rather than passed through every call.
@@ -347,7 +350,7 @@ export default function App({ user, onSignedOut }) {
                     setAmountsHidden(true);
                     return;
                   }
-                  if (!amountsLocked()) {
+                  if (!locked) {
                     setAmountsHidden(false);
                     return;
                   }
@@ -560,6 +563,8 @@ export default function App({ user, onSignedOut }) {
 
       {showSettings && summary && (
         <SettingsModal
+          locked={locked}
+          onLockedChange={setLocked}
           primaryCurrency={summary.primaryCurrency}
           rates={summary.rates}
           user={user}
