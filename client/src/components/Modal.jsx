@@ -11,8 +11,12 @@ import { useScrollLock } from '../utils/scrollLock';
 //
 // `tabs` is [key, label, render] triples. Give none and the children render as
 // they always did.
-export default function Modal({ title, onClose, tabs, children }) {
-  const [active, setActive] = useState(tabs?.[0]?.[0] ?? null);
+export default function Modal({ title, onClose, tabs, initialTab, children }) {
+  // Whichever tab the opener asked for, so something that exists to send you to
+  // one particular setting lands on it rather than on the first.
+  const [active, setActive] = useState(
+    tabs?.some(([key]) => key === initialTab) ? initialTab : (tabs?.[0]?.[0] ?? null)
+  );
   useScrollLock();
 
   useEffect(() => {

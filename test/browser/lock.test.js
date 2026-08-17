@@ -71,6 +71,25 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('button[aria-label="Hide amounts"]');
   await page.waitForTimeout(1400);
 
+  // --- the offer to add one ------------------------------------------------
+  // An account with no passkey is held by its password alone, so the app says
+  // so — in the page, not in front of it, and with a real way to decline.
+  check('an account with no passkey is offered one', (await page.locator('.passkey-nudge').count()) === 1);
+  check(
+    'and can say no',
+    (await page.locator('.passkey-nudge button:has-text("Not now")').count()) === 1
+  );
+  await page.locator('.passkey-nudge button:has-text("Not now")').click();
+  await page.waitForTimeout(400);
+  check('which puts it away', (await page.locator('.passkey-nudge').count()) === 0);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.hero', { timeout: 15000 });
+  await page.waitForTimeout(1000);
+  check(
+    'and it comes back next time, because it is still worth having',
+    (await page.locator('.passkey-nudge').count()) === 1
+  );
+
   const openSettings = async () => {
     await page.click('.sidebar button[aria-label="Menu"], .topbar button[aria-label="Menu"]');
     await page.waitForTimeout(300);
@@ -125,6 +144,10 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
   await page.keyboard.press('Escape');
   await page.waitForTimeout(600);
+  check(
+    'and once there is a passkey the offer stops being made',
+    (await page.locator('.passkey-nudge').count()) === 0
+  );
 
   // --- the eye now asks ----------------------------------------------------
   check('amounts are hidden to begin with', await masked(), await value());

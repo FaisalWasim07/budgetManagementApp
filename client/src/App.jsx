@@ -14,6 +14,7 @@ import OverflowMenu from './components/OverflowMenu';
 import AddSheet from './components/AddSheet';
 import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
+import PasskeyNudge from './components/PasskeyNudge';
 import { Bars, Eye, EyeOff, Home, List, Mark, Plus, Refresh, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
@@ -71,6 +72,11 @@ export default function App({ user, onSignedOut }) {
   const [trend, setTrend] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState(undefined);
+  // Waved away for this session only. Not stored: a passkey is worth asking
+  // for again next time, and a flag in one browser saying otherwise is the
+  // thing this whole area moved away from.
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [sheet, setSheet] = useState(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -420,6 +426,19 @@ export default function App({ user, onSignedOut }) {
           </div>
         )}
 
+        {/* Offered until it is taken or waved away, and never in the way of
+            anything: a password on its own opens this account from anywhere,
+            and a passkey is what stops that. */}
+        {!hasPasskeys && !nudgeDismissed && (
+          <PasskeyNudge
+            onAdd={() => {
+              setSettingsTab('account');
+              setShowSettings(true);
+            }}
+            onDismiss={() => setNudgeDismissed(true)}
+          />
+        )}
+
         {error && <div className="card error-text">Couldn’t load: {error}</div>}
 
         {lockError && (
@@ -574,6 +593,7 @@ export default function App({ user, onSignedOut }) {
           locked={wantsLock}
           onLockedChange={setWantsLock}
           onPasskeysChange={setHasPasskeys}
+          initialTab={settingsTab}
           primaryCurrency={summary.primaryCurrency}
           rates={summary.rates}
           user={user}

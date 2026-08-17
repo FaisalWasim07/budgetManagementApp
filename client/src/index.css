@@ -1134,6 +1134,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .invite-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; font-size: .82rem; word-break: break-all; }
 
+/* An offer to add a passkey, sitting above the page rather than in front of
+   it. Tinted with the accent instead of the warning colour: nothing is wrong,
+   there is simply something worth doing. */
+.passkey-nudge {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
+  border-radius: 14px; padding: 14px 16px;
+}
+.passkey-nudge .nudge-text { display: flex; flex-direction: column; gap: 3px; flex: 1 1 260px; min-width: 0; }
+.passkey-nudge .nudge-text b { font-size: .93rem; }
+.passkey-nudge .nudge-text small { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.passkey-nudge .nudge-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+/* On a phone the two buttons take the row to themselves rather than being
+   squeezed against the text they follow. */
+@media (max-width: 700px) {
+  .passkey-nudge .nudge-actions { flex: 1 1 100%; }
+  .passkey-nudge .nudge-actions button { flex: 1; }
+}
+
 /* ── Hiding amounts ──────────────────────────────────────────────
    The figure is measured and rasterised before it goes, so the layout
    never jumps while the dust is in the air. */

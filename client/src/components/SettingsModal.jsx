@@ -25,6 +25,7 @@ export default function SettingsModal({
   locked,
   onLockedChange,
   onPasskeysChange,
+  initialTab,
 }) {
   const [currency, setCurrency] = useState(primaryCurrency);
   const [manual, setManual] = useState({});
@@ -227,6 +228,7 @@ export default function SettingsModal({
     <Modal
       title="Settings"
       onClose={onClose}
+      initialTab={initialTab}
       tabs={[
         ['money', 'Money', moneyTab],
         ['account', 'Account', accountTab],
