@@ -447,6 +447,55 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('.page-title .crumb');
   await page.waitForTimeout(600);
 
+  // --- the reveal does not survive leaving the app --------------------------
+  // Revealing a balance is a decision about the room you are in; switching
+  // apps, locking the phone or handing it over takes you out of that room.
+  //
+  // Headless Chromium reports a page as visible even behind another tab, so it
+  // will not raise the event on its own here. The state is overridden and the
+  // real event dispatched — which is exactly what the app listens for.
+  const setVisibility = (state) =>
+    page.evaluate((v) => {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, state);
+
+  check(
+    'amounts are showing to start with',
+    !(await page.locator('.hero .value').textContent()).includes('•'),
+    await page.locator('.hero .value').textContent()
+  );
+  await setVisibility('hidden');
+  await page.waitForTimeout(1400);
+  check(
+    'backgrounding the app hides them again',
+    (await page.locator('.hero .value').textContent()).includes('•'),
+    await page.locator('.hero .value').textContent()
+  );
+
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(1600);
+  // Coming back fires the same event with "visible". Re-masking on that would
+  // undo the tap that had just been made.
+  await setVisibility('visible');
+  await page.waitForTimeout(500);
+  check(
+    'and coming back does not undo the tap that showed them',
+    !(await page.locator('.hero .value').textContent()).includes('•'),
+    await page.locator('.hero .value').textContent()
+  );
+
+  // The iOS back/forward-cache case, which can skip the visibility change.
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await page.waitForTimeout(1400);
+  check(
+    'and a pagehide hides them too',
+    (await page.locator('.hero .value').textContent()).includes('•'),
+    await page.locator('.hero .value').textContent()
+  );
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(1600);
+
   // --- the eye must not move a scrollbar ------------------------------------
   // The dust drifts up and to the right, so from the figure nearest the right
   // edge it reached past it and grew the document — which showed a horizontal

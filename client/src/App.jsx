@@ -93,6 +93,29 @@ export default function App({ user, onSignedOut }) {
     saveTheme(theme);
   }, [theme]);
 
+  // ...and again the moment the app stops being the thing on screen. Revealing
+  // a balance is a decision about the room you are in, and leaving the app
+  // takes you out of that room: switching apps, locking the phone, or handing
+  // it to someone to look at a photo. The reveal was for you, at that moment,
+  // and it does not survive the moment.
+  //
+  // visibilitychange rather than window blur, which also fires for a click on
+  // another window while the page is still in plain view — re-masking then is
+  // just the figures flickering at you. pagehide covers the iOS case where a
+  // page goes into the back/forward cache without a visibility change first.
+  useEffect(() => {
+    const hide = () => {
+      if (document.visibilityState === 'hidden') setAmountsHidden(true);
+    };
+    const hideNow = () => setAmountsHidden(true);
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', hideNow);
+    return () => {
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', hideNow);
+    };
+  }, []);
+
   // Which household the API talks to has to be set before any data request, so
   // it is pushed into the client rather than passed through every call.
   useEffect(() => {
