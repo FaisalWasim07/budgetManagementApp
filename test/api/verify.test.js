@@ -123,26 +123,43 @@ const RP_ID = process.env.RP_ID || 'localhost';
   });
   check('your own still works after all that', good.status === 200 && good.data.ok === true);
 
-  // --- the setting lives on the account -----------------------------------
+  // --- the setting lives on the account, and starts on ---------------------
   // It follows you between devices, which is the point of it not being a flag
-  // in one browser's storage.
+  // in one browser's storage. It is also on from the start, so it protects the
+  // people who never went looking for it — which is most people.
+  //
+  // On its own it locks nobody out, because the app asks on this flag *and* a
+  // passkey existing. Without one it sits there meaning nothing.
   const fresh = client();
   const soloName = `vf3_${u}`;
   await fresh.post('/api/auth/signup', { username: soloName, password });
-  const noKey = await fresh.post('/api/auth/lock-amounts', { on: true });
+  const brandNew = (await fresh.get('/api/auth/me')).data.user;
   check(
-    'it cannot be switched on without a passkey to switch it back off',
-    noKey.status === 400 && /add a passkey/i.test(noKey.data.error),
-    `${noKey.status} ${noKey.data.error}`
+    'a new account starts with the setting on',
+    brandNew.lock_amounts === true,
+    JSON.stringify(brandNew)
   );
   check(
-    'and the account still reports it off',
-    (await fresh.get('/api/auth/me')).data.user.lock_amounts === false,
-    JSON.stringify((await fresh.get('/api/auth/me')).data.user)
+    'but reports no passkey, so nothing is actually asked of it yet',
+    brandNew.has_passkeys === false,
+    JSON.stringify(brandNew)
+  );
+  const dormant = await fresh.post('/api/auth/lock-amounts', { on: true });
+  check(
+    'and setting it on without a passkey is allowed, because it just waits',
+    dormant.status === 200 && dormant.data.lock_amounts === true,
+    `${dormant.status} ${JSON.stringify(dormant.data)}`
+  );
+
+  const withKey = (await me.get('/api/auth/me')).data.user;
+  check(
+    'an account with a passkey says so, which is what makes the eye ask',
+    withKey.has_passkeys === true,
+    JSON.stringify(withKey)
   );
 
   const turnedOn = await me.post('/api/auth/lock-amounts', { on: true });
-  check('with one, it can be switched on', turnedOn.status === 200 && turnedOn.data.lock_amounts === true);
+  check('it can be switched on', turnedOn.status === 200 && turnedOn.data.lock_amounts === true);
   check(
     'and every session of that account is told',
     (await me.get('/api/auth/me')).data.user.lock_amounts === true
@@ -158,7 +175,7 @@ const RP_ID = process.env.RP_ID || 'localhost';
   });
   check(
     'a new sign-in on another device already knows to ask',
-    finished.data.user?.lock_amounts === true,
+    finished.data.user?.lock_amounts === true && finished.data.user?.has_passkeys === true,
     JSON.stringify(finished.data.user)
   );
 
@@ -167,6 +184,28 @@ const RP_ID = process.env.RP_ID || 'localhost';
   check(
     'switching off never needs a passkey — that is the way out',
     (await me.get('/api/auth/me')).data.user.lock_amounts === false
+  );
+
+  // --- and losing the last passkey does not strand you ---------------------
+  // The setting is on for everyone now, so the case that used to be prevented
+  // by refusing to switch it on has to be survivable instead: an account that
+  // wants the lock but has nothing left to open it with must fall back to
+  // simply not asking.
+  await me.post('/api/auth/lock-amounts', { on: true });
+  const listed = await me.get('/api/auth/passkeys');
+  for (const key of listed.data.passkeys) {
+    await me.del(`/api/auth/passkeys/${key.id}`, { password });
+  }
+  const stranded = (await me.get('/api/auth/me')).data.user;
+  check(
+    'with the last passkey gone the account still wants the lock',
+    stranded.lock_amounts === true,
+    JSON.stringify(stranded)
+  );
+  check(
+    'but says there is nothing to ask with, so the eye goes back to being an eye',
+    stranded.has_passkeys === false,
+    JSON.stringify(stranded)
   );
 
   const { failed } = report('Verifying it is you');

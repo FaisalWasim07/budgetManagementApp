@@ -61,6 +61,10 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   const masked = async () => (await value()).includes('•');
 
   // --- with nothing set up, the eye is just the eye ------------------------
+  // The setting is already on for this account — it is on for every account —
+  // but there is no passkey yet, so it asks nothing. That dormancy is what
+  // makes defaulting it on safe: nobody is shut out of their own figures by a
+  // lock they never set up.
   await page.click('button[aria-label="Show amounts"]');
   await page.waitForTimeout(1700);
   check('with no passkey the eye still just works', !(await masked()), await value());
@@ -102,22 +106,19 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   );
   check('and now the setting is offered', (await page.locator('.lock-amounts input').count()) === 1);
 
-  // click(), not check(): check() asserts the box flipped the instant it is
-  // clicked, and this one is controlled by the account — it only ticks once the
-  // save has come back.
-  await page.locator('.lock-amounts input').click();
-  await page.waitForTimeout(1500);
+  // Nobody ticked this. It is on for every account from the start, and adding
+  // the first passkey is the moment it stops being dormant — which is the
+  // whole point of defaulting it on rather than waiting to be found.
   check(
-    'the box ticks once the account has taken it',
+    'and it is already on, without anyone having gone looking for it',
     await page.locator('.lock-amounts input').isChecked()
   );
-  check(
-    'turning it on is saved against the account, not the browser',
-    (await page.evaluate(async () => {
-      const r = await fetch('/api/auth/me');
-      return (await r.json()).user.lock_amounts;
-    })) === true
-  );
+  const account = await page.evaluate(async () => {
+    const r = await fetch('/api/auth/me');
+    return (await r.json()).user;
+  });
+  check('the account is what holds it, not the browser', account.lock_amounts === true, JSON.stringify(account));
+  check('and it now has a passkey to ask with', account.has_passkeys === true, JSON.stringify(account));
   check(
     'and nothing is left behind in this browser',
     (await page.evaluate(() => localStorage.getItem('budget.lockAmounts'))) === null
@@ -182,7 +183,8 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     'a reload knows to ask before it has drawn anything',
     (await page.evaluate(async () => {
       const r = await fetch('/api/auth/status');
-      return (await r.json()).user.lock_amounts;
+      const { user } = await r.json();
+      return user.lock_amounts && user.has_passkeys;
     })) === true
   );
   await page.reload({ waitUntil: 'networkidle' });

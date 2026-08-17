@@ -23,7 +23,12 @@ CREATE TABLE IF NOT EXISTS users (
   -- Whether this person's amounts stay hidden until a passkey says otherwise.
   -- On the account rather than the device, so it follows you between them; each
   -- member of a household answers for themselves.
-  lock_amounts  boolean NOT NULL DEFAULT false,
+  --
+  -- On by default, because the figures are the private part and a lock nobody
+  -- switched on protects nobody. It is an intention rather than a state: with
+  -- no passkey registered there is nothing to ask, so it lies dormant and the
+  -- eye behaves as it always did. Adding a passkey is what wakes it.
+  lock_amounts  boolean NOT NULL DEFAULT true,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 

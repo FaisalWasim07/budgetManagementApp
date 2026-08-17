@@ -82,7 +82,8 @@ async function createSession(userId) {
 async function getSessionUser(token) {
   if (!token) return null;
   const row = await db.get(
-    `SELECT s.token, s.expires_at, u.id, u.username, u.lock_amounts
+    `SELECT s.token, s.expires_at, u.id, u.username, u.lock_amounts,
+            EXISTS (SELECT 1 FROM credentials c WHERE c.user_id = u.id) AS has_passkeys
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ?`,
     [token]
@@ -93,8 +94,15 @@ async function getSessionUser(token) {
     return null;
   }
   // Carried on the session so the very first render already knows whether to
-  // ask, rather than flashing the figures and then deciding.
-  return { id: row.id, username: row.username, lock_amounts: row.lock_amounts };
+  // ask, rather than flashing the figures and then deciding. Both halves are
+  // needed for that: the setting is on by default, and only a registered
+  // passkey makes it mean anything.
+  return {
+    id: row.id,
+    username: row.username,
+    lock_amounts: row.lock_amounts,
+    has_passkeys: Boolean(row.has_passkeys),
+  };
 }
 
 const destroySession = (token) => db.run('DELETE FROM sessions WHERE token = ?', [token]);

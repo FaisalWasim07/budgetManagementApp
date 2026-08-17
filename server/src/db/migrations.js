@@ -17,6 +17,18 @@ const columnExists = async (table, column) =>
     )
   );
 
+// Reading a column's default is how a change of mind about a default becomes a
+// shape this file can check, the same way an added column is.
+const columnDefaults = async (table, column, value) =>
+  Boolean(
+    await db.get(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = ? AND column_name = ?
+         AND column_default = ?`,
+      [table, column, value]
+    )
+  );
+
 const tableExists = async (table) =>
   Boolean(
     await db.get(
@@ -149,13 +161,24 @@ async function run() {
     notes.push('accounts can now hold an email address');
   }
 
-  // Asking for a passkey before showing amounts. Off for everyone who already
-  // existed: turning a lock on for people who never asked for one, on an
-  // account that may have no passkey to open it with, would be locking them
-  // out of their own figures.
+  // Asking for a passkey before showing amounts.
   if ((await tableExists('users')) && !(await columnExists('users', 'lock_amounts'))) {
-    await db.exec('ALTER TABLE users ADD COLUMN lock_amounts boolean NOT NULL DEFAULT false');
+    await db.exec('ALTER TABLE users ADD COLUMN lock_amounts boolean NOT NULL DEFAULT true');
     notes.push('amounts can be kept behind a passkey');
+  }
+
+  // It shipped defaulting to off, which meant it protected only the people who
+  // went looking for it. On is the better default now that it is dormant
+  // without a passkey — nobody can be locked out by it, so there is nothing to
+  // be careful of.
+  //
+  // The column's own default is the one-shot signal: once it reads `true` this
+  // never fires again, so anyone who deliberately switches it off afterwards
+  // stays off.
+  if (await columnDefaults('users', 'lock_amounts', 'false')) {
+    await db.exec('ALTER TABLE users ALTER COLUMN lock_amounts SET DEFAULT true');
+    await db.exec('UPDATE users SET lock_amounts = true');
+    notes.push('amounts are kept behind a passkey by default');
   }
 
   // Recurring items gained a direction when salary joined subscriptions.

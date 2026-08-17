@@ -74,7 +74,7 @@ function RecoveryCodes({ codes, onDone }) {
 // Passkeys are the app's second factor. The password gets you as far as a
 // challenge; the device signs it. Nothing here is a secret worth stealing —
 // the server holds only public keys.
-export default function PasskeySettings({ locked, onLockedChange }) {
+export default function PasskeySettings({ locked, onLockedChange, onPasskeysChange }) {
   const [passkeys, setPasskeys] = useState(null);
   const [codesLeft, setCodesLeft] = useState(0);
   const [codes, setCodes] = useState(null);
@@ -89,7 +89,11 @@ export default function PasskeySettings({ locked, onLockedChange }) {
     const data = await listPasskeys();
     setPasskeys(data.passkeys);
     setCodesLeft(data.recoveryCodesLeft);
-  }, []);
+    // The eye asks only when there is a passkey to ask with, so adding the
+    // first or removing the last changes its behaviour immediately — without
+    // waiting for the next sign-in to notice.
+    onPasskeysChange?.(data.passkeys.length > 0);
+  }, [onPasskeysChange]);
 
   useEffect(() => {
     load().catch((err) => setError(err.message));
@@ -168,8 +172,8 @@ export default function PasskeySettings({ locked, onLockedChange }) {
         </div>
       )}
 
-      {/* Only worth offering once there is a passkey to open it with. The
-          server refuses to turn it on without one for the same reason. */}
+      {/* Shown only once there is a passkey, because until then it is on but
+          dormant and there is nothing yet to switch off. */}
       {on && (
         <label className="lock-amounts">
           <input
@@ -193,9 +197,11 @@ export default function PasskeySettings({ locked, onLockedChange }) {
           <span>
             <b>Ask before showing my amounts</b>
             <small>
-              The eye asks for your face, fingerprint or device PIN before any figure appears, and
-              hides them again after {UNLOCK_MINUTES} minutes. It follows your account, so it
-              applies wherever you sign in. Everyone else in the household answers for themselves.
+              On by default now that you have a passkey. The eye asks for your face, fingerprint or
+              device PIN before any figure appears, and hides them again after {UNLOCK_MINUTES}{' '}
+              minutes. It follows your account, so it applies wherever you sign in. Turn it off here
+              if you would rather it didn’t ask — everyone else in the household answers for
+              themselves.
             </small>
           </span>
         </label>

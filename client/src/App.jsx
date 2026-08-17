@@ -88,7 +88,15 @@ export default function App({ user, onSignedOut }) {
   const [lockError, setLockError] = useState(null);
   // The account's answer, carried on the session so the first render already
   // knows — rather than showing the figures and then deciding to hide them.
-  const [locked, setLocked] = useState(Boolean(user.lock_amounts));
+  //
+  // Two halves, because the setting is on for everyone by default and only
+  // means something once there is a passkey to answer with. Registering the
+  // first one is what makes the eye start asking; removing the last one lets it
+  // go back to being just an eye, rather than stranding somebody outside their
+  // own figures.
+  const [wantsLock, setWantsLock] = useState(Boolean(user.lock_amounts));
+  const [hasPasskeys, setHasPasskeys] = useState(Boolean(user.has_passkeys));
+  const locked = wantsLock && hasPasskeys;
   const [theme, setTheme] = useState(loadTheme);
   const phone = usePhone();
   // Every list on screen registers its own reload here, so one button can
@@ -563,8 +571,9 @@ export default function App({ user, onSignedOut }) {
 
       {showSettings && summary && (
         <SettingsModal
-          locked={locked}
-          onLockedChange={setLocked}
+          locked={wantsLock}
+          onLockedChange={setWantsLock}
+          onPasskeysChange={setHasPasskeys}
           primaryCurrency={summary.primaryCurrency}
           rates={summary.rates}
           user={user}

@@ -63,6 +63,7 @@ async function signIn(res, user) {
       id: user.id,
       username: user.username,
       lock_amounts: Boolean(prefs?.lock_amounts),
+      has_passkeys: await webauthnService.hasPasskeys(user.id),
     },
   });
 }
@@ -240,7 +241,7 @@ router.get(
       'SELECT id, username, email, lock_amounts FROM users WHERE id = ?',
       [req.user.id]
     );
-    res.json({ user: row });
+    res.json({ user: { ...row, has_passkeys: await webauthnService.hasPasskeys(req.user.id) } });
   })
 );
 
@@ -317,18 +318,16 @@ router.post(
 // Whether this account keeps its amounts behind a passkey. Held here rather
 // than on each device, so signing in anywhere brings the choice with you.
 //
-// It can only be turned on when there is a passkey to turn it off with. A lock
-// whose key does not exist is not a lock, it is a locked-out person.
+// On for a new account. It once refused to be switched on without a passkey
+// registered, on the reasoning that a lock with no key is a locked-out person —
+// true then, because the client asked on this flag alone. It now asks on this
+// flag *and* a passkey existing, so the setting on its own locks nobody out: it
+// simply waits until there is something to ask with.
 router.post(
   '/lock-amounts',
   requireAuth,
   h(async (req, res) => {
     const on = Boolean(req.body?.on);
-    if (on && !(await webauthnService.hasPasskeys(req.user.id))) {
-      return res.status(400).json({
-        error: 'Add a passkey first — otherwise there would be no way to show your amounts again.',
-      });
-    }
     await db.run('UPDATE users SET lock_amounts = ? WHERE id = ?', [on, req.user.id]);
     res.json({ lock_amounts: on });
   })
