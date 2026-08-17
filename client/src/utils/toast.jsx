@@ -19,8 +19,10 @@ const ToastContext = createContext(null);
 // Long enough to notice and reach for, short enough that it is gone before it
 // becomes furniture. Undo gets longer, because it is the one you have to read
 // and then decide about.
-const PLAIN_MS = 3200;
+const PLAIN_MS = 3600;
 const UNDO_MS = 6000;
+// Must match the exit transition in the stylesheet.
+const EXIT_MS = 200;
 
 // Four kinds, each with a glyph that says what it is before the words do.
 const TONES = {
@@ -36,13 +38,21 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const timers = useRef(new Map());
 
+  // Marked on the way out and removed a beat later. Appearing with an
+  // animation and then vanishing without one is what made these feel like
+  // they were being cut off rather than leaving.
   const dismiss = useCallback((id) => {
     const timer = timers.current.get(id);
     if (timer) {
       clearTimeout(timer);
       timers.current.delete(id);
     }
-    setToasts((list) => list.filter((t) => t.id !== id));
+    setToasts((list) => list.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    const off = setTimeout(() => {
+      timers.current.delete(`out:${id}`);
+      setToasts((list) => list.filter((t) => t.id !== id));
+    }, EXIT_MS);
+    timers.current.set(`out:${id}`, off);
   }, []);
 
   // Nothing here is a reason to keep a timer alive past the provider.
@@ -64,7 +74,7 @@ export function ToastProvider({ children }) {
       const ms = onUndo ? UNDO_MS : PLAIN_MS;
       setToasts((list) => [
         ...list,
-        { id, title, body, tone: TONES[tone] ? tone : 'info', onUndo, expiresAt: Date.now() + ms },
+        { id, title, body, tone: TONES[tone] ? tone : 'info', onUndo, life: ms },
       ]);
       timers.current.set(
         id,
@@ -97,10 +107,13 @@ function Toasts({ toasts, dismiss }) {
 }
 
 function Toast({ toast, dismiss }) {
-  const { id, title, body, tone, onUndo, expiresAt } = toast;
+  const { id, title, body, tone, onUndo, life, leaving } = toast;
   const Glyph = TONES[tone];
   return (
-    <div className={`toast toast-${tone}`}>
+    <div
+      className={`toast toast-${tone}${leaving ? ' leaving' : ''}`}
+      style={{ '--toast-life': `${life}ms` }}
+    >
       <span className="toast-badge">
         <Glyph />
       </span>
@@ -117,25 +130,17 @@ function Toast({ toast, dismiss }) {
           }}
         >
           Undo
-          {/* The bar is the deadline made visible. Without it "Undo" is a
-              button that silently stops working. */}
-          <Countdown until={expiresAt} total={UNDO_MS} />
         </button>
       )}
       <button className="toast-close" onClick={() => dismiss(id)} aria-label="Dismiss">
-        <Cross size={16} />
+        <Cross size={15} />
       </button>
+      {/* How long is left, as a hairline along the bottom edge. Pure CSS: it
+          used to be a bar inside the Undo button driven by a 100ms interval,
+          which re-rendered the toast sixty times to animate two pixels. */}
+      <i className="toast-life" aria-hidden="true" />
     </div>
   );
-}
-
-function Countdown({ until, total }) {
-  const [left, setLeft] = useState(() => Math.max(0, until - Date.now()));
-  useEffect(() => {
-    const tick = setInterval(() => setLeft(Math.max(0, until - Date.now())), 100);
-    return () => clearInterval(tick);
-  }, [until]);
-  return <i className="toast-countdown" style={{ transform: `scaleX(${left / total})` }} />;
 }
 
 export function useToast() {

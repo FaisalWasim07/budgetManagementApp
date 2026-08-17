@@ -1135,21 +1135,69 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .invite-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; font-size: .82rem; word-break: break-all; }
 
 /* ── Swipe a row away ────────────────────────────────────────────
-   The red panel is not a button; it is what is revealed underneath as the
-   row moves off it, so it needs no tap of its own. */
-.swipe-row { position: relative; overflow: hidden; }
-.swipe-action {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end;
-  padding-right: 26px; background: color-mix(in srgb, var(--neg) 22%, var(--surface));
-  color: var(--neg);
+   The red panel is not a button; it is simply what is behind the row, and
+   the row moving off it is what reveals it. So it needs no opacity of its
+   own and no tap target — geometry does the work.
+
+   --swipe-exit must match EXIT_MS in SwipeToDelete.jsx: the row is removed
+   from the data when that timer fires, and if the CSS outlasts it the row
+   disappears mid-slide. */
+.swipe-row {
+  position: relative; overflow: hidden;
+  --reveal: 0;
+  --swipe-exit: 260ms;
 }
-/* Far enough that letting go will delete. The fill going solid is the only
-   warning there is room for, so it has to be unmistakable. */
-.swipe-action.armed { background: var(--neg); color: #FFFFFF; }
-.swipe-front { position: relative; background: var(--surface); will-change: transform; }
+.swipe-action {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 28px;
+  background: color-mix(in srgb, var(--neg) 20%, var(--surface));
+  color: var(--neg);
+  transition: background-color .18s ease, color .18s ease;
+}
+/* The icon grows with the pull, so the gesture is answered continuously
+   rather than only at the moment it tips over. */
+.swipe-action svg {
+  transform: scale(calc(0.55 + var(--reveal) * 0.45));
+  transition: transform .1s linear;
+}
+/* Far enough that letting go will delete. Solid fill and a small overshoot on
+   the icon: this is the one moment worth announcing, and on a phone that can
+   buzz it is felt at the same instant. */
+.swipe-row.armed .swipe-action { background: var(--neg); color: #FFFFFF; }
+.swipe-row.armed .swipe-action svg {
+  transform: scale(1.12);
+  transition: transform .18s cubic-bezier(.34, 1.7, .5, 1);
+}
+
+.swipe-front {
+  position: relative; background: var(--surface);
+  transition: transform .34s cubic-bezier(.22, 1, .36, 1);
+}
+/* While a finger is down the row is exactly where the finger is. Easing
+   towards it is what makes a drag feel like it is lagging behind the hand. */
+.swipe-row.dragging .swipe-front { transition: none; }
+/* Promoted only while it is actually moving — a permanently promoted layer
+   on every row in a long list costs memory for nothing. */
+.swipe-row.dragging .swipe-front,
+.swipe-row.leaving .swipe-front { will-change: transform; }
+
+/* Out sideways, and then the gap closes behind it. */
+.swipe-row.leaving {
+  transition: height var(--swipe-exit) cubic-bezier(.4, 0, .2, 1),
+              opacity calc(var(--swipe-exit) * 0.6) linear;
+  opacity: 0;
+}
+.swipe-row.leaving .swipe-front {
+  transition: transform calc(var(--swipe-exit) * 0.8) cubic-bezier(.4, 0, 1, 1);
+}
+
 /* The row's own bottom border belongs to the sliding half, or a line is left
    hanging in mid-air as the row moves out from under it. */
 .swipe-row:last-child .swipe-front .txn { border-bottom: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-front, .swipe-row.leaving, .swipe-action svg { transition: none; }
+}
 
 /* ── Pull to refresh ─────────────────────────────────────────────
    Sits above the page and below the scrim, drawn at whatever offset the
@@ -1236,16 +1284,29 @@ button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
    --toast-hue and everything else is mixed from it, so a new tone is one
    line rather than five. */
 .toast {
-  pointer-events: auto; display: flex; align-items: center; gap: 13px;
+  pointer-events: auto; position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 13px;
   background: color-mix(in srgb, var(--toast-hue) 10%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--toast-hue) 42%, transparent);
   color: var(--ink);
-  border-radius: 14px; padding: 13px 13px 13px 15px;
+  border-radius: 14px; padding: 14px 14px 14px 16px;
   box-shadow: var(--shadow-lift);
-  animation: toast-in .22s cubic-bezier(.2, .8, .3, 1);
+  animation: toast-in .26s cubic-bezier(.22, 1, .36, 1) both;
 }
-@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
-@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+/* Leaves the way it arrived. Collapsing the height as well as fading keeps a
+   stack of them from jumping as the oldest goes. */
+.toast.leaving {
+  animation: none;
+  opacity: 0; transform: translateY(6px) scale(.98);
+  transition: opacity .2s ease, transform .2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast, .toast.leaving { animation: none; transition: none; transform: none; }
+}
 
 .toast-success { --toast-hue: #22C55E; }
 .toast-info    { --toast-hue: #3B82F6; }
@@ -1260,26 +1321,46 @@ button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
   background: var(--toast-hue); color: #FFFFFF;
 }
 .toast-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.toast-text b { font-size: .89rem; font-weight: 650; color: var(--ink); }
+.toast-text b { font-size: .9rem; font-weight: 650; color: var(--ink); line-height: 1.3; }
 .toast-text small { font-size: .82rem; color: var(--ink-2); line-height: 1.4; }
 
 .toast-undo {
-  position: relative; overflow: hidden; flex: 0 0 auto; align-self: center;
-  background: color-mix(in srgb, var(--toast-hue) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--toast-hue) 42%, transparent);
-  color: var(--ink); font-weight: 600; padding: 5px 12px 7px; border-radius: 9px; font-size: .84rem;
+  flex: none;
+  background: color-mix(in srgb, var(--toast-hue) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--toast-hue) 45%, transparent);
+  color: var(--ink); font-weight: 600; padding: 6px 13px; border-radius: 9px; font-size: .83rem;
 }
-.toast-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--toast-hue) 26%, transparent); }
-/* The remaining time, drawn along the bottom edge of the button it belongs to. */
-.toast-countdown {
-  position: absolute; left: 0; bottom: 0; height: 2px; width: 100%;
-  background: var(--toast-hue); transform-origin: left;
-}
+.toast-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--toast-hue) 30%, transparent); }
+
+/* Centred like everything else on the row. It used to sit at the top while
+   the badge and the text were centred, which is most of what looked wrong. */
 .toast-close {
-  flex: none; align-self: flex-start; background: transparent; border-color: transparent;
-  color: var(--ink-3); padding: 4px; border-radius: 8px; display: grid; place-items: center;
+  flex: none; background: transparent; border-color: transparent;
+  color: var(--ink-3); padding: 5px; border-radius: 8px; display: grid; place-items: center;
 }
-.toast-close:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink-3) 16%, transparent); }
+.toast-close:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink-3) 18%, transparent); }
+
+/* How long is left. A hairline on the bottom edge, run by the compositor from
+   a duration the element carries — no timer, no re-renders. */
+.toast-life {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--toast-hue); opacity: .55;
+  transform-origin: left; transform: scaleX(1);
+  animation: toast-life var(--toast-life, 4000ms) linear forwards;
+}
+@keyframes toast-life { to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .toast-life { animation: none; opacity: .28; } }
+
+/* Four things across a 393px phone is a squeeze once the sentence is real, so
+   the buttons drop to their own row rather than crushing the text. */
+@media (max-width: 460px) {
+  .toast { flex-wrap: wrap; row-gap: 11px; }
+  /* Wrapping follows source order, so the ✕ is pulled up beside the text and
+     Undo is the only thing left to take the second row — full width, which is
+     also the easiest shape to hit with a thumb. */
+  .toast-close { order: 1; }
+  .toast-undo { order: 2; flex: 0 0 100%; padding: 9px 13px; }
+}
 
 /* On a dark ground the 10% tint disappears into the surface, so it is lifted
    and the border does more of the work. */
