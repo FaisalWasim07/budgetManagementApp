@@ -14,17 +14,34 @@ import { Trash } from './icons';
 // with a dialog.
 //
 // Phone only. A pointer has a delete button on every row already.
+//
+// Two numbers, deliberately kept apart: how far the finger actually went, and
+// how far the row is drawn. They were the same value once, with the drawn one
+// eased — and the easing had its sign inverted, so past the threshold the row
+// crept backwards, capped short of the trigger, and delete could never fire.
+// A cosmetic mistake disabled the action because the action was reading the
+// cosmetics. It asks the finger now.
 const THRESHOLD = 96;
-const MAX = 132;
+const MAX = 150;
+// How much of the drag past the threshold the row still follows. Enough to
+// stay alive under the thumb, little enough to feel like it has arrived.
+const RESIST = 0.35;
+
+const drawFor = (travel) =>
+  Math.max(MAX * -1, travel > -THRESHOLD ? travel : -THRESHOLD + (travel + THRESHOLD) * RESIST);
 
 export default function SwipeToDelete({ onDelete, disabled = false, children }) {
-  const [dx, setDx] = useState(0);
+  const [travel, setTravel] = useState(0);
   const [going, setGoing] = useState(false);
   const start = useRef(null);
+  // Set the moment a drag turns horizontal, and read by the click handler
+  // underneath: without it, letting go at the end of a swipe also counts as a
+  // tap on the row and opens the editor behind the row that just left.
+  const dragged = useRef(false);
 
   if (disabled) return children;
 
-  const armed = -dx >= THRESHOLD;
+  const armed = -travel >= THRESHOLD;
 
   const onTouchStart = (e) => {
     if (e.touches.length !== 1) return;
@@ -44,22 +61,23 @@ export default function SwipeToDelete({ onDelete, disabled = false, children }) 
       start.current.decided = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
     }
     if (start.current.decided !== 'x') return;
+    dragged.current = true;
 
-    // Leftwards only, and it stiffens past the point where it would fire so
-    // the thumb can feel the threshold rather than having to watch for it.
-    const next = Math.max(-MAX, Math.min(0, moveX));
-    setDx(next < -THRESHOLD ? -THRESHOLD - (next + THRESHOLD) / 3 : next);
+    // Leftwards only. What is stored is the finger, not the drawing.
+    setTravel(Math.min(0, moveX));
   };
 
   const onTouchEnd = () => {
     const decided = start.current?.decided;
     start.current = null;
-    if (decided !== 'x') return setDx(0);
-    if (!armed) return setDx(0);
+    if (decided !== 'x' || !armed) {
+      setTravel(0);
+      return;
+    }
     // Slid the rest of the way out first, so the row leaves rather than
     // vanishing under the finger.
     setGoing(true);
-    setDx(-MAX * 2);
+    setTravel(-MAX * 3);
     onDelete();
   };
 
@@ -70,8 +88,15 @@ export default function SwipeToDelete({ onDelete, disabled = false, children }) 
       </div>
       <div
         className="swipe-front"
+        onClickCapture={(e) => {
+          // A swipe ends with a touchend the browser also reports as a click.
+          if (!dragged.current) return;
+          dragged.current = false;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         style={{
-          transform: `translateX(${dx}px)`,
+          transform: `translateX(${going ? -MAX * 3 : drawFor(travel)}px)`,
           // Follows the finger exactly while dragging; eases only when it is
           // springing back or leaving.
           transition: start.current ? 'none' : 'transform .22s cubic-bezier(.2,.8,.3,1)',

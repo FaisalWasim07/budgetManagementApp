@@ -15,6 +15,9 @@ import { useEffect, useRef, useState } from 'react';
 // tells a thumb it has gone far enough without needing a label.
 const PULL_TRIGGER = 72;
 const PULL_MAX = 110;
+// How far a finger must move before its direction is worth judging. Below this
+// every drag looks diagonal.
+const DECIDE_AT = 8;
 
 // Returns how far the page is currently pulled down, so the caller can draw
 // something at that offset. Only ever non-zero on a touch device at the very
@@ -37,12 +40,31 @@ export function usePullToRefresh(enabled, onRefresh) {
         state.current.tracking = false;
         return;
       }
-      state.current = { startY: e.touches[0].clientY, tracking: true };
+      state.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        tracking: true,
+        decided: null,
+      };
     };
 
     const move = (e) => {
       if (!state.current.tracking) return;
+      const dx = e.touches[0].clientX - state.current.startX;
       const dy = e.touches[0].clientY - state.current.startY;
+
+      // Which way this drag is going is decided once and then held — the same
+      // rule a row uses to claim a sideways drag. Without it, swiping a row
+      // aside also dragged the refresh indicator down, because a real thumb
+      // never travels in a straight horizontal line.
+      if (state.current.decided === null) {
+        if (Math.abs(dx) < DECIDE_AT && Math.abs(dy) < DECIDE_AT) return;
+        state.current.decided = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
+      }
+      if (state.current.decided !== 'y') {
+        setPull(0);
+        return;
+      }
       if (dy <= 0) {
         setPull(0);
         return;
@@ -55,9 +77,10 @@ export function usePullToRefresh(enabled, onRefresh) {
 
     const up = () => {
       if (!state.current.tracking) return;
+      const vertical = state.current.decided === 'y';
       state.current.tracking = false;
       setPull((current) => {
-        if (current >= PULL_TRIGGER) onRefresh();
+        if (vertical && current >= PULL_TRIGGER) onRefresh();
         return 0;
       });
     };
