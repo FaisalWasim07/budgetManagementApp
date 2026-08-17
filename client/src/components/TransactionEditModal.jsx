@@ -119,12 +119,21 @@ export default function TransactionEditModal({
             <div className="row">
               <label className="field grow">
                 Left ({currencyOf(outLeg)})
-                <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} autoFocus />
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={set('amount')}
+                  autoFocus
+                />
               </label>
               <label className="field grow">
                 Arrived ({currencyOf(inLeg)})
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="0.01"
                   value={form.toAmount}
@@ -153,7 +162,15 @@ export default function TransactionEditModal({
             </label>
             <label className="field grow">
               Amount ({entry.currency ?? accountsById[entry.account_id]?.currency ?? ''})
-              <input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} autoFocus />
+              <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={set('amount')}
+                  autoFocus
+                />
             </label>
             <label className="field grow">
               Category

@@ -120,6 +120,19 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.locator('.recurring-lists .txn', { hasText: 'Netflix' }).first().tap();
   await page.waitForSelector('.modal', { timeout: 8000 });
   await page.locator('.modal button:has-text("Delete")').tap();
+  await page.waitForTimeout(700);
+  // Deleting a recurring item erases it from every month it ever charged, so
+  // it asks — in the app's own dialog now, not the browser's, which a phone
+  // labels with the site's hostname and which cannot say what is at stake.
+  check(
+    'and deleting a recurring item asks first',
+    (await page.locator('.modal.confirm').count()) === 1
+  );
+  check(
+    'saying what it will take',
+    /every month it ever charged/i.test(await page.locator('.confirm-detail').textContent())
+  );
+  await page.locator('.modal.confirm button:has-text("Delete")').tap();
   await page.waitForTimeout(1800);
   check(
     'deleting works from the dialog',

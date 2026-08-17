@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Modal from './Modal';
 import { createAccount, updateAccount, removeAccount } from '../api/accounts';
 import { CURRENCIES } from '../utils/currency';
+import { useToast } from '../utils/toast';
 
 export default function AccountFormModal({ account, personId, personName, onClose, onSaved }) {
   const editing = Boolean(account);
@@ -11,6 +12,7 @@ export default function AccountFormModal({ account, personId, personName, onClos
   const [openingBalance, setOpeningBalance] = useState(account?.openingBalance ?? 0);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { show } = useToast();
 
   async function save(e) {
     e.preventDefault();
@@ -43,9 +45,11 @@ export default function AccountFormModal({ account, personId, personName, onClos
       const result = await removeAccount(account.id);
       if (result.deactivated) {
         // Keeping the rows means the history behind past months stays intact.
-        window.alert(
-          `"${account.name}" has ${result.transactions} entries and ${result.subscriptions} subscriptions, ` +
-            `so it was hidden rather than deleted. Its history stays intact.`
+        // Said in passing rather than in a dialog: nothing went wrong and there
+        // is nothing to decide, so there is nothing to stop for.
+        show(
+          `"${account.name}" was hidden rather than deleted — ${result.transactions} entries and ` +
+            `${result.subscriptions} recurring items still refer to it, and their history stays intact.`
         );
       }
       onSaved();
@@ -93,6 +97,8 @@ export default function AccountFormModal({ account, personId, personName, onClos
 
         <label className="field">
           {type === 'credit' ? `Already owed (${currency})` : `Starting balance (${currency})`}
+          {/* Deliberately no inputMode="decimal": a credit card's balance
+              is entered as a negative, and that keypad has no minus key. */}
           <input
             type="number"
             step="0.01"

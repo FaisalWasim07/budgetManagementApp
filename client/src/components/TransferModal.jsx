@@ -283,6 +283,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             {basisKind === 'custom' ? (
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 value={customBasis}
@@ -341,6 +342,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
 
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="0.01"
                   className="split-amount"
@@ -384,6 +386,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
                   <span className="label">Arriving in {to.currency}</span>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
                     value={row.toAmount}

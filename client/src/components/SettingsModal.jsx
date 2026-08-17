@@ -139,6 +139,7 @@ export default function SettingsModal({
                   Fallback rate for {code}
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.000001"
                     min="0"
                     placeholder="e.g. 0.0128"

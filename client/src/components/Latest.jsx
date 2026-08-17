@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listTransactions, deleteTransaction } from '../api/transactions';
+import { listTransactions } from '../api/transactions';
+import { useEntryDelete } from '../utils/deleteEntry';
 import { useLive } from '../utils/live';
 import { Money } from '../utils/display';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
 import { Pencil, Trash } from './icons';
+import { SkeletonRows } from './Skeleton';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -68,16 +70,13 @@ export default function Latest({
       legs: row.transfer_id ? rows.filter((x) => x.transfer_id === row.transfer_id) : null,
     });
 
-  const remove = async (row) => {
-    const message = row.transfer_id
-      ? 'Delete this transfer? Both sides of it are removed.'
-      : 'Delete this entry?';
-    if (!window.confirm(message)) return false;
-    await deleteTransaction(row.id);
-    load();
-    onChanged?.();
-    return true;
-  };
+  // Shared with Activity, which lists the same rows: an ordinary entry goes
+  // straight away with an undo, a transfer asks first.
+  const { request: remove, dialog: deleteDialog } = useEntryDelete({
+    reload: load,
+    onChanged,
+    afterDelete: () => setEditing(null),
+  });
 
   return (
     <section className="card latest">
@@ -146,7 +145,7 @@ export default function Latest({
                   className="icon-button small danger"
                   title="Delete"
                   aria-label={`Delete ${label}`}
-                  onClick={() => remove(row)}
+                  onClick={() => remove(row, rows)}
                 >
                   <Trash />
                 </button>
@@ -156,13 +155,14 @@ export default function Latest({
         );
       })}
 
-      {shown.length === 0 && (
-        <div className="txn empty">
-          <span className="what muted">
-            {loading ? 'Loading…' : 'Nothing recorded this month yet.'}
-          </span>
-        </div>
-      )}
+      {shown.length === 0 &&
+        (loading ? (
+          <SkeletonRows count={4} />
+        ) : (
+          <div className="txn empty">
+            <span className="what muted">Nothing recorded this month yet.</span>
+          </div>
+        ))}
 
       {editing && (
         <TransactionEditModal
@@ -171,7 +171,7 @@ export default function Latest({
           month={month}
           onClose={() => setEditing(null)}
           onDelete={async (row) => {
-            if (await remove(row)) setEditing(null);
+            if (await remove(row, rows)) setEditing(null);
           }}
           onSaved={async () => {
             load();
@@ -179,6 +179,8 @@ export default function Latest({
           }}
         />
       )}
+
+      {deleteDialog}
     </section>
   );
 }

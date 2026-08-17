@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import AuthGate from './AuthGate.jsx';
+import { ToastProvider } from './utils/toast';
 import { applyTheme, loadTheme } from './utils/theme';
 import './index.css';
 
@@ -10,6 +11,10 @@ applyTheme(loadTheme());
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthGate />
+    {/* Outside the auth gate, so a message can outlive the screen that
+        raised it — signing out is itself worth confirming. */}
+    <ToastProvider>
+      <AuthGate />
+    </ToastProvider>
   </React.StrictMode>
 );

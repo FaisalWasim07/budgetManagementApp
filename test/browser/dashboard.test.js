@@ -140,6 +140,28 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await page.locator('.txn', { hasText: 'Groceries' }).count()) === 0
   );
 
+  // An ordinary entry is a few fields you could retype, so it goes without
+  // being asked about and leaves a way back instead. Confirming every delete
+  // is how people learn to click through the confirmation.
+  check('deleting one leaves an undo behind', (await page.locator('.toast').count()) === 1);
+  await page.locator('.toast button:has-text("Undo")').click();
+  await page.waitForTimeout(1500);
+  check(
+    'and undo puts it back',
+    (await page.locator('.txn', { hasText: 'Groceries' }).count()) === 1
+  );
+  // Gone for good this time, so the rest of the suite sees what it expects.
+  await page
+    .locator('.txn', { hasText: 'Groceries' })
+    .first()
+    .locator('button[title="Delete"]')
+    .click();
+  await page.waitForTimeout(1500);
+  check(
+    'and it can be deleted again afterwards',
+    (await page.locator('.txn', { hasText: 'Groceries' }).count()) === 0
+  );
+
   // --- filters -------------------------------------------------------------
   await page.click('.filter-row button:has-text("Went out")');
   await page.waitForTimeout(400);

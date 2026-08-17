@@ -23,6 +23,7 @@ export default function AddSheet({
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const amountField = useRef(null);
+  const sheetRef = useRef(null);
   // The sheet slides over the page; the page must not slide with it.
   useScrollLock(open);
 
@@ -33,9 +34,41 @@ export default function AddSheet({
     setCategory('');
     setError(null);
     setAccountId(String(defaultAccountId ?? accounts[0]?.id ?? ''));
+    // Waited out rather than done immediately: focusing mid-slide makes some
+    // browsers scroll to the element and fight the transition.
     const focus = setTimeout(() => amountField.current?.focus(), 220);
     return () => clearTimeout(focus);
   }, [open, defaultAccountId, accounts]);
+
+  // Whatever opened the sheet gets the keyboard back when it closes — usually
+  // the + in the tab bar, which is where you would want to be to add another.
+  useEffect(() => {
+    if (!open) return undefined;
+    const opener = document.activeElement;
+    return () => opener?.focus?.({ preventScroll: true });
+  }, [open]);
+
+  // The same Tab loop the dialogs use. The sheet stays in the DOM when closed,
+  // but `visibility: hidden` takes it out of the tab order, so this only ever
+  // applies while it is open.
+  const trapTab = (e) => {
+    if (e.key !== 'Tab') return;
+    const focusable = [
+      ...(sheetRef.current?.querySelectorAll(
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      ) ?? []),
+    ].filter((el) => !el.disabled && el.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -85,6 +118,8 @@ export default function AddSheet({
       {open && <div className="sheet-scrim" onClick={onClose} />}
       <div
         className={open ? 'sheet open' : 'sheet'}
+        ref={sheetRef}
+        onKeyDown={trapTab}
         role="dialog"
         aria-modal="true"
         aria-label="Add money"

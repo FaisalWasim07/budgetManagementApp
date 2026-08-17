@@ -1134,6 +1134,113 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .invite-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; font-size: .82rem; word-break: break-all; }
 
+/* ── Pull to refresh ─────────────────────────────────────────────
+   Sits above the page and below the scrim, drawn at whatever offset the
+   finger has reached. Positioned from the top edge, so it appears to come
+   out from under the bar rather than to fade in over it. */
+.pull-hint {
+  position: fixed; z-index: 44; top: -34px; left: 50%;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-lift); color: var(--ink-3);
+}
+/* Far enough to count: the colour change is the whole message, so releasing
+   is a decision rather than a guess. */
+.pull-hint.armed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.pull-hint.armed svg { animation: spin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .pull-hint.armed svg { animation: none; } }
+
+/* ── Waiting for a list ──────────────────────────────────────────
+   Shaped like the rows that are coming, so the screen settles once rather
+   than twice. */
+.skeleton-rows .txn.skeleton { gap: 12px; }
+.sk {
+  display: block; border-radius: 7px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    color-mix(in srgb, var(--ink-3) 14%, var(--surface-2)) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: sk-sweep 1.4s ease-in-out infinite;
+}
+.sk-tile { width: 34px; height: 34px; flex: none; border-radius: 11px; }
+.sk-lines { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.sk-line { height: 10px; }
+.sk-line.short { height: 8px; opacity: .7; }
+.sk-amount { width: 72px; height: 12px; flex: none; }
+@keyframes sk-sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+/* A pulsing gradient is the least useful thing on screen for somebody who
+   asked for less movement; the shapes alone still say "not yet". */
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; background: var(--surface-2); }
+}
+
+/* ── Confirming something ────────────────────────────────────────
+   Narrower than an editing dialog: it holds a sentence and two buttons, and
+   at full modal width the question drifts away from the answer. */
+.modal.confirm { max-width: 420px; }
+.confirm-detail {
+  background: var(--surface-2); border-radius: 12px; padding: 12px 14px;
+  font-size: .88rem; color: var(--ink-2); display: flex; flex-direction: column; gap: 6px;
+}
+.confirm-detail .confirm-line { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+.confirm-detail .confirm-line b { color: var(--ink); font-weight: 600; }
+.confirm-actions { display: flex; gap: 9px; justify-content: flex-end; }
+/* Cancel sits first in the DOM for the keyboard, so the confirming button is
+   pushed to the right visually — where the eye expects the action to be. */
+.confirm-actions button { min-width: 96px; justify-content: center; }
+/* .danger is a red word on a plain button, which is right for a delete sitting
+   in a form's footer. The button that ends the conversation is filled. */
+button.primary.danger-solid { background: var(--neg); border-color: var(--neg); color: #fff; }
+button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
+
+/* ── Toasts ──────────────────────────────────────────────────────
+   Bottom centre on a phone, where the thumb already is; bottom left on a
+   desktop, out of the way of the page's own controls. Above the scrim (50)
+   and the dust (45), because an undo you cannot reach is not an undo. */
+.toasts {
+  position: fixed; z-index: 90; display: flex; flex-direction: column; gap: 8px;
+  /* Clear of the tab bar, which is its padding plus an icon plus a label plus
+     the home indicator — so the offset is measured the same way rather than
+     guessed at as one number. */
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(78px + env(safe-area-inset-bottom) + 12px);
+  width: min(440px, calc(100vw - 24px)); pointer-events: none;
+}
+@media (min-width: 701px) {
+  .toasts { left: 22px; transform: none; bottom: 22px; width: min(400px, calc(100vw - 44px)); }
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px;
+  background: var(--ink); color: var(--bg); border-radius: 12px;
+  padding: 11px 12px 11px 15px; font-size: .87rem;
+  box-shadow: 0 10px 30px rgb(0 0 0 / .28);
+  animation: toast-in .22s cubic-bezier(.2, .8, .3, 1);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+.toast-text { flex: 1; min-width: 0; }
+.toast-undo {
+  position: relative; overflow: hidden; flex: 0 0 auto;
+  background: color-mix(in srgb, var(--bg) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bg) 28%, transparent);
+  color: var(--bg); font-weight: 600; padding: 5px 12px 7px; border-radius: 8px; font-size: .84rem;
+}
+.toast-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 26%, transparent); }
+/* The remaining time, drawn along the bottom edge of the button it belongs to. */
+.toast-countdown {
+  position: absolute; left: 0; bottom: 0; height: 2px; width: 100%;
+  background: var(--bg); transform-origin: left; opacity: .7;
+}
+.toast-close {
+  flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--bg);
+  opacity: .6; padding: 2px 7px; font-size: 1.1rem; line-height: 1;
+}
+.toast-close:hover:not(:disabled) { opacity: 1; background: color-mix(in srgb, var(--bg) 16%, transparent); }
+
 /* An offer to add a passkey, sitting above the page rather than in front of
    it. Tinted with the accent instead of the warning colour: nothing is wrong,
    there is simply something worth doing. */

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listTransactions, deleteTransaction } from '../api/transactions';
+import { listTransactions } from '../api/transactions';
+import { useEntryDelete } from '../utils/deleteEntry';
 import { useLive } from '../utils/live';
 import { Money, useDisplay } from '../utils/display';
 import { Pencil, Search, Trash } from './icons';
 import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
 import ToolbarSlot from './ToolbarSlot';
+import { SkeletonRows } from './Skeleton';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -112,16 +114,13 @@ export default function ActivityList({
   const rows = data ?? [];
   const loading = data === undefined;
 
-  async function remove(row) {
-    const message = row.transfer_id
-      ? 'Delete this transfer? Both sides of it are removed.'
-      : 'Delete this entry?';
-    if (!window.confirm(message)) return false;
-    await deleteTransaction(row.id);
-    load();
-    onChanged();
-    return true;
-  }
+  // Which deletes stop to ask, and which leave an undo instead, is decided in
+  // one place for both screens that list these rows.
+  const { request: remove, dialog: deleteDialog } = useEntryDelete({
+    reload: load,
+    onChanged,
+    afterDelete: () => setEditing(null),
+  });
 
   const people = Object.values(personsById);
 
@@ -182,21 +181,21 @@ export default function ActivityList({
           className="icon-button small danger"
           title="Delete"
           aria-label={`Delete ${label}`}
-          onClick={() => remove(row)}
+          onClick={() => remove(row, rows)}
         >
           <Trash />
         </button>
       </span>
     );
 
-  const nothing = (
+  const nothing = loading ? (
+    <SkeletonRows count={6} />
+  ) : (
     <div className="txn empty">
       <span className="what muted">
-        {loading
-          ? 'Loading…'
-          : needle
-            ? `Nothing this month matches “${query.trim()}”.`
-            : 'Nothing recorded this month yet.'}
+        {needle
+          ? `Nothing this month matches “${query.trim()}”.`
+          : 'Nothing recorded this month yet.'}
       </span>
     </div>
   );
@@ -356,7 +355,7 @@ export default function ActivityList({
           accountsById={accountsById}
           month={month}
           onDelete={async (row) => {
-            if (await remove(row)) setEditing(null);
+            if (await remove(row, rows)) setEditing(null);
           }}
           onClose={() => setEditing(null)}
           onSaved={async () => {
@@ -365,6 +364,8 @@ export default function ActivityList({
           }}
         />
       )}
+
+      {deleteDialog}
     </section>
   );
 }

@@ -14,6 +14,9 @@ import ToolbarSlot from '../components/ToolbarSlot';
 import { Pencil, Plus, Trash, Wallet } from '../components/icons';
 import { iconForCategory } from '../utils/categoryIcon';
 import { useLive } from '../utils/live';
+import { useToast } from '../utils/toast';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { SkeletonRows } from '../components/Skeleton';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -155,6 +158,11 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
+  // The one recurring action that cannot be taken back: it erases the item from
+  // every month it ever charged, which is why it is the one that asks.
+  const [deleting, setDeleting] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const { show } = useToast();
 
   // Kept outside the page: leaving Recurring and coming back used to throw the
   // list away and fetch it again from an empty screen.
@@ -162,6 +170,7 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
     listSubscriptions(month)
   );
   const items = data ?? [];
+  const loading = data === undefined;
 
   const currency = summary.primaryCurrency;
   const accounts = summary.persons.flatMap((p) =>
@@ -183,17 +192,35 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
 
   // Only offered for items that have charged before this month, so there is
   // always history for it to keep.
+  //
+  // Stopping takes nothing away — earlier months keep the item and Resume puts
+  // it back — so it does not ask, it just says what it did and offers the way
+  // back. Deleting is the opposite, and asks below.
   const stop = (item) =>
-    window.confirm(`Stop ${item.name} from ${formatMonth(month)}? Earlier months keep it.`) &&
-    act(() => stopSubscription(item.id, month));
+    act(async () => {
+      await stopSubscription(item.id, month);
+      show(`${item.name} stopped from ${formatMonth(month)}`, {
+        onUndo: () => act(() => resumeSubscription(item.id, month)),
+      });
+    });
 
   const resume = (item) => act(() => resumeSubscription(item.id, month));
 
-  const remove = (item) =>
-    window.confirm(
-      `Delete ${item.name} completely? This erases it from every month it ever charged — ` +
-        `to keep those, use Stop instead.`
-    ) && act(() => deleteSubscription(item.id));
+  const remove = (item) => setDeleting(item);
+
+  const confirmRemove = async () => {
+    setBusy(true);
+    try {
+      await deleteSubscription(deleting.id);
+      setDeleting(null);
+      load();
+      await onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const running = items.filter((i) => !hasEnded(i, month));
   const out = running.filter((i) => i.direction !== 'income');
@@ -351,14 +378,19 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
               onDelete={remove}
             />
           ))}
-          {out.length === 0 && (
-            <div className="txn empty">
-              <span className="what muted">
-                Nothing going out on repeat. Subscriptions, rent, school fees — anything you’d
-                otherwise re-type every month.
-              </span>
-            </div>
-          )}
+          {/* An empty list and a list that has not arrived look identical, and
+              only one of them means "you have nothing set up". */}
+          {out.length === 0 &&
+            (loading ? (
+              <SkeletonRows count={4} />
+            ) : (
+              <div className="txn empty">
+                <span className="what muted">
+                  Nothing going out on repeat. Subscriptions, rent, school fees — anything you’d
+                  otherwise re-type every month.
+                </span>
+              </div>
+            ))}
         </div>
       </section>
 
@@ -439,6 +471,31 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
             load();
             await onChanged();
           }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete ${deleting.name}?`}
+          busy={busy}
+          error={error}
+          onCancel={() => setDeleting(null)}
+          onConfirm={confirmRemove}
+          detail={
+            <>
+              <span>
+                This erases it from every month it ever charged, including months already
+                gone. To keep those and only end it from here, use Stop instead.
+              </span>
+              <span className="confirm-line">
+                <span>
+                  <b>{deleting.name}</b>
+                  {deleting.category ? ` · ${deleting.category}` : ''}
+                </span>
+                <Money amount={perMonth(deleting)} currency={deleting.currency} suffix=" / month" />
+              </span>
+            </>
+          }
         />
       )}
     </>

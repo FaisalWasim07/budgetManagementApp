@@ -20,7 +20,8 @@ import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
 import { setActiveHousehold } from './api/client';
-import { currentMonth } from './utils/month';
+import { currentMonth, shiftMonth } from './utils/month';
+import { usePullToRefresh, useSwipeMonth } from './utils/gestures';
 import { DisplayContext } from './utils/display';
 import { clearLiveCache, useLiveData } from './utils/live';
 import { proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
@@ -109,6 +110,13 @@ export default function App({ user, onSignedOut }) {
   // refresh whichever screen you happen to be on without the bar knowing which
   // screen that is.
   const { refreshAll, busy, register } = useLiveData();
+
+  // The phone shell folds the month arrows away and hides refresh in the
+  // overflow menu, so the two most frequent actions became the two least
+  // reachable. These put them back under the thumb.
+  const onSwipe = useCallback((delta) => setMonth((m) => shiftMonth(m, delta)), []);
+  useSwipeMonth(phone && !sheet && !showSettings && !showTransfer, onSwipe);
+  const { pull, armed } = usePullToRefresh(phone, refreshAll);
 
   const household = households?.find((h) => h.id === householdId) ?? null;
   const readOnly = household?.role === 'viewer';
@@ -259,6 +267,19 @@ export default function App({ user, onSignedOut }) {
   return (
     <DisplayContext.Provider value={{ amountsHidden, instant: instantHide }}>
       <div className="shell">
+        {/* Follows the finger down from the top edge, and spins once the pull
+            is far enough to have meant it. Never rendered on a desktop, where
+            the bar has room for a real button. */}
+        {pull > 0 && (
+          <div
+            className={armed ? 'pull-hint armed' : 'pull-hint'}
+            style={{ transform: `translate(-50%, ${pull}px)` }}
+            aria-hidden="true"
+          >
+            <Refresh size={17} />
+          </div>
+        )}
+
         {/* On a phone the same controls live in the top bar and the bottom
             bar, because there is no width for a column. */}
         {!phone && (
