@@ -20,8 +20,8 @@ import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
 import { setActiveHousehold } from './api/client';
-import { currentMonth, shiftMonth } from './utils/month';
-import { usePullToRefresh, useSwipeMonth } from './utils/gestures';
+import { currentMonth } from './utils/month';
+import { usePullToRefresh } from './utils/gestures';
 import { DisplayContext } from './utils/display';
 import { clearLiveCache, useLiveData } from './utils/live';
 import { proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
@@ -111,11 +111,8 @@ export default function App({ user, onSignedOut }) {
   // screen that is.
   const { refreshAll, busy, register } = useLiveData();
 
-  // The phone shell folds the month arrows away and hides refresh in the
-  // overflow menu, so the two most frequent actions became the two least
-  // reachable. These put them back under the thumb.
-  const onSwipe = useCallback((delta) => setMonth((m) => shiftMonth(m, delta)), []);
-  useSwipeMonth(phone && !sheet && !showSettings && !showTransfer, onSwipe);
+  // Refresh is buried in the overflow menu on a phone, because the top bar has
+  // no width for it — so a pull from the top puts it back under the thumb.
   const { pull, armed } = usePullToRefresh(phone, refreshAll);
 
   const household = households?.find((h) => h.id === householdId) ?? null;

@@ -3,11 +3,10 @@ import { Trash } from './icons';
 
 // Drag a row aside to delete it.
 //
-// This and the month swipe want the same gesture, so one of them has to win by
-// where it starts: a drag beginning on a row belongs to the row, and the month
-// only takes what no row claimed. That is the ordinary phone convention — a
-// list row slides, the page underneath it does not — and it is why the month
-// listener skips anything inside .txn.
+// The page briefly had a swipe of its own to change month, which meant a swipe
+// on a row changed the month instead of deleting anything. That one is gone:
+// horizontally, a phone list row slides and the page under it does not, so the
+// row is the only thing here that answers to a sideways drag.
 //
 // Releasing past the threshold deletes without asking. That is only reasonable
 // because the undo toast is already there to catch it; a swipe is easy to do by

@@ -1,71 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
-// Touch gestures for the phone shell.
+// Pull down to refresh, for the phone shell.
 //
-// Both of these exist because the phone lost a control the desktop kept. The
-// month arrows are folded away until the month disagrees with today, and the
-// refresh button had to move into the overflow menu to stop the top bar
-// overflowing at 393px — so the two things you do most often are the two that
-// take the most taps to reach. A swipe and a pull put them back.
-
-// Below this a touch is a tap that wobbled, not a swipe.
-const SWIPE_MIN = 60;
-// A swipe that drifts this far vertically was a scroll that happened to start
-// sideways, and taking the month off someone mid-scroll is worse than missing
-// a gesture.
-const SWIPE_MAX_DRIFT = 45;
+// It exists because the phone lost a control the desktop kept: the refresh
+// button had to move into the overflow menu to stop the top bar overflowing at
+// 393px, which left the thing you do most often behind two taps.
+//
+// There was a swipe-to-change-month here too. It went: swiping a row aside to
+// delete it is the gesture a phone already means, and a page-wide month swipe
+// can only ever be in a fight with it — see SwipeToDelete.
 
 // How far the finger travels before the page moves at all, and how far it can
 // go before the pull stops following. Resistance past the trigger point is what
 // tells a thumb it has gone far enough without needing a label.
 const PULL_TRIGGER = 72;
 const PULL_MAX = 110;
-
-export function useSwipeMonth(enabled, onSwipe) {
-  useEffect(() => {
-    if (!enabled) return undefined;
-    let startX = 0;
-    let startY = 0;
-    let tracking = false;
-
-    const down = (e) => {
-      if (e.touches.length !== 1) return;
-      // Not from inside anything that wants a horizontal drag of its own. A
-      // list row slides aside to delete, and the month may only have the
-      // gesture where no row has claimed it — otherwise swiping to delete
-      // changes the month instead, which is what it used to do.
-      //
-      // The twelve-month strip is the other one: it scrolls sideways, and
-      // stealing its drag would make it impossible to read.
-      if (
-        e.target.closest('.swipe-row, .year-strip, .modal, .sheet, input, select, textarea')
-      ) {
-        tracking = false;
-        return;
-      }
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      tracking = true;
-    };
-    const up = (e) => {
-      if (!tracking) return;
-      tracking = false;
-      const touch = e.changedTouches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dy) > SWIPE_MAX_DRIFT) return;
-      // Left means forward, the way a page turns.
-      onSwipe(dx < 0 ? 1 : -1);
-    };
-
-    window.addEventListener('touchstart', down, { passive: true });
-    window.addEventListener('touchend', up, { passive: true });
-    return () => {
-      window.removeEventListener('touchstart', down);
-      window.removeEventListener('touchend', up);
-    };
-  }, [enabled, onSwipe]);
-}
 
 // Returns how far the page is currently pulled down, so the caller can draw
 // something at that offset. Only ever non-zero on a touch device at the very
