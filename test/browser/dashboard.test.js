@@ -465,8 +465,41 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     !(await page.locator('.hero .value').textContent()).includes('•'),
     await page.locator('.hero .value').textContent()
   );
-  await setVisibility('hidden');
-  await page.waitForTimeout(1400);
+  // How long a real digit is still readable anywhere on the page after the app
+  // is told it is no longer on screen. The dust runs for about a second, and
+  // for that second the figure is coming apart but perfectly legible — which
+  // is the second somebody else is holding the phone.
+  const timeToHide = () =>
+    page.evaluate(
+      () =>
+        new Promise((res) => {
+          const showing = () =>
+            [...document.querySelectorAll('.money')].some((e) => /\d/.test(e.textContent)) ||
+            document.querySelectorAll('canvas.dust').length > 0;
+          const t0 = performance.now();
+          Object.defineProperty(document, 'visibilityState', {
+            value: 'hidden',
+            configurable: true,
+          });
+          document.dispatchEvent(new Event('visibilitychange'));
+          const stop = setInterval(() => {
+            if (!showing()) {
+              clearInterval(stop);
+              res(Math.round(performance.now() - t0));
+            } else if (performance.now() - t0 > 4000) {
+              clearInterval(stop);
+              res(-1);
+            }
+          }, 16);
+        })
+    );
+
+  const hiddenIn = await timeToHide();
+  check(
+    'backgrounding the app hides them at once, not over a second of animation',
+    hiddenIn >= 0 && hiddenIn < 250,
+    `${hiddenIn}ms`
+  );
   check(
     'backgrounding the app hides them again',
     (await page.locator('.hero .value').textContent()).includes('•'),
@@ -475,6 +508,19 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   await page.click('button[aria-label="Show amounts"]');
   await page.waitForTimeout(1600);
+
+  // The dust is for the tap you chose to make, and it must survive all of this.
+  await page.click('button[aria-label="Hide amounts"]');
+  await page.waitForTimeout(120);
+  check(
+    'a deliberate tap still turns them to dust',
+    (await page.locator('canvas.dust').count()) > 0,
+    `${await page.locator('canvas.dust').count()} layers`
+  );
+  await page.waitForTimeout(1400);
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(1600);
+
   // Coming back fires the same event with "visible". Re-masking on that would
   // undo the tap that had just been made.
   await setVisibility('visible');

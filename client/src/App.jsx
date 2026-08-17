@@ -78,6 +78,9 @@ export default function App({ user, onSignedOut }) {
   // phone, and a setting that remembers "shown" is a setting that shows your
   // balance to the room the moment you unlock it.
   const [amountsHidden, setAmountsHidden] = useState(true);
+  // Whether the current hide was asked for or imposed. A tap gets the dust; the
+  // app hiding itself does not have a second to spend on an animation.
+  const [instantHide, setInstantHide] = useState(false);
   const [theme, setTheme] = useState(loadTheme);
   const phone = usePhone();
   // Every list on screen registers its own reload here, so one button can
@@ -105,9 +108,14 @@ export default function App({ user, onSignedOut }) {
   // page goes into the back/forward cache without a visibility change first.
   useEffect(() => {
     const hide = () => {
-      if (document.visibilityState === 'hidden') setAmountsHidden(true);
+      if (document.visibilityState !== 'hidden') return;
+      setInstantHide(true);
+      setAmountsHidden(true);
     };
-    const hideNow = () => setAmountsHidden(true);
+    const hideNow = () => {
+      setInstantHide(true);
+      setAmountsHidden(true);
+    };
     document.addEventListener('visibilitychange', hide);
     window.addEventListener('pagehide', hideNow);
     return () => {
@@ -215,7 +223,7 @@ export default function App({ user, onSignedOut }) {
   const empty = summary && summary.persons.length === 0;
 
   return (
-    <DisplayContext.Provider value={{ amountsHidden }}>
+    <DisplayContext.Provider value={{ amountsHidden, instant: instantHide }}>
       <div className="shell">
         {/* On a phone the same controls live in the top bar and the bottom
             bar, because there is no width for a column. */}
@@ -314,7 +322,10 @@ export default function App({ user, onSignedOut }) {
 
               <button
                 className="icon-button"
-                onClick={() => setAmountsHidden((v) => !v)}
+                onClick={() => {
+                  setInstantHide(false);
+                  setAmountsHidden((v) => !v);
+                }}
                 title={amountsHidden ? 'Show amounts' : 'Hide amounts'}
                 aria-label={amountsHidden ? 'Show amounts' : 'Hide amounts'}
                 aria-pressed={amountsHidden}

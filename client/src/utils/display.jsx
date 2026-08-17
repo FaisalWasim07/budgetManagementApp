@@ -4,7 +4,7 @@ import { dust } from './dust';
 
 export const MASK = '••••';
 
-export const DisplayContext = createContext({ amountsHidden: true });
+export const DisplayContext = createContext({ amountsHidden: true, instant: false });
 
 // Every amount on screen goes through here, so the privacy toggle has a single
 // place to hide them — components never format currency themselves.
@@ -28,7 +28,7 @@ export function Money({
   suffix = '',
   className = '',
 }) {
-  const { amountsHidden } = useContext(DisplayContext);
+  const { amountsHidden, instant } = useContext(DisplayContext);
   const real =
     amount == null || Number.isNaN(amount)
       ? '—'
@@ -49,6 +49,16 @@ export function Money({
     }
     was.current = amountsHidden;
 
+    // An automatic hide has to be immediate. The dust runs for the best part of
+    // a second, and for that second the real figure is still on screen — coming
+    // apart, but perfectly readable. That second is exactly the one where
+    // somebody else is holding the phone, so the crumble is for the deliberate
+    // tap only, and the app hiding itself just swaps.
+    if (instant) {
+      setShown({ text: target, flash: 0 });
+      return undefined;
+    }
+
     let live = true;
     dust(box.current).then(() => {
       if (live) setShown((current) => ({ text: target, flash: current.flash + 1 }));
@@ -59,7 +69,7 @@ export function Money({
       // back rather than left invisible.
       box.current?.classList.remove('dusting');
     };
-  }, [amountsHidden, target]);
+  }, [amountsHidden, instant, target]);
 
   // dust() leaves the element blank on purpose. Uncovering it belongs here,
   // after React has put the new text in and before the browser paints — a
