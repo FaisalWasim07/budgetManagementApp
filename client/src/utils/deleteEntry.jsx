@@ -16,6 +16,12 @@ import { useToast } from './toast';
 // in two accounts, and putting it back means recreating both sides in the right
 // order with the right amounts, which an undo button has no business promising.
 // So that one asks first, and says what it is about to take.
+// Enough to recognise which one just went, so the undo is a decision rather
+// than a reflex — the row itself is no longer on screen to check against.
+const describeRow = (row) =>
+  [row.category || row.description || null, row.account_name].filter(Boolean).join(' · ') ||
+  'It can be put back for a few seconds.';
+
 export function useEntryDelete({ reload, onChanged, afterDelete }) {
   const { show } = useToast();
   const [pending, setPending] = useState(null);
@@ -40,6 +46,8 @@ export function useEntryDelete({ reload, onChanged, afterDelete }) {
     await deleteTransaction(row.id);
     done();
     show('Entry deleted', {
+      body: describeRow(row),
+      tone: 'success',
       onUndo: async () => {
         // A new row rather than the old one restored: the ledger only ever
         // appends, and nothing anywhere refers to an entry by its id.

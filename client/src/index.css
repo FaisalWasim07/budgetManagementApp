@@ -1134,6 +1134,23 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .invite-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; font-size: .82rem; word-break: break-all; }
 
+/* ── Swipe a row away ────────────────────────────────────────────
+   The red panel is not a button; it is what is revealed underneath as the
+   row moves off it, so it needs no tap of its own. */
+.swipe-row { position: relative; overflow: hidden; }
+.swipe-action {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 26px; background: color-mix(in srgb, var(--neg) 22%, var(--surface));
+  color: var(--neg);
+}
+/* Far enough that letting go will delete. The fill going solid is the only
+   warning there is room for, so it has to be unmistakable. */
+.swipe-action.armed { background: var(--neg); color: #FFFFFF; }
+.swipe-front { position: relative; background: var(--surface); will-change: transform; }
+/* The row's own bottom border belongs to the sliding half, or a line is left
+   hanging in mid-air as the row moves out from under it. */
+.swipe-row:last-child .swipe-front .txn { border-bottom: 0; }
+
 /* ── Pull to refresh ─────────────────────────────────────────────
    Sits above the page and below the scrim, drawn at whatever offset the
    finger has reached. Positioned from the top edge, so it appears to come
@@ -1147,7 +1164,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 /* Far enough to count: the colour change is the whole message, so releasing
    is a decision rather than a guess. */
-.pull-hint.armed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.pull-hint.armed { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
 .pull-hint.armed svg { animation: spin .9s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .pull-hint.armed svg { animation: none; } }
 
@@ -1202,52 +1219,88 @@ button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
    desktop, out of the way of the page's own controls. Above the scrim (50)
    and the dust (45), because an undo you cannot reach is not an undo. */
 .toasts {
-  position: fixed; z-index: 90; display: flex; flex-direction: column; gap: 8px;
+  position: fixed; z-index: 90; display: flex; flex-direction: column; gap: 10px;
   /* Clear of the tab bar, which is its padding plus an icon plus a label plus
      the home indicator — so the offset is measured the same way rather than
      guessed at as one number. */
   left: 50%; transform: translateX(-50%);
   bottom: calc(78px + env(safe-area-inset-bottom) + 12px);
-  width: min(440px, calc(100vw - 24px)); pointer-events: none;
+  width: min(460px, calc(100vw - 24px)); pointer-events: none;
 }
 @media (min-width: 701px) {
-  .toasts { left: 22px; transform: none; bottom: 22px; width: min(400px, calc(100vw - 44px)); }
+  .toasts { left: 22px; transform: none; bottom: 22px; width: min(430px, calc(100vw - 44px)); }
 }
+
+/* Tinted rather than inverted: a solid dark slab reads as the operating
+   system talking, and these are the app talking. Each tone carries its own
+   --toast-hue and everything else is mixed from it, so a new tone is one
+   line rather than five. */
 .toast {
-  pointer-events: auto; display: flex; align-items: center; gap: 10px;
-  background: var(--ink); color: var(--bg); border-radius: 12px;
-  padding: 11px 12px 11px 15px; font-size: .87rem;
-  box-shadow: 0 10px 30px rgb(0 0 0 / .28);
+  pointer-events: auto; display: flex; align-items: center; gap: 13px;
+  background: color-mix(in srgb, var(--toast-hue) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--toast-hue) 42%, transparent);
+  color: var(--ink);
+  border-radius: 14px; padding: 13px 13px 13px 15px;
+  box-shadow: var(--shadow-lift);
   animation: toast-in .22s cubic-bezier(.2, .8, .3, 1);
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
-.toast-text { flex: 1; min-width: 0; }
-.toast-undo {
-  position: relative; overflow: hidden; flex: 0 0 auto;
-  background: color-mix(in srgb, var(--bg) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bg) 28%, transparent);
-  color: var(--bg); font-weight: 600; padding: 5px 12px 7px; border-radius: 8px; font-size: .84rem;
+
+.toast-success { --toast-hue: #22C55E; }
+.toast-info    { --toast-hue: #3B82F6; }
+.toast-warn    { --toast-hue: #F0B429; }
+.toast-error   { --toast-hue: #EF4444; }
+
+/* The disc is the one place the tone appears at full strength, which is what
+   makes it readable at a glance from across the screen. */
+.toast-badge {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--toast-hue); color: #FFFFFF;
 }
-.toast-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 26%, transparent); }
+.toast-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.toast-text b { font-size: .89rem; font-weight: 650; color: var(--ink); }
+.toast-text small { font-size: .82rem; color: var(--ink-2); line-height: 1.4; }
+
+.toast-undo {
+  position: relative; overflow: hidden; flex: 0 0 auto; align-self: center;
+  background: color-mix(in srgb, var(--toast-hue) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--toast-hue) 42%, transparent);
+  color: var(--ink); font-weight: 600; padding: 5px 12px 7px; border-radius: 9px; font-size: .84rem;
+}
+.toast-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--toast-hue) 26%, transparent); }
 /* The remaining time, drawn along the bottom edge of the button it belongs to. */
 .toast-countdown {
   position: absolute; left: 0; bottom: 0; height: 2px; width: 100%;
-  background: var(--bg); transform-origin: left; opacity: .7;
+  background: var(--toast-hue); transform-origin: left;
 }
 .toast-close {
-  flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--bg);
-  opacity: .6; padding: 2px 7px; font-size: 1.1rem; line-height: 1;
+  flex: none; align-self: flex-start; background: transparent; border-color: transparent;
+  color: var(--ink-3); padding: 4px; border-radius: 8px; display: grid; place-items: center;
 }
-.toast-close:hover:not(:disabled) { opacity: 1; background: color-mix(in srgb, var(--bg) 16%, transparent); }
+.toast-close:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink-3) 16%, transparent); }
+
+/* On a dark ground the 10% tint disappears into the surface, so it is lifted
+   and the border does more of the work. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .toast {
+    background: color-mix(in srgb, var(--toast-hue) 17%, var(--surface));
+    border-color: color-mix(in srgb, var(--toast-hue) 52%, transparent);
+  }
+}
+:root[data-theme='dark'] .toast {
+  background: color-mix(in srgb, var(--toast-hue) 17%, var(--surface));
+  border-color: color-mix(in srgb, var(--toast-hue) 52%, transparent);
+}
 
 /* An offer to add a passkey, sitting above the page rather than in front of
    it. Tinted with the accent instead of the warning colour: nothing is wrong,
    there is simply something worth doing. */
 .passkey-nudge {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand) 26%, var(--line));
   border-radius: 14px; padding: 14px 16px;
 }
 .passkey-nudge .nudge-text { display: flex; flex-direction: column; gap: 3px; flex: 1 1 260px; min-width: 0; }

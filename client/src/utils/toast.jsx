@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Bang, Bulb, Check, Cross } from '../components/icons';
 
 // Things the app wants to say without stopping you.
 //
@@ -20,6 +21,14 @@ const ToastContext = createContext(null);
 // and then decide about.
 const PLAIN_MS = 3200;
 const UNDO_MS = 6000;
+
+// Four kinds, each with a glyph that says what it is before the words do.
+const TONES = {
+  success: Check,
+  info: Bulb,
+  warn: Bang,
+  error: Cross,
+};
 
 let nextId = 1;
 
@@ -45,12 +54,18 @@ export function ToastProvider({ children }) {
     };
   }, []);
 
+  // `title` is the line in bold; `body` is the sentence under it. Both, because
+  // a toast that says only "Deleted" makes you work out what was deleted, and
+  // one that says only the sentence has nothing to catch the eye.
   const show = useCallback(
-    (message, options = {}) => {
+    (title, options = {}) => {
       const id = nextId++;
-      const { onUndo, tone = 'plain' } = options;
+      const { body = null, onUndo, tone = 'info' } = options;
       const ms = onUndo ? UNDO_MS : PLAIN_MS;
-      setToasts((list) => [...list, { id, message, tone, onUndo, expiresAt: Date.now() + ms }]);
+      setToasts((list) => [
+        ...list,
+        { id, title, body, tone: TONES[tone] ? tone : 'info', onUndo, expiresAt: Date.now() + ms },
+      ]);
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), ms)
@@ -82,10 +97,17 @@ function Toasts({ toasts, dismiss }) {
 }
 
 function Toast({ toast, dismiss }) {
-  const { id, message, tone, onUndo, expiresAt } = toast;
+  const { id, title, body, tone, onUndo, expiresAt } = toast;
+  const Glyph = TONES[tone];
   return (
     <div className={`toast toast-${tone}`}>
-      <span className="toast-text">{message}</span>
+      <span className="toast-badge">
+        <Glyph />
+      </span>
+      <span className="toast-text">
+        <b>{title}</b>
+        {body && <small>{body}</small>}
+      </span>
       {onUndo && (
         <button
           className="toast-undo"
@@ -101,7 +123,7 @@ function Toast({ toast, dismiss }) {
         </button>
       )}
       <button className="toast-close" onClick={() => dismiss(id)} aria-label="Dismiss">
-        ×
+        <Cross size={16} />
       </button>
     </div>
   );

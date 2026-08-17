@@ -8,6 +8,7 @@ import { iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from './TransactionEditModal';
 import ToolbarSlot from './ToolbarSlot';
 import { SkeletonRows } from './Skeleton';
+import SwipeToDelete from './SwipeToDelete';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -255,7 +256,14 @@ export default function ActivityList({
                   const label = describe(row, rows);
                   const Icon = iconForEntry(row);
                   return (
-                    <div key={row.id} {...rowProps(row, label)}>
+                    // Phone only: at a desk every row already carries a delete
+                    // button, and there is no finger to drag with.
+                    <SwipeToDelete
+                      key={row.id}
+                      disabled={readOnly}
+                      onDelete={() => remove(row, rows)}
+                    >
+                    <div {...rowProps(row, label)}>
                       <span className={`tile ${toneForEntry(row.kind)}`}>
                         <Icon />
                       </span>
@@ -283,6 +291,7 @@ export default function ActivityList({
                         />
                       </span>
                     </div>
+                    </SwipeToDelete>
                   );
                 })}
               </div>

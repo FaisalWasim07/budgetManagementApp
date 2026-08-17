@@ -47,10 +47,12 @@ export default function AccountFormModal({ account, personId, personName, onClos
         // Keeping the rows means the history behind past months stays intact.
         // Said in passing rather than in a dialog: nothing went wrong and there
         // is nothing to decide, so there is nothing to stop for.
-        show(
-          `"${account.name}" was hidden rather than deleted — ${result.transactions} entries and ` +
-            `${result.subscriptions} recurring items still refer to it, and their history stays intact.`
-        );
+        show(`"${account.name}" was hidden, not deleted`, {
+          tone: 'warn',
+          body:
+            `${result.transactions} entries and ${result.subscriptions} recurring items still ` +
+            `refer to it, so their history stays intact.`,
+        });
       }
       onSaved();
       onClose();

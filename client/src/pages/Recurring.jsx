@@ -199,7 +199,9 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
   const stop = (item) =>
     act(async () => {
       await stopSubscription(item.id, month);
-      show(`${item.name} stopped from ${formatMonth(month)}`, {
+      show(`${item.name} stopped`, {
+        body: `From ${formatMonth(month)} on. Earlier months keep it.`,
+        tone: 'success',
         onUndo: () => act(() => resumeSubscription(item.id, month)),
       });
     });

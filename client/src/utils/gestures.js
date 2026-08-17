@@ -30,10 +30,16 @@ export function useSwipeMonth(enabled, onSwipe) {
 
     const down = (e) => {
       if (e.touches.length !== 1) return;
-      // Not from inside something that scrolls sideways of its own accord —
-      // the twelve-month strip is exactly that, and stealing its drag would
-      // make it impossible to read.
-      if (e.target.closest('.year-strip, .modal, .sheet, input, select, textarea')) {
+      // Not from inside anything that wants a horizontal drag of its own. A
+      // list row slides aside to delete, and the month may only have the
+      // gesture where no row has claimed it — otherwise swiping to delete
+      // changes the month instead, which is what it used to do.
+      //
+      // The twelve-month strip is the other one: it scrolls sideways, and
+      // stealing its drag would make it impossible to read.
+      if (
+        e.target.closest('.swipe-row, .year-strip, .modal, .sheet, input, select, textarea')
+      ) {
         tracking = false;
         return;
       }

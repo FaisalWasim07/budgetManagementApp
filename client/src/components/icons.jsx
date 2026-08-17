@@ -347,3 +347,34 @@ export const Refresh = ({ size = 17 }) => (
     <path d="M20 4.5V11h-6" />
   </svg>
 );
+
+// The four things a toast can be. Drawn to sit inside a filled circle, so they
+// are heavier than the line icons above — a 2px stroke disappears at 18px on a
+// coloured disc.
+const solid = { stroke: 'currentColor', strokeWidth: 2.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
+
+export const Check = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <path d="M20 6 9 17l-5-5" {...solid} />
+  </svg>
+);
+
+export const Bulb = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <path d="M9 18h6M10 21h4" {...solid} />
+    <path d="M12 3a6 6 0 0 0-3.5 10.9c.3.2.5.6.5 1v1.1h6v-1.1c0-.4.2-.8.5-1A6 6 0 0 0 12 3Z" {...solid} />
+  </svg>
+);
+
+export const Bang = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <path d="M12 6v7" {...solid} />
+    <circle cx="12" cy="17.4" r="1.35" fill="currentColor" />
+  </svg>
+);
+
+export const Cross = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <path d="M17.5 6.5 6.5 17.5M6.5 6.5l11 11" {...solid} />
+  </svg>
+);

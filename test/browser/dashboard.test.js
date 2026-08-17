@@ -144,6 +144,37 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // being asked about and leaves a way back instead. Confirming every delete
   // is how people learn to click through the confirmation.
   check('deleting one leaves an undo behind', (await page.locator('.toast').count()) === 1);
+
+  // The toast shipped once with its text the same colour as its background,
+  // because it was painted with a token this palette does not define. Counting
+  // elements did not catch it and never would, so the colours are read back.
+  const toastLook = await page.evaluate(() => {
+    const box = document.querySelector('.toast');
+    const title = box.querySelector('.toast-text b');
+    const paint = (el, prop) => getComputedStyle(el)[prop];
+    const rgb = (v) => (v.match(/\d+/g) || []).slice(0, 3).map(Number);
+    const bg = rgb(paint(box, 'backgroundColor'));
+    const fg = rgb(paint(title, 'color'));
+    const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return {
+      text: title.textContent,
+      hasBody: Boolean(box.querySelector('.toast-text small')),
+      badge: rgb(paint(box.querySelector('.toast-badge'), 'backgroundColor')),
+      contrast: Math.abs(lum(bg) - lum(fg)),
+    };
+  });
+  check('its title says what happened', toastLook.text === 'Entry deleted', toastLook.text);
+  check('with a line under it saying which one', toastLook.hasBody);
+  check(
+    'and the text is actually readable against the background',
+    toastLook.contrast > 60,
+    `luminance gap ${Math.round(toastLook.contrast)}`
+  );
+  check(
+    'the tone badge is filled, not transparent',
+    toastLook.badge.length === 3 && toastLook.badge.some((c) => c > 0),
+    JSON.stringify(toastLook.badge)
+  );
   await page.locator('.toast button:has-text("Undo")').click();
   await page.waitForTimeout(1500);
   check(
