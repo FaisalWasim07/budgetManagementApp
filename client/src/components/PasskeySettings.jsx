@@ -8,6 +8,7 @@ import {
 } from '../api/auth';
 import { Shield, Trash } from './icons';
 import { createPasskey, passkeysSupported, wasCancelled } from '../utils/passkey';
+import { amountsLocked, setAmountsLocked, UNLOCK_MINUTES } from '../utils/lock';
 
 const when = (value) => {
   if (!value) return null;
@@ -163,6 +164,27 @@ export default function PasskeySettings() {
           This browser can’t make passkeys. Open the app on your phone or a current desktop browser
           to add one.
         </div>
+      )}
+
+      {/* Only worth offering once there is a passkey to check against, and only
+          for this device — the worry it answers is about a device, not an
+          account. */}
+      {on && (
+        <label className="lock-amounts">
+          <input
+            type="checkbox"
+            defaultChecked={amountsLocked()}
+            onChange={(e) => setAmountsLocked(e.target.checked)}
+          />
+          <span>
+            <b>Ask before showing amounts on this device</b>
+            <small>
+              The eye asks for your face, fingerprint or device PIN before any figure appears, and
+              hides them again after {UNLOCK_MINUTES} minutes. Just this device — your other ones,
+              and everyone else in the household, are unaffected.
+            </small>
+          </span>
+        </label>
       )}
 
       {passkeys && passkeys.length > 0 && (

@@ -16,6 +16,7 @@ const SUITES = [
   'households.test.js',
   'dashboard.test.js',
   'phone.test.js',
+  'lock.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {

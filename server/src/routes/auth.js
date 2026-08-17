@@ -300,6 +300,44 @@ router.post(
   })
 );
 
+// ── Proving it is still you ──────────────────────────────────────────────
+// Not a sign-in. The session is already good; this answers a narrower
+// question — is the person holding the device the one the session belongs to —
+// which is what the app asks before it puts figures on screen.
+//
+// It deliberately does not reuse /login/passkey. That issues a fresh session,
+// and silently re-signing someone in every time they glance at a balance is a
+// side effect nobody asked for.
+
+router.post(
+  '/verify/start',
+  requireAuth,
+  h(async (req, res) => {
+    if (!(await webauthnService.hasPasskeys(req.user.id))) {
+      return res.status(400).json({ error: 'There is no passkey on this account to check against.' });
+    }
+    await webauthnService.purgeExpiredChallenges();
+    res.json(await webauthnService.startLogin(req.user));
+  })
+);
+
+router.post(
+  '/verify/finish',
+  requireAuth,
+  h(async (req, res) => {
+    const { challengeId, response } = req.body;
+    const result = await webauthnService.finishLogin(challengeId, response);
+    if (!result.ok) return res.status(401).json({ error: result.error });
+    // An assertion proves something about the account that owns the passkey,
+    // and nothing about anyone else's. Someone signed in as one user must not
+    // be able to unlock with another user's device.
+    if (result.userId !== req.user.id) {
+      return res.status(401).json({ error: 'That passkey belongs to a different account.' });
+    }
+    res.json({ ok: true });
+  })
+);
+
 // ── Passkeys ─────────────────────────────────────────────────────────────
 // All of these need a session already: this is managing how you get in, not
 // getting in.

@@ -834,6 +834,13 @@ h3 { font-size: .96rem; font-weight: 600; margin: 0; }
 .split-total.over { background: color-mix(in srgb, var(--neg) 12%, transparent); }
 .split-total.over b, .split-total.over .rest { color: var(--neg); }
 
+/* A checkbox with a paragraph after it, which the plain field styles do not
+   cover: the label has to sit beside the box, not above it. */
+.lock-amounts { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; padding: 2px 0; }
+.lock-amounts input { width: auto; margin: 2px 0 0; flex: none; }
+.lock-amounts b { display: block; font-size: .86rem; font-weight: 600; }
+.lock-amounts small { display: block; color: var(--ink-3); font-size: .78rem; margin-top: 2px; line-height: 1.45; }
+
 /* ── Forms ───────────────────────────────────────────────────────── */
 input, select, button, textarea { font-family: inherit; font-size: .92rem; }
 

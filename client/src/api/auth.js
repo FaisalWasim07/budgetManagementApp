@@ -35,3 +35,10 @@ export const finishPasskeyRegistration = (challengeId, response, label) =>
 export const removePasskey = (id, password) => del(`/auth/passkeys/${id}`, { password });
 
 export const newRecoveryCodes = (password) => post('/auth/recovery-codes', { password });
+
+// Proving it is still you, without signing in again. Used before the figures
+// go on screen when this device is set to ask.
+export const startVerify = () => post('/auth/verify/start');
+
+export const finishVerify = (challengeId, response) =>
+  post('/auth/verify/finish', { challengeId, response });

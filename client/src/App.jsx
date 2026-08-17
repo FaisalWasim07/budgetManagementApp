@@ -22,6 +22,7 @@ import { setActiveHousehold } from './api/client';
 import { currentMonth } from './utils/month';
 import { DisplayContext } from './utils/display';
 import { clearLiveCache, useLiveData } from './utils/live';
+import { amountsLocked, proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
 // Four destinations, the same four on both shells. Activity is new: it was the
@@ -81,6 +82,10 @@ export default function App({ user, onSignedOut }) {
   // Whether the current hide was asked for or imposed. A tap gets the dust; the
   // app hiding itself does not have a second to spend on an animation.
   const [instantHide, setInstantHide] = useState(false);
+  // Set when this device is asking for a passkey and the prompt is up, so the
+  // eye can say it is waiting rather than looking broken.
+  const [proving, setProving] = useState(false);
+  const [lockError, setLockError] = useState(null);
   const [theme, setTheme] = useState(loadTheme);
   const phone = usePhone();
   // Every list on screen registers its own reload here, so one button can
@@ -123,6 +128,18 @@ export default function App({ user, onSignedOut }) {
       window.removeEventListener('pagehide', hideNow);
     };
   }, []);
+
+  // A reveal is good for a few minutes and then closes itself. Backgrounding
+  // the app already hides it; this covers the phone left face-up on a table,
+  // which is the same exposure with nobody there to notice.
+  useEffect(() => {
+    if (amountsHidden || !amountsLocked()) return undefined;
+    const timer = setTimeout(() => {
+      setInstantHide(true);
+      setAmountsHidden(true);
+    }, UNLOCK_MINUTES * 60 * 1000);
+    return () => clearTimeout(timer);
+  }, [amountsHidden]);
 
   // Which household the API talks to has to be set before any data request, so
   // it is pushed into the client rather than passed through every call.
@@ -322,9 +339,27 @@ export default function App({ user, onSignedOut }) {
 
               <button
                 className="icon-button"
-                onClick={() => {
+                disabled={proving}
+                onClick={async () => {
                   setInstantHide(false);
-                  setAmountsHidden((v) => !v);
+                  // Hiding never asks for anything. Only showing.
+                  if (!amountsHidden) {
+                    setAmountsHidden(true);
+                    return;
+                  }
+                  if (!amountsLocked()) {
+                    setAmountsHidden(false);
+                    return;
+                  }
+                  setLockError(null);
+                  setProving(true);
+                  try {
+                    if (await proveItIsYou()) setAmountsHidden(false);
+                  } catch (err) {
+                    setLockError(err.message);
+                  } finally {
+                    setProving(false);
+                  }
                 }}
                 title={amountsHidden ? 'Show amounts' : 'Hide amounts'}
                 aria-label={amountsHidden ? 'Show amounts' : 'Hide amounts'}
@@ -375,6 +410,13 @@ export default function App({ user, onSignedOut }) {
         )}
 
         {error && <div className="card error-text">Couldn’t load: {error}</div>}
+
+        {lockError && (
+          <div className="card error-text">
+            Couldn’t check it was you: {lockError} You can turn this off under
+            Settings → Passkeys.
+          </div>
+        )}
 
         {/* The top bar is already up by now, so this is a placeholder for the
             page under it rather than a screen of its own — no words needed. */}
