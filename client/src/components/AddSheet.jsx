@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createTransaction } from '../api/transactions';
 import { Exchange } from './icons';
 import { useScrollLock } from '../utils/scrollLock';
+import { useToast } from '../utils/toast';
+import { useDisplay } from '../utils/display';
 
 // The phone half of entering money: thumb at the bottom of the screen, the
 // amount the biggest thing on it, and one tap to save. Also what "Add to this
@@ -22,6 +24,10 @@ export default function AddSheet({
   const [category, setCategory] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { show } = useToast();
+  // Through the same formatter the screen uses, so a confirmation cannot spell
+  // out a figure the eye is currently hiding.
+  const { money } = useDisplay();
   const amountField = useRef(null);
   const sheetRef = useRef(null);
   // The sheet slides over the page; the page must not slide with it.
@@ -106,6 +112,14 @@ export default function AddSheet({
       // refresh runs behind it, with the top bar's spinner saying so.
       onClose();
       onSaved();
+      // After onClose, not before: the sheet sliding away and the confirmation
+      // arriving at the same moment is what makes the tap feel finished.
+      show(kind === 'income' ? 'Money in, recorded' : 'Spending recorded', {
+        tone: 'success',
+        body: `${money(value, account.currency)} · ${account.name}${
+          category.trim() ? ` · ${category.trim()}` : ''
+        }`,
+      });
     } catch (err) {
       setError(err.message);
     } finally {

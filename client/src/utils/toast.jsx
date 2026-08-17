@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Bang, Bulb, Check, Cross } from '../components/icons';
+import { Bang, Bulb, Check, Cross, Trash } from '../components/icons';
 
 // Things the app wants to say without stopping you.
 //
@@ -24,12 +24,17 @@ const UNDO_MS = 6000;
 // Must match the exit transition in the stylesheet.
 const EXIT_MS = 200;
 
-// Four kinds, each with a glyph that says what it is before the words do.
+// Each with a glyph that says what it is before the words do.
+//
+// `removed` is red but it is not `error`: deleting something is not a failure,
+// it is the thing you asked for working. Borrowing the ✕ would say the app had
+// a problem, so it carries the same bin the row was dragged onto.
 const TONES = {
   success: Check,
   info: Bulb,
   warn: Bang,
   error: Cross,
+  removed: Trash,
 };
 
 let nextId = 1;
@@ -115,7 +120,7 @@ function Toast({ toast, dismiss }) {
       style={{ '--toast-life': `${life}ms` }}
     >
       <span className="toast-badge">
-        <Glyph />
+        <Glyph size={tone === 'removed' ? 16 : 18} />
       </span>
       <span className="toast-text">
         <b>{title}</b>

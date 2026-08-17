@@ -5,6 +5,7 @@ import { createSubscription, updateSubscription } from '../api/subscriptions';
 import { useDisplay } from '../utils/display';
 import { currentMonth, formatMonth, shiftMonth } from '../utils/month';
 import { perMonth } from '../utils/recurring';
+import { useToast } from '../utils/toast';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -42,6 +43,7 @@ export default function RecurringFormModal({
   }));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { show } = useToast();
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const account = accounts.find((a) => a.id === Number(form.account_id)) ?? accounts[0];
@@ -119,6 +121,13 @@ export default function RecurringFormModal({
       // closed dialog rather than holding it open for another three requests.
       onClose();
       onSaved();
+      show(editing ? `${form.name.trim()} updated` : `${form.name.trim()} added`, {
+        tone: 'success',
+        body:
+          form.cycle === 'yearly'
+            ? 'Charges once a year from here on.'
+            : 'Charges every month from here on.',
+      });
     } catch (err) {
       setError(err.message);
       setBusy(false);

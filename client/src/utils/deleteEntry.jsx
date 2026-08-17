@@ -47,7 +47,7 @@ export function useEntryDelete({ reload, onChanged, afterDelete }) {
     done();
     show('Entry deleted', {
       body: describeRow(row),
-      tone: 'success',
+      tone: 'removed',
       onUndo: async () => {
         // A new row rather than the old one restored: the ledger only ever
         // appends, and nothing anywhere refers to an entry by its id.

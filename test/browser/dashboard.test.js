@@ -128,6 +128,17 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.locator('.txn', { hasText: 'Groceries' }).first().textContent()
   );
 
+  // --- saving says so ------------------------------------------------------
+  // Every write used to be silent, which on a slow connection is a form that
+  // looks like it did nothing.
+  check(
+    'recording money says it landed',
+    (await page.locator('.toast.toast-success').count()) >= 1,
+    `${await page.locator('.toast').count()} toasts`
+  );
+  await page.locator('.toast-close').first().click();
+  await page.waitForTimeout(500);
+
   // --- deleting ------------------------------------------------------------
   await page
     .locator('.txn', { hasText: 'Groceries' })
@@ -144,6 +155,10 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // being asked about and leaves a way back instead. Confirming every delete
   // is how people learn to click through the confirmation.
   check('deleting one leaves an undo behind', (await page.locator('.toast').count()) === 1);
+  check(
+    'and it reads as a removal, not as a success',
+    (await page.locator('.toast.toast-removed').count()) === 1
+  );
 
   // The toast shipped once with its text the same colour as its background,
   // because it was painted with a token this palette does not define. Counting

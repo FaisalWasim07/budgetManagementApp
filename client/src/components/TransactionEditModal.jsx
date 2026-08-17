@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../utils/toast';
 import Modal from './Modal';
 import MonthPicker from './MonthPicker';
 import { formatMonth } from '../utils/month';
@@ -45,6 +46,7 @@ export default function TransactionEditModal({
     month: entry.month,
   });
   const [busy, setBusy] = useState(false);
+  const { show } = useToast();
   const [error, setError] = useState(null);
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
@@ -81,6 +83,7 @@ export default function TransactionEditModal({
       await updateTransaction(isTransfer ? outLeg.id : entry.id, body);
       onClose();
       onSaved();
+      show('Entry updated', { tone: 'success' });
     } catch (err) {
       setError(err.message);
       setBusy(false);

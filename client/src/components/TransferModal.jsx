@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { createTransfer } from '../api/transactions';
 import { listSubscriptions } from '../api/subscriptions';
 import { useLive } from '../utils/live';
+import { useToast } from '../utils/toast';
 import { isRunning, perMonth } from '../utils/recurring';
 import { Money, useDisplay } from '../utils/display';
 import { formatNumber } from '../utils/currency';
@@ -49,6 +50,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const { money } = useDisplay();
+  const { show } = useToast();
 
   // Under the key every other screen reads, so this costs nothing if Home or
   // Recurring has already been open.
@@ -206,8 +208,13 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             ...(leg.crossCurrency ? { to_amount: Number(leg.row.toAmount) } : {}),
           })),
       });
+      const sent = legs.filter((leg) => leg.to && leg.amount > 0);
       onClose();
       onSaved();
+      show(sent.length === 1 ? 'Money moved' : `Moved to ${sent.length} accounts`, {
+        tone: 'success',
+        body: `${money(total, from.currency)} out of ${from.name}`,
+      });
     } catch (err) {
       setError(err.message);
       setBusy(false);

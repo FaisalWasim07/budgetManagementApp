@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import LoginSettings from './LoginSettings';
 import PasskeySettings from './PasskeySettings';
+import { useToast } from '../utils/toast';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
 import { CURRENCIES } from '../utils/currency';
@@ -30,6 +31,7 @@ export default function SettingsModal({
   const [currency, setCurrency] = useState(primaryCurrency);
   const [manual, setManual] = useState({});
   const [busy, setBusy] = useState(false);
+  const { show } = useToast();
   const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -50,6 +52,7 @@ export default function SettingsModal({
       await updateSettings({ primary_currency: currency, manualRates: manual });
       await onSaved();
       onClose();
+      show('Settings saved', { tone: 'success', body: `Everything totals in ${currency}.` });
     } catch (err) {
       setError(err.message);
       setBusy(false);

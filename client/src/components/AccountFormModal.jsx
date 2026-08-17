@@ -31,6 +31,7 @@ export default function AccountFormModal({ account, personId, personName, onClos
       };
       if (editing) await updateAccount(account.id, payload);
       else await createAccount({ ...payload, person_id: personId });
+      show(editing ? `${name.trim()} updated` : `${name.trim()} added`, { tone: 'success' });
       onSaved();
       onClose();
     } catch (err) {

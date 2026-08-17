@@ -1312,6 +1312,10 @@ button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
 .toast-info    { --toast-hue: #3B82F6; }
 .toast-warn    { --toast-hue: #F0B429; }
 .toast-error   { --toast-hue: #EF4444; }
+/* Same red as an error, deliberately: what the eye needs to register is that
+   something was taken away, and red is the only colour that says so. The bin
+   in the disc is what separates it from a fault. */
+.toast-removed { --toast-hue: #EF4444; }
 
 /* The disc is the one place the tone appears at full strength, which is what
    makes it readable at a glance from across the screen. */
