@@ -9,6 +9,7 @@ const ensureSchema = require('./db/ensureSchema');
 const authRouter = require('./routes/auth');
 const householdsRouter = require('./routes/households');
 const pushRouter = require('./routes/push');
+const cronRouter = require('./routes/cron');
 const personsRouter = require('./routes/persons');
 const accountsRouter = require('./routes/accounts');
 const transactionsRouter = require('./routes/transactions');
@@ -81,6 +82,10 @@ app.use('/api', (req, res, next) => {
 
 app.use(attachUser);
 app.use('/api/auth', authRouter);
+
+// Above requireAuth, because the scheduler has no session to present. It
+// carries a shared secret instead, and refuses everything when none is set.
+app.use('/api/cron', cronRouter);
 
 // Everything past this point requires a session. Declared once here rather
 // than per route, so a new route can't be added and accidentally left public.

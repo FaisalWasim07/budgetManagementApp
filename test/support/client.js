@@ -7,13 +7,16 @@ function client() {
   let cookie = '';
   let household = null;
 
-  const call = async (method, path, body) => {
+  // `extra` exists for the scheduled-job route, which authenticates with a
+  // shared secret rather than a session.
+  const call = async (method, path, body, extra) => {
     const res = await fetch(`${BASE}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
         ...(cookie ? { cookie } : {}),
         ...(household ? { 'X-Household-Id': String(household) } : {}),
+        ...(extra ?? {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -29,8 +32,8 @@ function client() {
   };
 
   return {
-    get: (p) => call('GET', p),
-    post: (p, b) => call('POST', p, b),
+    get: (p, h) => call('GET', p, undefined, h),
+    post: (p, b, h) => call('POST', p, b, h),
     put: (p, b) => call('PUT', p, b),
     patch: (p, b) => call('PATCH', p, b),
     del: (p, b) => call('DELETE', p, b),

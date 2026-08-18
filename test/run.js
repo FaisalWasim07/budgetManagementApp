@@ -23,6 +23,7 @@ const SUITES = [
   'api/passkeys.test.js',
   'api/verify.test.js',
   'api/push.test.js',
+  'api/notify.test.js',
   'api/whois.test.js',
   'api/households.test.js',
   'api/reset.test.js',
@@ -57,6 +58,7 @@ const env = {
       VAPID_PUBLIC_KEY: publicKey,
       VAPID_PRIVATE_KEY: privateKey,
       VAPID_SUBJECT: 'mailto:test@example.com',
+      CRON_SECRET: require('crypto').randomBytes(24).toString('hex'),
     };
   })(),
 };
