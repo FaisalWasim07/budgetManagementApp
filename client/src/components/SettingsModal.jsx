@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import LoginSettings from './LoginSettings';
 import PasskeySettings from './PasskeySettings';
+import NotificationSettings from './NotificationSettings';
 import { useToast } from '../utils/toast';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
@@ -225,6 +226,8 @@ export default function SettingsModal({
         onLockedChange={onLockedChange}
         onPasskeysChange={onPasskeysChange}
       />
+      <hr className="rule" />
+      <NotificationSettings />
     </div>
   );
 

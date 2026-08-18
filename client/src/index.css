@@ -1262,6 +1262,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 button.primary.danger-solid { background: var(--neg); border-color: var(--neg); color: #fff; }
 button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
 
+/* A divider between two unrelated groups inside one settings tab. */
+hr.rule { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
 /* ── Toasts ──────────────────────────────────────────────────────
    Bottom centre on a phone, where the thumb already is; bottom left on a
    desktop, out of the way of the page's own controls. Above the scrim (50)

@@ -8,6 +8,7 @@ const db = require('./db/pool');
 const ensureSchema = require('./db/ensureSchema');
 const authRouter = require('./routes/auth');
 const householdsRouter = require('./routes/households');
+const pushRouter = require('./routes/push');
 const personsRouter = require('./routes/persons');
 const accountsRouter = require('./routes/accounts');
 const transactionsRouter = require('./routes/transactions');
@@ -89,6 +90,11 @@ app.use('/api', requireAuth);
 // to list them before one can be selected, create your first, and accept an
 // invite into one you are not a member of yet.
 app.use('/api/households', householdsRouter);
+
+// Notifications are a person's, not a household's, so they sit here too — and
+// deliberately above blockViewerWrites, which would otherwise refuse somebody
+// with view-only access the POST that turns their own notifications on.
+app.use('/api/push', pushRouter);
 
 // From here on every request is about exactly one household, which the user is
 // confirmed to belong to, and req.household.id is the only thing routes may

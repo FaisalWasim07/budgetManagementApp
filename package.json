@@ -13,7 +13,8 @@
     "db:test": "node server/src/db/testConnection.js",
     "reset-password": "node server/src/db/resetPassword.js",
     "test": "node test/run.js",
-    "test:browser": "node test/browser/run.js"
+    "test:browser": "node test/browser/run.js",
+    "push:keys": "node server/src/db/pushKeys.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
@@ -25,6 +26,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "web-push": "^3.6.7"
   }
 }

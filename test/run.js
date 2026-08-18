@@ -22,6 +22,7 @@ const SUITES = [
   'api/rates.test.js',
   'api/passkeys.test.js',
   'api/verify.test.js',
+  'api/push.test.js',
   'api/whois.test.js',
   'api/households.test.js',
   'api/reset.test.js',
@@ -48,6 +49,16 @@ const env = {
   // server is actually listening on.
   RP_ID: 'localhost',
   RP_ORIGIN: BASE,
+  // A fresh pair per run, so the push routes exercise their configured path
+  // without a key ever being written down anywhere.
+  ...(() => {
+    const { publicKey, privateKey } = require('web-push').generateVAPIDKeys();
+    return {
+      VAPID_PUBLIC_KEY: publicKey,
+      VAPID_PRIVATE_KEY: privateKey,
+      VAPID_SUBJECT: 'mailto:test@example.com',
+    };
+  })(),
 };
 
 async function waitForServer(timeoutMs = 20000) {
