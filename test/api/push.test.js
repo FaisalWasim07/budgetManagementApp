@@ -23,6 +23,10 @@ const subscription = (n) => ({
   const me = client();
   const password = 'pushpass12345';
   await me.post('/api/auth/signup', { username: `pu_${u}`, password });
+  // A household, because previewing asks what this household's month looks
+  // like. Notifications themselves belong to the person, not to it.
+  const home = await me.post('/api/households', { name: 'Push Home', people: ['Faisal'] });
+  me.use(home.data.id);
 
   // --- it needs a session at all -------------------------------------------
   const stranger = client();
@@ -30,7 +34,7 @@ const subscription = (n) => ({
     ['the key', () => stranger.get('/api/push/key')],
     ['the device list', () => stranger.get('/api/push/devices')],
     ['subscribing', () => stranger.post('/api/push/subscribe', subscription(1))],
-    ['a test send', () => stranger.post('/api/push/test', {})],
+    ['a preview', () => stranger.post('/api/push/preview', {})],
   ]) {
     const res = await call();
     check(`a signed-out caller is refused ${name}`, res.status === 401, String(res.status));
@@ -108,15 +112,24 @@ const subscription = (n) => ({
   const noEndpoint = await me.post('/api/push/unsubscribe', {});
   check('unsubscribing nothing is refused', noEndpoint.status === 400, String(noEndpoint.status));
 
-  // --- a test send ---------------------------------------------------------
-  // The endpoint goes nowhere, so the push fails and the route says so rather
-  // than reporting a success nobody received. That is the useful behaviour:
-  // "sent" must mean a push service accepted it.
-  const test = await me.post('/api/push/test', {});
+  // --- previewing what today would send ------------------------------------
+  // The endpoint goes nowhere, so the push fails — and the route must say so
+  // rather than reporting a success nobody received.
+  const nowhere = await me.post('/api/push/preview', {});
   check(
-    'a test to a dead endpoint reports failure rather than pretending',
-    test.status === 409,
-    `${test.status} ${JSON.stringify(test.data)}`
+    'a preview to a dead endpoint reports nothing was accepted',
+    nowhere.status === 200 && nowhere.data.sent === 0,
+    `${nowhere.status} ${JSON.stringify(nowhere.data)}`
+  );
+  check(
+    'and still hands back the words, which is the other half of its job',
+    Array.isArray(nowhere.data.messages) && Boolean(nowhere.data.messages[0]?.title),
+    JSON.stringify(nowhere.data.messages)
+  );
+  check(
+    'saying honestly whether today had anything scheduled',
+    typeof nowhere.data.scheduled === 'boolean',
+    JSON.stringify(nowhere.data.scheduled)
   );
 
   // And a device the push service rejected outright is not kept forever.
@@ -125,6 +138,17 @@ const subscription = (n) => ({
     'a device that could not be reached is either dropped or marked',
     afterTest.data.devices.length === 0 || Boolean(afterTest.data.devices[0].failed_at),
     JSON.stringify(afterTest.data)
+  );
+
+  // A preview must never reach into a household the caller is not in. Asking
+  // for somebody else's by id falls back to your own rather than obliging.
+  const outsider = client();
+  await outsider.post('/api/auth/signup', { username: `pu3_${u}`, password });
+  const noHome = await outsider.post('/api/push/preview', {});
+  check(
+    'somebody with no household is told to make one rather than shown nothing',
+    noHome.status === 400,
+    `${noHome.status} ${JSON.stringify(noHome.data)}`
   );
 
   const { failed } = report('Push notifications');

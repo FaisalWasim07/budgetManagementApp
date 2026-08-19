@@ -1265,6 +1265,17 @@ button.primary.danger-solid:hover:not(:disabled) { filter: brightness(1.06); }
 /* A divider between two unrelated groups inside one settings tab. */
 hr.rule { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
 
+/* The words a notification would carry, shown in the panel as well as
+   delivered — a banner in the corner of a desktop is easy to miss, and the
+   question "what would it even say" deserves an answer on screen. */
+.preview-note { display: flex; flex-direction: column; gap: 8px; }
+.preview-card {
+  display: flex; flex-direction: column; gap: 3px;
+  background: var(--surface-2); border-radius: 12px; padding: 11px 13px;
+}
+.preview-card b { font-size: .88rem; }
+.preview-card small { color: var(--ink-2); font-size: .82rem; line-height: 1.45; }
+
 /* ── Toasts ──────────────────────────────────────────────────────
    Bottom centre on a phone, where the thumb already is; bottom left on a
    desktop, out of the way of the page's own controls. Above the scrim (50)

@@ -125,6 +125,23 @@ async function quietNudge(householdId, now) {
   };
 }
 
+// What today deserves for one household — the whole decision, in one place.
+//
+// Extracted so the preview in Settings runs exactly this and not a second
+// implementation that agrees with it today and drifts by March. A preview of
+// something other than what will really be sent is worse than no preview.
+async function messagesFor(householdId, now = new Date()) {
+  const month = currentMonth();
+  if (now.getUTCDate() === 1) return [await monthOpener(householdId, month)];
+  // Sunday, and only when it is true. Deliberately not on the 1st as well —
+  // two notifications in one morning is how an app gets muted.
+  if (now.getUTCDay() === 0) {
+    const nudge = await quietNudge(householdId, now);
+    return nudge ? [nudge] : [];
+  }
+  return [];
+}
+
 // One job, run once a day, that works out what — if anything — today deserves.
 //
 // One rather than several because a cron on Vercel's free plan fires daily, and
@@ -132,8 +149,6 @@ async function quietNudge(householdId, now) {
 // nothing, and sending nothing is the correct outcome rather than a failure.
 async function runDaily({ now = new Date() } = {}) {
   const month = currentMonth();
-  const dayOfMonth = now.getUTCDate();
-  const dayOfWeek = now.getUTCDay();
 
   const sent = [];
 
@@ -150,14 +165,9 @@ async function runDaily({ now = new Date() } = {}) {
   const pairs = await householdsWithNotifications();
 
   for (const { household_id: householdId, user_id: userId } of pairs) {
-    const messages = [];
+    const messages = await messagesFor(householdId, now);
 
-    if (dayOfMonth === 1) messages.push(await monthOpener(householdId, month));
-    // Sunday, and only when it is true. Deliberately not on the 1st as well —
-    // two notifications in one morning is how an app gets muted.
-    else if (dayOfWeek === 0) messages.push(await quietNudge(householdId, now));
-
-    for (const message of messages.filter(Boolean)) {
+    for (const message of messages) {
       const result = await pushService.sendTo(userId, message);
       sent.push({ userId, householdId, tag: message.tag, ...result });
     }
@@ -166,4 +176,4 @@ async function runDaily({ now = new Date() } = {}) {
   return { month, rates, considered: pairs.length, sent };
 }
 
-module.exports = { runDaily, monthOpener, quietNudge, nameList };
+module.exports = { runDaily, messagesFor, monthOpener, quietNudge, nameList, currentMonth };

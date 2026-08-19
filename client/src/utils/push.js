@@ -10,7 +10,9 @@ import { get, post } from '../api/client';
 
 export const getKey = () => get('/push/key');
 export const getDevices = () => get('/push/devices');
-export const sendTest = () => post('/push/test', {});
+// Sends what today would really send, and hands back the words so the panel
+// can show them too.
+export const preview = () => post('/push/preview', {});
 
 // Standalone means "launched from the Home Screen rather than in a tab".
 // Chrome and the standards use a media query; iOS Safari has its own flag and

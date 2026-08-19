@@ -1,5 +1,7 @@
 const express = require('express');
+const db = require('../db/pool');
 const pushService = require('../services/pushService');
+const notifyService = require('../services/notifyService');
 const { h } = require('../util/route');
 
 const router = express.Router();
@@ -58,27 +60,56 @@ router.post(
   })
 );
 
-// Proves the whole chain in one tap: key, subscription, push service, service
-// worker, and the phone's own notification settings. Without it the first real
-// notification is days away and there is nothing to debug against.
+// What today would actually send, delivered for real.
+//
+// This replaced a fixed "send a test" message, which proved the delivery chain
+// but told you nothing about what the app would ever say. This proves the same
+// chain — key, subscription, push service, worker, and the phone's own
+// settings — and shows the real words at the same time.
+//
+// Most days nothing is scheduled, and on those days a preview that sent
+// nothing would be indistinguishable from a broken one. So when today has no
+// message, the month opener is previewed anyway and flagged as not scheduled:
+// still true text, still a real delivery, honestly labelled.
 router.post(
-  '/test',
+  '/preview',
   h(async (req, res) => {
-    const result = await pushService.sendTo(req.user.id, {
-      title: 'Bayt',
-      body: 'Notifications are working. This is the only one you asked for.',
-      tag: 'bayt-test',
-      renotify: true,
-      url: '/',
-    });
-    if (result.skipped) return res.status(503).json({ error: 'Notifications are not set up yet.' });
-    if (result.sent === 0) {
-      return res.status(409).json({
-        error:
-          'No device accepted it. If this browser was registered a while ago its subscription may have expired — turn notifications off and on again.',
-      });
+    // This router sits above the household middleware, since being notified
+    // belongs to a person rather than a household. So membership is checked
+    // here rather than assumed — a preview must never reach into a household
+    // the caller is not in.
+    const asked = Number(req.get('x-household-id')) || null;
+    const mine = await db.all(
+      'SELECT household_id FROM household_members WHERE user_id = ? ORDER BY household_id',
+      [req.user.id]
+    );
+    if (mine.length === 0) {
+      return res.status(400).json({ error: 'Join or create a household first.' });
     }
-    res.json(result);
+    const ids = mine.map((row) => row.household_id);
+    const householdId = ids.includes(asked) ? asked : ids[0];
+
+    const now = new Date();
+    let messages = await notifyService.messagesFor(householdId, now);
+    const scheduled = messages.length > 0;
+    if (!scheduled) {
+      messages = [await notifyService.monthOpener(householdId, notifyService.currentMonth())];
+    }
+
+    const results = [];
+    for (const message of messages) {
+      results.push(await pushService.sendTo(req.user.id, message));
+    }
+    const sent = results.reduce((total, r) => total + (r.sent ?? 0), 0);
+
+    res.json({
+      scheduled,
+      // Returned as well as sent, so the panel can show the words even on a
+      // desktop where the notification may be missed in the corner.
+      messages: messages.map(({ title, body }) => ({ title, body })),
+      sent,
+      configured: pushService.isConfigured(),
+    });
   })
 );
 

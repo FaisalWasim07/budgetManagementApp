@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { current, disable, enable, getDevices, sendTest, support } from '../utils/push';
+import { current, disable, enable, getDevices, preview, support } from '../utils/push';
 import { useToast } from '../utils/toast';
 
 // Turning notifications on, and — when they will not turn on — saying exactly
@@ -16,6 +16,9 @@ export default function NotificationSettings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [caps, setCaps] = useState(() => support());
+  // The last preview, kept on screen: a notification in the corner of a desktop
+  // is easy to miss, and this is also the answer to "what would it even say".
+  const [shown, setShown] = useState(null);
   const { show } = useToast();
 
   const load = useCallback(async () => {
@@ -70,12 +73,19 @@ export default function NotificationSettings() {
     }
   }
 
-  async function test() {
+  async function showToday() {
     setBusy(true);
     setError(null);
     try {
-      await sendTest();
-      show('Test sent', { tone: 'success', body: 'It should arrive in a moment.' });
+      const result = await preview();
+      setShown(result);
+      show(result.sent > 0 ? 'Sent to this device' : 'Nothing reached a device', {
+        tone: result.sent > 0 ? 'success' : 'warn',
+        body:
+          result.sent > 0
+            ? 'It should arrive in a moment.'
+            : 'The message is below, but no device accepted it.',
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -113,11 +123,12 @@ export default function NotificationSettings() {
             <button type="button" onClick={turnOff} disabled={busy}>
               Turn off
             </button>
-            {/* The only way to prove the whole chain — key, subscription, push
-                service, worker, and the phone's own settings — without waiting
-                days for a real one. */}
-            <button type="button" className="primary" onClick={test} disabled={busy}>
-              Send a test
+            {/* Proves the whole chain — key, subscription, push service,
+                worker, phone settings — and shows the real words rather than
+                a stand-in, so it answers "does it work" and "what will it say"
+                in one tap. */}
+            <button type="button" className="primary" onClick={showToday} disabled={busy}>
+              Preview today's notification
             </button>
           </>
         ) : (
@@ -134,6 +145,22 @@ export default function NotificationSettings() {
           </button>
         )}
       </div>
+
+      {shown && (
+        <div className="preview-note">
+          <small className="muted">
+            {shown.scheduled
+              ? 'This is what today would send.'
+              : 'Nothing is scheduled for today — this is what the next one will say.'}
+          </small>
+          {shown.messages.map((message) => (
+            <div className="preview-card" key={message.title}>
+              <b>{message.title}</b>
+              <small>{message.body}</small>
+            </div>
+          ))}
+        </div>
+      )}
 
       {devices && devices.length > 0 && (
         <div className="rows">
