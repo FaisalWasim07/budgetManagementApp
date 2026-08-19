@@ -52,7 +52,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   await page.waitForSelector('input[placeholder="Our household"]', { timeout: 15000 });
   await page.fill('input[placeholder="Our household"]', 'Lock Home');
-  await page.locator('input[placeholder^="e.g."]').nth(0).fill('Faisal');
+  await page.locator('input.person-name').nth(0).fill('Faisal');
   await page.click('button:has-text("Create household")');
   await page.waitForSelector('.hero', { timeout: 15000 });
   await page.waitForTimeout(1200);

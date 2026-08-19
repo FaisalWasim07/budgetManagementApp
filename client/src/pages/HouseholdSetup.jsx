@@ -72,15 +72,23 @@ export default function HouseholdSetup({ onReady, onCancel }) {
               <strong style={{ fontSize: '0.9rem' }}>Who is in it?</strong>
               <span className="muted" style={{ fontSize: '0.8rem' }}>
                 Each person starts with a main account you can add to. Leave a box empty to skip it,
-                and you can add more people at any time.
+                and you can add more people at any time. Put yourself first — that is how the app
+                knows which accounts are yours.
               </span>
               {people.map((person, index) => (
-                <input
-                  key={index}
-                  value={person}
-                  onChange={(e) => setPerson(index, e.target.value)}
-                  placeholder={index === 0 ? 'e.g. Faisal' : 'e.g. your partner'}
-                />
+                // The first box is you, and now says so. It was only implied
+                // before, by a placeholder — and the app links your login to
+                // that person, so a guess about which one you are is a guess
+                // about whose phone gets told when money arrives.
+                <label className="field" key={index}>
+                  {index === 0 ? 'You' : `Someone else${index > 1 ? ` (${index + 1})` : ''}`}
+                  <input
+                    className="person-name"
+                    value={person}
+                    onChange={(e) => setPerson(index, e.target.value)}
+                    placeholder={index === 0 ? 'Your name' : 'e.g. your partner'}
+                  />
+                </label>
               ))}
               <button
                 type="button"

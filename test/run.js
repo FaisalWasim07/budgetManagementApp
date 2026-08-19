@@ -25,6 +25,7 @@ const SUITES = [
   'api/push.test.js',
   'api/notify.test.js',
   'api/whois.test.js',
+  'api/identity.test.js',
   'api/households.test.js',
   'api/reset.test.js',
 ];

@@ -267,6 +267,41 @@ async function run() {
     );
   }
 
+  // Households created before the creator was linked to a person.
+  //
+  // Creating a household used to insert its people with no user_id at all, so
+  // the person who set it up — almost always the first name in the form, which
+  // asks for their own — was a member the app could not address. No arrival
+  // notification, and their own accounts did not lead their dashboard.
+  //
+  // Only where it is a deduction rather than a hunch: the owner has no person,
+  // and the earliest person in the household has no login. That is the pair the
+  // creation form produced. Anything else is left for the app to ask about,
+  // because a wrong link sends somebody else's money notices to the wrong
+  // phone, and that is worse than no link at all.
+  if ((await tableExists('persons')) && (await columnExists('persons', 'user_id'))) {
+    const orphanOwners = await db.all(
+      `SELECT m.household_id, m.user_id
+       FROM household_members m
+       WHERE m.role = 'owner'
+         AND NOT EXISTS (
+           SELECT 1 FROM persons p
+           WHERE p.household_id = m.household_id AND p.user_id = m.user_id
+         )`
+    );
+    let claimed = 0;
+    for (const owner of orphanOwners) {
+      const first = await db.get(
+        'SELECT id, user_id FROM persons WHERE household_id = ? ORDER BY id LIMIT 1',
+        [owner.household_id]
+      );
+      if (!first || first.user_id) continue;
+      await db.run('UPDATE persons SET user_id = ? WHERE id = ?', [owner.user_id, first.id]);
+      claimed += 1;
+    }
+    if (claimed > 0) notes.push(`${claimed} household owner(s) matched to their own person`);
+  }
+
   // ── Push subscriptions ─────────────────────────────────────────────────
   // One row per browser that has agreed to be notified — a person with a phone
   // and a laptop has two, and they expire independently.

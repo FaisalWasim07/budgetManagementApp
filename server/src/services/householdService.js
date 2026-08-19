@@ -44,9 +44,16 @@ async function create(userId, name, personNames = []) {
     ]);
 
     for (const [index, personName] of personNames.entries()) {
+      // The first person is whoever is setting this up — the form asks for
+      // their own name first and says so. Linking it here is the difference
+      // between the app knowing who you are and having to ask you later.
+      //
+      // Everyone else is left unlinked on purpose: a household can hold people
+      // who never sign in at all, and inventing logins for them would be
+      // wrong. They are linked when they accept an invite.
       const person = await t.get(
-        'INSERT INTO persons (household_id, name) VALUES (?, ?) RETURNING id',
-        [household.id, String(personName).trim()]
+        'INSERT INTO persons (household_id, name, user_id) VALUES (?, ?, ?) RETURNING id',
+        [household.id, String(personName).trim(), index === 0 ? userId : null]
       );
       await t.run(
         `INSERT INTO accounts (household_id, person_id, name, currency, type, sort_order)
@@ -100,6 +107,39 @@ const openInvites = (householdId) =>
 // Accepting is deliberately fussy: an invite is single-use, expires, and grants
 // exactly the role it was created with. Someone already in the household keeps
 // the role they have rather than being silently promoted or demoted.
+// Which unlinked person is this newly joined member?
+//
+// 1. A name that matches their username, which is as close to a statement as
+//    the data gets.
+// 2. Otherwise, the only unlinked person left — not a guess but a deduction,
+//    because there is no other candidate for it to be wrong about.
+//
+// Anything more ambiguous is left alone. The app can ask once; it cannot take
+// back a notification sent to the wrong person.
+async function linkAccepterToPerson(t, householdId, userId) {
+  const already = await t.get(
+    'SELECT id FROM persons WHERE household_id = ? AND user_id = ?',
+    [householdId, userId]
+  );
+  if (already) return already.id;
+
+  const user = await t.get('SELECT username FROM users WHERE id = ?', [userId]);
+  const free = await t.all(
+    'SELECT id, name FROM persons WHERE household_id = ? AND user_id IS NULL ORDER BY id',
+    [householdId]
+  );
+  if (free.length === 0) return null;
+
+  const byName = free.filter(
+    (person) => person.name.trim().toLowerCase() === String(user?.username ?? '').trim().toLowerCase()
+  );
+  const chosen = byName.length === 1 ? byName[0] : free.length === 1 ? free[0] : null;
+  if (!chosen) return null;
+
+  await t.run('UPDATE persons SET user_id = ? WHERE id = ?', [userId, chosen.id]);
+  return chosen.id;
+}
+
 async function acceptInvite(code, userId) {
   return db.tx(async (t) => {
     const invite = await t.get(
@@ -133,7 +173,22 @@ async function acceptInvite(code, userId) {
       [userId, code]
     );
 
-    return { householdId: invite.household_id, name: invite.household_name, role: invite.role };
+    // Work out which person in this household the new member is, so nobody has
+    // to be asked. Accounts belong to people, not to logins, so a member with
+    // no person is a member the app cannot address — no arrival notification,
+    // and their own accounts do not lead their dashboard.
+    //
+    // Two ways, in order of confidence, and neither guesses when it is not
+    // sure. An unresolved link is recoverable; the wrong one silently sends
+    // somebody else's money notices to the wrong phone.
+    const linked = await linkAccepterToPerson(t, invite.household_id, userId);
+
+    return {
+      householdId: invite.household_id,
+      name: invite.household_name,
+      role: invite.role,
+      personId: linked,
+    };
   });
 }
 

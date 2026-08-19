@@ -45,7 +45,7 @@ async function signUp(page, username, password) {
   check('a new account is asked to set up a household', heading.includes('Set up your household'), heading);
 
   await a.fill('input[placeholder="Our household"]', 'Faisal Home');
-  const people = a.locator('input[placeholder^="e.g."]');
+  const people = a.locator('input.person-name');
   await people.nth(0).fill('Faisal');
   await people.nth(1).fill('Wife');
   await a.click('button:has-text("Create household")');
@@ -143,7 +143,7 @@ async function signUp(page, username, password) {
   await b.click('button:has-text("New or join a household")');
   await b.waitForSelector('input[placeholder="Our household"]', { timeout: 10000 });
   await b.fill('input[placeholder="Our household"]', 'Bob Home');
-  await b.locator('input[placeholder^="e.g."]').nth(0).fill('Bob');
+  await b.locator('input.person-name').nth(0).fill('Bob');
   await b.click('button:has-text("Create household")');
   await b.waitForSelector('nav.side-nav', { timeout: 15000 });
   await b.waitForTimeout(1500);

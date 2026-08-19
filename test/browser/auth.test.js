@@ -60,7 +60,7 @@ const openMenu = async (page) => {
   await page.waitForSelector('input[placeholder="Our household"]', { timeout: 10000 });
   check('setup leads to creating a household', true);
   await page.fill('input[placeholder="Our household"]', 'Test Home');
-  await page.locator('input[placeholder^="e.g."]').nth(0).fill('Faisal');
+  await page.locator('input.person-name').nth(0).fill('Faisal');
   await page.click('button:has-text("Create household")');
 
   await page.waitForSelector('.topbar', { timeout: 15000 });
