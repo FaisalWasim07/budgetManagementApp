@@ -28,7 +28,9 @@ const MONEY = /(\d[\d,]*\.\d{2})|(\b\d{1,3}(,\d{3})+\b)|(\b(AED|USD|GBP|EUR|INR|
     person_id: people.data[0].id,
     name: 'Main Account',
     currency: 'AED',
-    opening_balance: 9000,
+    // Comfortably more than the recurring items below come to, or the transfer
+    // at the end is refused for being overdrawn rather than tested.
+    opening_balance: 99000,
   });
 
   // Enough recurring items that the message has to summarise rather than list.
@@ -99,6 +101,76 @@ const MONEY = /(\d[\d,]*\.\d{2})|(\b\d{1,3}(,\d{3})+\b)|(\b(AED|USD|GBP|EUR|INR|
     'more than three are summarised rather than recited',
     notifyService.nameList(['A', 'B', 'C', 'D', 'E']) === 'A, B and 3 more',
     notifyService.nameList(['A', 'B', 'C', 'D', 'E'])
+  );
+
+  // --- money arriving in someone else's account ---------------------------
+  // The one message that answers to something a person just did rather than to
+  // the calendar, and the one where getting the recipient wrong would mean
+  // telling the wrong person about somebody's money.
+  const arrivals = await notifyService.transferArrivals({
+    byUserId: 1,
+    senderName: 'Faisal',
+    legs: [
+      { accountName: 'Her Savings', userId: 2 },
+      { accountName: 'His Savings', userId: 1 },
+    ],
+  });
+  check('the person it landed with is told', arrivals.length === 1, JSON.stringify(arrivals));
+  check('and it is the recipient, not the sender', arrivals[0].userId === 2);
+  check('the sender is never told what they just did themselves', !arrivals.some((a) => a.userId === 1));
+  check('it names who sent it', /Faisal/.test(arrivals[0].message.title), arrivals[0].message.title);
+  check('and the account it landed in', /Her Savings/.test(arrivals[0].message.body), arrivals[0].message.body);
+  check('with an emoji', /\p{Extended_Pictographic}/u.test(arrivals[0].message.title), arrivals[0].message.title);
+  check(
+    'and no amount — the whole point is that it is not on the lock screen',
+    !MONEY.test(`${arrivals[0].message.title} ${arrivals[0].message.body}`),
+    arrivals[0].message.body
+  );
+
+  // Four destinations belonging to one person is one notification, not four.
+  const grouped = await notifyService.transferArrivals({
+    byUserId: 1,
+    senderName: 'Faisal',
+    legs: [
+      { accountName: 'Savings', userId: 2 },
+      { accountName: 'Spending', userId: 2 },
+      { accountName: 'Car', userId: 2 },
+    ],
+  });
+  check('several accounts for one person are one message', grouped.length === 1);
+  check(
+    'which names them all',
+    /Savings, Spending and Car/.test(grouped[0].message.body),
+    grouped[0].message.body
+  );
+
+  // An account nobody has claimed has no one to tell, and that is fine.
+  const orphan = await notifyService.transferArrivals({
+    byUserId: 1,
+    senderName: 'Faisal',
+    legs: [{ accountName: 'Joint', userId: null }],
+  });
+  check('an unclaimed account is quietly skipped', orphan.length === 0, JSON.stringify(orphan));
+
+  // --- and a real transfer still goes through -----------------------------
+  // The lookup behind the notice uses `= ANY(?)`, which nothing else in the
+  // app does — so this proves the query runs rather than that it parses.
+  const second = await me.post('/api/accounts', {
+    person_id: people.data[0].id,
+    name: 'Savings',
+    currency: 'AED',
+    opening_balance: 0,
+  });
+  const moved = await me.post('/api/transactions/transfer', {
+    from_account_id: account.data.id,
+    to_account_id: second.data.id,
+    month,
+    amount: 100,
+  });
+  check(
+    'a transfer still succeeds with the arrival notice wired in',
+    moved.status === 201,
+    `${moved.status} ${JSON.stringify(moved.data).slice(0, 120)}`
   );
 
   // --- the cron endpoint is not open to the world -------------------------

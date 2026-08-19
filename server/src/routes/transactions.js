@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const db = require('../db/pool');
 const summaryService = require('../services/summaryService');
+const notifyService = require('../services/notifyService');
 const { h } = require('../util/route');
 
 const router = express.Router();
@@ -209,6 +210,35 @@ router.post(
         written.push(await insert(leg.to.id, 'transfer_in', leg.toAmount, transferId));
       }
       return written;
+    });
+
+    // Tell whoever it landed with. Awaited rather than left running after the
+    // response: on a serverless host the function can be frozen the moment it
+    // replies, and work started but not finished simply never happens. It costs
+    // the sender a moment and it cannot fail the transfer — announceTransfer
+    // swallows everything, because money that has already moved must not be
+    // reported as an error over a notification.
+    const recipients = await db.all(
+      `SELECT a.id, a.name, p.user_id
+       FROM accounts a JOIN persons p ON p.id = a.person_id
+       WHERE a.id = ANY(?)`,
+      [legs.map((leg) => leg.to.id)]
+    );
+    const owner = new Map(recipients.map((row) => [row.id, row]));
+    const sender = await db.get(
+      `SELECT COALESCE(p.name, u.username) AS name
+       FROM users u
+       LEFT JOIN persons p ON p.user_id = u.id AND p.household_id = ?
+       WHERE u.id = ?`,
+      [req.household.id, req.user.id]
+    );
+    await notifyService.announceTransfer({
+      byUserId: req.user.id,
+      senderName: sender?.name ?? 'Someone',
+      legs: legs.map((leg) => ({
+        accountName: leg.to.name,
+        userId: owner.get(leg.to.id)?.user_id ?? null,
+      })),
     });
 
     res.status(201).json(rows);

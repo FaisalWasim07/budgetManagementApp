@@ -125,6 +125,70 @@ async function quietNudge(householdId, now) {
   };
 }
 
+// Money landed in somebody else's account.
+//
+// The only message here that is not on a schedule, and the only one that
+// answers to something a person just did rather than to the calendar. Somebody
+// moving money into your account is worth knowing about at the time — it is the
+// one event in this app that happens *to* you rather than being something you
+// did yourself.
+//
+// Sent to the person who owns the destination account, and never to the person
+// who made the transfer. Moving money between two of your own accounts is not
+// news to you, and an app that tells you what you just did is an app that gets
+// muted.
+//
+// No amount, like everything else. "Money arrived, open to see."
+async function transferArrivals({ legs, byUserId, senderName }) {
+  // Grouped by recipient: four destinations that all belong to one person are
+  // one notification, not four.
+  const byRecipient = new Map();
+  for (const leg of legs) {
+    if (!leg.userId || leg.userId === byUserId) continue;
+    const held = byRecipient.get(leg.userId) ?? [];
+    held.push(leg.accountName);
+    byRecipient.set(leg.userId, held);
+  }
+
+  const messages = [];
+  for (const [userId, accounts] of byRecipient) {
+    const one = accounts.length === 1;
+    messages.push({
+      userId,
+      message: {
+        title: `💸 ${senderName} sent you money`,
+        body: one
+          ? `It has landed in ${accounts[0]}. Open Bayt to see how much.`
+          : `It has landed in ${nameList(accounts)}. Open Bayt to see how much.`,
+        // Distinct per send rather than shared, so two transfers on the same
+        // day are two notifications instead of the second replacing the first
+        // silently.
+        tag: `arrival-${Date.now()}`,
+        renotify: true,
+        url: '/',
+        // Money arriving is worth waking a radio for, unlike a monthly summary.
+        urgency: 'high',
+      },
+    });
+  }
+  return messages;
+}
+
+// Tells whoever the money went to. Never throws: a notification that cannot be
+// sent must not turn a transfer that already happened into an error.
+async function announceTransfer(details) {
+  try {
+    const messages = await transferArrivals(details);
+    const results = [];
+    for (const { userId, message } of messages) {
+      results.push(await pushService.sendTo(userId, message));
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 // What today deserves for one household — the whole decision, in one place.
 //
 // Extracted so the preview in Settings runs exactly this and not a second
@@ -176,4 +240,13 @@ async function runDaily({ now = new Date() } = {}) {
   return { month, rates, considered: pairs.length, sent };
 }
 
-module.exports = { runDaily, messagesFor, monthOpener, quietNudge, nameList, currentMonth };
+module.exports = {
+  runDaily,
+  messagesFor,
+  monthOpener,
+  quietNudge,
+  transferArrivals,
+  announceTransfer,
+  nameList,
+  currentMonth,
+};
