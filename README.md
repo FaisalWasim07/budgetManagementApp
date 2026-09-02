@@ -578,12 +578,19 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
-115 checks over four suites: signing in and out, passkeys, household isolation
-and roles,
-and the dashboard itself — recording money from the strip and from the sheet,
+252 checks over seven suites: signing in and out, passkeys, household isolation
+and roles, the phone shell, amounts being hidden every time the app opens, and
+the dashboard itself — recording money from the strip and from the sheet,
 editing an entry, deleting one, moving money between accounts, adding and
-editing something recurring, stopping and restarting it, and amounts being
-hidden every time the app opens.
+editing something recurring, and stopping and restarting it.
+
+The last suite is the statement scanner, which can only be tested in a real
+browser: the file is opened there and never posted anywhere, so there is no
+server call to assert against. It reads four statements from
+`test/browser/fixtures` — typed, locked, scanned, and one of each in the same
+document — and checks that a row keeps its columns, that a locked file asks
+rather than fails, that a wrong password can be corrected in place, and that a
+page with no text is shown as a picture rather than as nothing at all.
 
 The isolation suite is the one worth keeping green. Households are kept apart by
 middleware plus several dozen correctly-scoped queries, and one careless `WHERE`

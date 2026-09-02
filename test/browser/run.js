@@ -17,6 +17,7 @@ const SUITES = [
   'dashboard.test.js',
   'phone.test.js',
   'lock.test.js',
+  'statements.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {
