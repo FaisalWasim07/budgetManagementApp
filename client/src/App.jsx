@@ -520,7 +520,13 @@ export default function App({ user, onSignedOut }) {
         )}
 
         {summary && !empty && page === 'stats' && (
-          <Stats summary={summary} trend={trend} categories={categories} month={month} />
+          <Stats
+            summary={summary}
+            trend={trend}
+            categories={categories}
+            month={month}
+            phone={phone}
+          />
         )}
 
         {summary && !empty && page === 'activity' && (

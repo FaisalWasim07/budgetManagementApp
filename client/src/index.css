@@ -916,6 +916,30 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   animation: pop .22s cubic-bezier(.22,.9,.3,1) both;
 }
 
+/* Reading a statement needs the width a dialog does not normally get: the
+   lines are a date, a description and an amount side by side, and at 480px
+   every one of them wraps into three. */
+.modal.scanner { max-width: 760px; }
+
+/* The statement as it was read, before anything is made of it. Monospaced
+   because the columns only line up if the characters do, and scrollable in
+   both directions so a long line is cut off rather than reflowed into
+   something that never appeared on the statement. */
+.scan-preview {
+  margin: 0;
+  max-height: 46vh;
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .74rem;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 4;
+}
+
 .modal-tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 12px; }
 .modal-tabs button {
   flex: 1; border: 0; background: none; font: inherit; font-size: .85rem; font-weight: 550;
