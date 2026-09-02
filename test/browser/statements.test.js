@@ -142,6 +142,26 @@ const check = (name, ok, detail = '') => {
   check('and saying some rather than all',
     (await page.locator('.warn-banner').textContent()).includes('Some pages'));
 
+  // --- reading it, which is the only part that leaves the machine ---------
+  await close();
+  await open('statement-plain.pdf');
+  await page.waitForSelector('.scan-preview', { timeout: 20000 });
+  const readIt = page.locator('.modal.scanner button:has-text("Read the transactions")');
+  check('a statement that has text offers to have it read', await readIt.count() === 1);
+
+  // The suites run without a key, so this is what a deployment that has not set
+  // one answers. It should name the cause on screen rather than fail as nothing.
+  await readIt.click();
+  await page.waitForSelector('.modal.scanner .error-text', { timeout: 20000 });
+  check('with no key set, the screen says which key is missing',
+    (await page.locator('.modal.scanner .error-text').textContent()).includes('ANTHROPIC_API_KEY'),
+    await page.locator('.modal.scanner .error-text').textContent());
+  // The text is what step one exists to show, and it is what makes the rows
+  // checkable afterwards. It was briefly made conditional on having scanned,
+  // which hid it exactly when it was most wanted.
+  check('and the statement text is still on screen',
+    (await page.locator('.scan-preview').textContent()).includes('CARREFOUR'));
+
   check('no page errors throughout', bad.length === 0, bad.join(' | '));
 
   await browser.close();

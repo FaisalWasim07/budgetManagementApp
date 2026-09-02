@@ -4,7 +4,7 @@
   "outputDirectory": "client/dist",
   "functions": {
     "api/index.js": {
-      "maxDuration": 15,
+      "maxDuration": 120,
       "includeFiles": "server/src/db/*.sql"
     }
   },

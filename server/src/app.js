@@ -17,6 +17,7 @@ const subscriptionsRouter = require('./routes/subscriptions');
 const settingsRouter = require('./routes/settings');
 const exchangeRatesRouter = require('./routes/exchangeRates');
 const summaryRouter = require('./routes/summary');
+const statementsRouter = require('./routes/statements');
 const { attachUser, requireAuth } = require('./middleware/auth');
 const { resolveHousehold, blockViewerWrites } = require('./middleware/household');
 
@@ -25,7 +26,10 @@ const app = express();
 // Session cookies only travel same-origin, so credentialed cross-origin
 // requests are refused rather than allowed from anywhere.
 app.use(cors({ origin: false }));
-app.use(express.json());
+// Larger than the 100kb default because a statement arrives as the text of
+// several pages. It is still a ceiling: nothing here should ever be posting a
+// megabyte, and a body that size is a mistake worth refusing.
+app.use(express.json({ limit: '1mb' }));
 
 // Behind a proxy (any real deployment) req.ip is the proxy's address unless
 // Express is told to read X-Forwarded-For, which would make the login rate
@@ -106,6 +110,12 @@ app.use('/api/push', pushRouter);
 // scope a query by. Both are declared once, for the same reason requireAuth is:
 // a route added later cannot forget them.
 app.use('/api', resolveHousehold);
+
+// Above blockViewerWrites, like push and for the same reason: reading a
+// statement is a POST that writes nothing at all — no row, no file, nothing
+// that outlives the response — so view-only access is no reason to refuse it.
+app.use('/api/statements', statementsRouter);
+
 app.use('/api', blockViewerWrites);
 
 app.use('/api/persons', personsRouter);

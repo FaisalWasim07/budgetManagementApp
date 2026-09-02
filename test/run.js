@@ -23,6 +23,7 @@ const SUITES = [
   'api/passkeys.test.js',
   'api/verify.test.js',
   'api/push.test.js',
+  'api/statements.test.js',
   'api/notify.test.js',
   'api/whois.test.js',
   'api/identity.test.js',

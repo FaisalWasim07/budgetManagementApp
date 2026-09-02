@@ -950,6 +950,30 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .scan-page figcaption { font-size: .78rem; color: var(--ink-2); }
 
+/* The rows read out of a statement. Wide enough to need its own scroll on a
+   phone rather than making the dialog scroll sideways. */
+.tablewrap { overflow-x: auto; }
+.scan-rows { border-collapse: collapse; width: 100%; min-width: 460px; font-size: .84rem; }
+.scan-rows th {
+  text-align: left; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-2); font-weight: 550; padding: 6px 8px; border-bottom: 1px solid var(--line);
+}
+.scan-rows td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft, var(--line)); vertical-align: top; }
+.scan-rows tr:last-child td { border-bottom: none; }
+.scan-rows td small { display: block; color: var(--ink-2); font-size: .74rem; }
+/* The line as printed. Monospaced and quieter than the tidied name above it:
+   it is there to be checked against, not read. */
+.scan-rows td small.raw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .68rem; opacity: .65; word-break: break-all;
+}
+.scan-rows .when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scan-rows .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scan-rows .num.in { color: var(--good, var(--brand-deep)); }
+/* A guess the model admitted to. Marked, not hidden — the point is that you
+   can see which ones to look at. */
+.scan-rows tr.unsure td { background: var(--surface-2); }
+
 .modal-tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 12px; }
 .modal-tabs button {
   flex: 1; border: 0; background: none; font: inherit; font-size: .85rem; font-weight: 550;

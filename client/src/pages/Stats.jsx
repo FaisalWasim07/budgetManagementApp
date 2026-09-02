@@ -45,7 +45,10 @@ export default function Stats({ summary, trend, categories, month, phone }) {
 
       {scanning && (
         <Suspense fallback={null}>
-          <StatementScanner onClose={() => setScanning(false)} />
+          <StatementScanner
+            onClose={() => setScanning(false)}
+            accounts={summary.persons.flatMap((person) => person.accounts)}
+          />
         </Suspense>
       )}
 

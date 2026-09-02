@@ -398,6 +398,36 @@ Nothing about your figures is ever committed to Git: the database is remote, and
 git ls-files | grep -E "\.env$|sqlite"    # should print nothing
 ```
 
+## Reading a bank statement
+
+**Stats → Scan a statement.** Open a statement and it is read in your browser:
+the file is not uploaded, and a password-protected one never has to hand over
+its password, because the PDF is opened here rather than posted anywhere.
+
+Pressing **Read the transactions** sends the text — never the file, never the
+password — to be turned into rows: what each line is, who the merchant is, and
+which category it belongs to. Cryptic card descriptors like `TAP*DUB4471 AE`
+become something you can read, with the line exactly as your bank printed it
+kept underneath so the tidied version can always be checked against it. Lines
+the model was unsure of are marked rather than presented as fact.
+
+The model reads and categorises; it never adds anything up. Every total the app
+shows is computed from the rows in code. A confidently wrong figure in a budget
+looks exactly like a right one and gets acted on, so the model is allowed to be
+wrong about *what* something is — visible, and correctable — and never about
+*how much*.
+
+**Nothing is stored.** There is no statements table and no migration; the rows
+come back in the response and are gone when you close the dialog. Nothing here
+can write to your ledger, so a misread line cannot reach your budget.
+
+It needs `ANTHROPIC_API_KEY` set. Without one, opening a statement and reading
+its text still works — everything that happens in the browser is unaffected —
+and the button answers that no key is set.
+
+Pages that are scanned rather than typed are shown as pictures. There are no
+words in them to pull out, so they are not read into rows yet.
+
 ## Exchange rates
 
 Rates are tried against several free, no-key providers in turn, and the first
@@ -578,7 +608,7 @@ npm install --no-save playwright
 TEST_DATABASE_URL=... npm run test:browser
 ```
 
-252 checks over seven suites: signing in and out, passkeys, household isolation
+255 checks over seven suites: signing in and out, passkeys, household isolation
 and roles, the phone shell, amounts being hidden every time the app opens, and
 the dashboard itself — recording money from the strip and from the sheet,
 editing an entry, deleting one, moving money between accounts, adding and
