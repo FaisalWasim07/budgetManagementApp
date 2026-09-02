@@ -42,7 +42,13 @@ export default function StatementScanner({ onClose }) {
       } else {
         // CSV and anything else with a text body needs none of the above.
         const text = new TextDecoder().decode(raw).trim();
-        setResult({ text, pageCount: null, hasText: text.length > 0 });
+        setResult({
+          text,
+          pageCount: null,
+          pages: [],
+          hasText: text.length > 0,
+          imageCount: 0,
+        });
       }
       setLocked(null);
     } catch (err) {
@@ -116,21 +122,41 @@ export default function StatementScanner({ onClose }) {
 
       {error && <div className="error-text">{error}</div>}
 
-      {result && !result.hasText && (
-        <div className="warn-banner">
-          Opened it, but there is no text in it — these pages are pictures rather than
-          words. Reading those needs a different approach.
-        </div>
-      )}
-
-      {result && result.hasText && (
+      {result && (
         <div className="stack-sm">
-          <span className="muted" style={{ fontSize: '0.85rem' }}>
+          {/* A class, not the prose: the browser suites used to select this
+              sort of thing by its wording, and rewording one broke six of
+              them. */}
+          <span className="muted scan-summary" style={{ fontSize: '0.85rem' }}>
             {file?.name}
             {result.pageCount ? ` · ${result.pageCount} page${result.pageCount === 1 ? '' : 's'}` : ''}
-            {` · ${result.text.split('\n').length} lines`}
+            {result.hasText ? ` · ${result.text.split('\n').length} lines of text` : ''}
+            {result.imageCount
+              ? ` · ${result.imageCount} scanned page${result.imageCount === 1 ? '' : 's'}`
+              : ''}
           </span>
-          <pre className="scan-preview">{result.text}</pre>
+
+          {/* Said once, at the top, rather than beside every picture. A page
+              that is a photograph is not a failure — it is simply read a
+              different way, and there is nothing here for the person to fix. */}
+          {result.imageCount > 0 && (
+            <div className="warn-banner">
+              {result.hasText
+                ? 'Some pages are scanned rather than typed, so there are no words to pull out of them. They are shown below as they are.'
+                : 'This statement is scanned — the pages are pictures rather than words. They are shown below as they are.'}
+            </div>
+          )}
+
+          {result.hasText && <pre className="scan-preview">{result.text}</pre>}
+
+          {result.pages
+            ?.filter((page) => page.image)
+            .map((page) => (
+              <figure className="scan-page" key={page.n}>
+                <img src={page.image} alt={`Page ${page.n} of the statement`} />
+                <figcaption>Page {page.n}</figcaption>
+              </figure>
+            ))}
         </div>
       )}
     </Modal>

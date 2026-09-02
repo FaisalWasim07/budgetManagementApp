@@ -940,6 +940,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tab-size: 4;
 }
 
+/* A page that had no text in it, shown as the picture it is. Bordered rather
+   than bare so a white scan on a white dialog still reads as a sheet of paper
+   rather than as the dialog having gone blank. */
+.scan-page { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.scan-page img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff;
+}
+.scan-page figcaption { font-size: .78rem; color: var(--ink-2); }
+
 .modal-tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 12px; }
 .modal-tabs button {
   flex: 1; border: 0; background: none; font: inherit; font-size: .85rem; font-weight: 550;

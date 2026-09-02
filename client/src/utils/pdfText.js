@@ -97,11 +97,44 @@ async function open(bytes, password) {
   }
 }
 
-// `bytes` is a Uint8Array of the whole file. Returns the statement as text,
-// with the page count and whether anything was found at all. An empty result is
-// not a failure to report as one: it means the pages are pictures rather than
-// text, which needs a different approach and a different thing said to the
-// person holding it.
+// Rendered pages are sized by width rather than by a fixed zoom, so a statement
+// printed on A4 and one printed on Letter come out the same size — and neither
+// can produce an image far larger than it needs to be.
+const IMAGE_WIDTH = 1400;
+
+// Enough for any statement, and a floor under how much a mistaken upload can
+// cost: rendering a 300-page document to images would take the tab down.
+const MAX_RENDERED = 20;
+
+async function renderPage(page) {
+  const unscaled = page.getViewport({ scale: 1 });
+  const viewport = page.getViewport({ scale: Math.min(IMAGE_WIDTH / unscaled.width, 3) });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const canvasContext = canvas.getContext('2d');
+  // White behind it: a scanned page is usually white, and a PDF that declares
+  // no background renders onto transparency, which becomes black in a JPEG.
+  canvasContext.fillStyle = '#ffffff';
+  canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+
+  await page.render({ canvas, canvasContext, viewport }).promise;
+  // JPEG rather than PNG: a photographed page is a photograph, and the PNG of
+  // one is several times the size for nothing a reader or a model would notice.
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+// `bytes` is a Uint8Array of the whole file.
+//
+// Text and pictures are decided per page, not per document. A statement is
+// quite often both — a covering page laid out as text, the transactions
+// themselves scanned in — and treating the whole file as one or the other
+// throws away half of what it has.
+//
+// A page with no text is rendered to an image instead, which is what will be
+// read later. It is shown as a picture rather than hidden, so a page that
+// cannot be turned into words is at least visibly there.
 export async function readPdf(bytes, password) {
   const { task, doc } = await open(bytes, password);
   const pageCount = doc.numPages;
@@ -111,9 +144,13 @@ export async function readPdf(bytes, password) {
     for (let n = 1; n <= pageCount; n += 1) {
       const page = await doc.getPage(n);
       const content = await page.getTextContent();
-      pages.push(linesFromItems(content.items).join('\n'));
-      // Each page is released as it is read rather than at the end, so a long
-      // statement does not hold every page's rendering in memory at once.
+      const text = linesFromItems(content.items).join('\n').trim();
+
+      const picture = !text && pages.filter((p) => p.image).length < MAX_RENDERED;
+      pages.push({ n, text, image: picture ? await renderPage(page) : null });
+
+      // Released as it goes rather than at the end, so a long statement does
+      // not hold every page's rendering in memory at once.
       page.cleanup();
     }
   } finally {
@@ -122,6 +159,17 @@ export async function readPdf(bytes, password) {
     await task.destroy().catch(() => {});
   }
 
-  const text = pages.join('\n\n').trim();
-  return { text, pageCount, hasText: text.length > 0 };
+  const text = pages
+    .map((p) => p.text)
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+
+  return {
+    pageCount,
+    pages,
+    text,
+    hasText: text.length > 0,
+    imageCount: pages.filter((p) => p.image).length,
+  };
 }
