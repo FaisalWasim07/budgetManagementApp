@@ -51,6 +51,15 @@ const ROW_SCHEMA = {
             description: 'Always positive. Direction carries the sign.',
           },
           direction: { type: 'string', enum: ['in', 'out'] },
+          kind: {
+            type: 'string',
+            enum: ['purchase', 'payment', 'refund', 'cashback', 'income', 'fee', 'other'],
+            description:
+              'What sort of movement this is. On a card statement "payment" is you paying the ' +
+              'card off — money leaving your current account, not money you received. ' +
+              '"cashback" and "refund" are money back from a purchase. "income" is a salary or ' +
+              'similar arriving in a bank account.',
+          },
           category: { type: 'string' },
           confidence: {
             type: 'string',
@@ -58,12 +67,28 @@ const ROW_SCHEMA = {
             description: 'low when the line is too cryptic to place with any confidence.',
           },
         },
-        required: ['date', 'raw', 'merchant', 'what', 'amount', 'direction', 'category', 'confidence'],
+        required: [
+          'date', 'raw', 'merchant', 'what', 'amount', 'direction', 'kind', 'category', 'confidence',
+        ],
         additionalProperties: false,
       },
     },
+    // The bank's own figures, so the reading can be checked against them rather
+    // than trusted. Null wherever the document does not print one — a plain
+    // transaction list often prints none of them.
+    statement: {
+      type: 'object',
+      properties: {
+        openingBalance: { type: ['number', 'null'] },
+        closingBalance: { type: ['number', 'null'] },
+        periodStart: { type: ['string', 'null'] },
+        periodEnd: { type: ['string', 'null'] },
+      },
+      required: ['openingBalance', 'closingBalance', 'periodStart', 'periodEnd'],
+      additionalProperties: false,
+    },
   },
-  required: ['rows'],
+  required: ['rows', 'statement'],
   additionalProperties: false,
 };
 
@@ -85,6 +110,16 @@ const SYSTEM = [
   '  not "groceries were bought". Three or four words at most.',
   '- Mark `confidence` low whenever you are guessing at the merchant or the category.',
   '  A guess admitted is useful; a guess presented as fact is not.',
+  '',
+  'On a card statement `kind` is easy to get wrong and matters. A line reading',
+  '"TRANSFER PAYMENT RECEIVED" is the cardholder paying the card off: a credit to the',
+  'card, and not money they received. It is "payment", never "income". Cashback and',
+  'refunds are money coming back from a purchase, not earnings either.',
+  '',
+  'Copy the opening and closing balances into `statement` exactly as printed, along with',
+  'the period covered. They are used to check that your reading adds up. Where the',
+  'document does not print one, answer null rather than working it out — a figure you',
+  'derived cannot check the rows you derived it from.',
 ].join('\n');
 
 function prompt({ text, categories, currency }) {
@@ -143,6 +178,7 @@ function clean(rows) {
       raw: String(row.raw),
       merchant: String(row.merchant).trim() || String(row.raw),
       what: String(row.what).trim(),
+      kind: row.kind || 'other',
       category: String(row.category).trim() || 'Uncategorised',
     }))
     .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
@@ -190,6 +226,7 @@ async function scan({ text, categories = [], currency = null }) {
   }
 
   return {
+    statement: parsed.statement ?? null,
     rows: clean(Array.isArray(parsed.rows) ? parsed.rows : []),
     usage: {
       input: message.usage?.input_tokens ?? null,

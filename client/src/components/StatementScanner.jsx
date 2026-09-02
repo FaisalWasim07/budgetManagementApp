@@ -12,6 +12,81 @@ import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 // The file is opened in this browser rather than posted anywhere, so a
 // password-protected statement never has to hand over its password to be read.
 
+// Only what was found. A section with nothing in it is not shown at all —
+// a list of empty headings reads as the feature having failed.
+function Findings({ findings, currency }) {
+  if (!findings) return null;
+  const { duplicates = [], repeats = [], missingSubscriptions = [], outliers = [], frequent = [] } = findings;
+  const unlisted = repeats.filter((r) => !r.listed);
+
+  const sections = [
+    unlisted.length && {
+      key: 'unlisted',
+      title: 'Charging regularly, and not in your subscriptions',
+      items: unlisted.map((r) => (
+        <>
+          <b>{r.merchant}</b> — <Money amount={r.amount} currency={currency} />, {r.times} times
+        </>
+      )),
+    },
+    missingSubscriptions.length && {
+      key: 'missing',
+      title: 'Budgeted for, but nothing charged on this statement',
+      items: missingSubscriptions.map((m) => (
+        <>
+          <b>{m.name}</b> — <Money amount={m.amount} currency={currency} /> a month
+        </>
+      )),
+    },
+    duplicates.length && {
+      key: 'dupes',
+      title: 'The same charge twice on one day',
+      // Flagged, not accused: a repeat on one day is often perfectly real.
+      items: duplicates.map((d) => (
+        <>
+          <b>{d.merchant}</b> — <Money amount={d.amount} currency={currency} />, {d.times} times on {d.date}. Worth a look.
+        </>
+      )),
+    },
+    outliers.length && {
+      key: 'outliers',
+      title: 'Larger than usual for their category',
+      items: outliers.map((o) => (
+        <>
+          <b>{o.merchant}</b> — <Money amount={o.amount} currency={currency} /> against a typical{' '}
+          <Money amount={o.typical} currency={currency} /> in {o.category}
+        </>
+      )),
+    },
+    frequent.length && {
+      key: 'frequent',
+      title: 'Small, and often',
+      items: frequent.map((f) => (
+        <>
+          <b>{f.merchant}</b> — {f.times} times, <Money amount={f.total} currency={currency} /> in total
+        </>
+      )),
+    },
+  ].filter(Boolean);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="scan-findings">
+      {sections.map((section) => (
+        <div key={section.key}>
+          <h3>{section.title}</h3>
+          <ul>
+            {section.items.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const isPdf = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 
 export default function StatementScanner({ onClose, accounts = [] }) {
@@ -27,11 +102,12 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // Which account this statement is from. It decides the currency the amounts
   // are read in, which is not something to guess at from the page.
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? null);
-  const [rows, setRows] = useState(null);
+  const [report, setReport] = useState(null);
   const [reading, setReading] = useState(false);
   const passwordRef = useRef(null);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0] ?? null;
+  const currency = account?.currency ?? '';
 
   function reset() {
     setFile(null);
@@ -40,7 +116,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setLocked(null);
     setError(null);
     setResult(null);
-    setRows(null);
+    setReport(null);
   }
 
   async function read(chosen, raw, tryPassword) {
@@ -96,8 +172,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setReading(true);
     setError(null);
     try {
-      const answer = await scanStatement(result.text, account?.id ?? null);
-      setRows(answer.rows);
+      setReport(await scanStatement(result.text, account?.id ?? null));
     } catch (err) {
       setError(err.message);
     }
@@ -173,7 +248,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
           {result.hasText && (
             <>
-              {accounts.length > 1 && !rows && (
+              {accounts.length > 1 && !report && (
                 <label className="field">
                   Which account is this from?
                   <select value={accountId ?? ''} onChange={(e) => setAccountId(e.target.value)}>
@@ -186,7 +261,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                 </label>
               )}
 
-              {!rows && (
+              {!report && (
                 <>
                   <button className="primary" onClick={readTransactions} disabled={reading}>
                     {reading ? 'Reading the transactions…' : 'Read the transactions'}
@@ -199,41 +274,115 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             </>
           )}
 
-          {rows && (
-            <div className="tablewrap">
-              <table className="scan-rows">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>What</th>
-                    <th>Category</th>
-                    <th className="num">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i} className={row.confidence === 'low' ? 'unsure' : undefined}>
-                      <td className="when">{row.date}</td>
-                      <td>
-                        <b>{row.merchant}</b>
-                        <small>{row.what}</small>
-                        {/* The line as the bank printed it, kept underneath so
-                            the tidier version above can always be checked
-                            against it rather than taken on trust. */}
-                        <small className="raw">{row.raw}</small>
-                      </td>
-                      <td>{row.category}</td>
-                      <td className={`num ${row.direction === 'in' ? 'in' : ''}`}>
-                        {row.direction === 'in' ? '+' : ''}
-                        <Money amount={row.amount} currency={account?.currency ?? ''} />
-                      </td>
-                    </tr>
+          {report && (
+            <div className="stack-sm scan-report">
+              {/* Whether to believe any of the rest of it. The bank prints what
+                  the account started and ended at, so the reading can be checked
+                  against arithmetic rather than trusted — and when it does not
+                  add up, that is said before anything else, not after. */}
+              {report.reconciliation?.status === 'mismatch' && (
+                <div className="warn-banner">
+                  This does not add up. Following the rows from the opening balance lands on{' '}
+                  <b><Money amount={report.reconciliation.expected} currency={currency} /></b>, where the
+                  statement closes at{' '}
+                  <b><Money amount={report.reconciliation.closing} currency={currency} /></b> — a gap of{' '}
+                  <b><Money amount={Math.abs(report.reconciliation.delta)} currency={currency} /></b>.
+                  {report.reconciliation.countedTwice
+                    ? ` That is the size of the ${report.reconciliation.countedTwice.merchant} line, which may have been counted twice.`
+                    : ' A line was probably missed or misread.'}{' '}
+                  Take the figures below as a reading, not as fact.
+                </div>
+              )}
+
+              <div className="scan-head">
+                <span>
+                  <b><Money amount={report.overview.spent} currency={currency} /></b> spent
+                  {report.overview.lines ? ` over ${report.overview.lines} lines` : ''}
+                  {report.overview.from ? `, ${report.overview.from} to ${report.overview.to}` : ''}
+                </span>
+                {report.reconciliation?.status === 'ok' && (
+                  <span className="reconciled">adds up to the closing balance</span>
+                )}
+              </div>
+
+              {/* Credits are not one thing. Paying a card off is a credit for the
+                  whole balance and is not money anybody received. */}
+              {report.overview.credits && (
+                <div className="scan-credits">
+                  {[
+                    ['paid off the card', report.overview.credits.payments],
+                    ['came in', report.overview.credits.income],
+                    ['refunded', report.overview.credits.refunds],
+                    ['cashback', report.overview.credits.cashback],
+                  ]
+                    .filter(([, amount]) => amount > 0)
+                    .map(([label, amount]) => (
+                      <span key={label}>
+                        <Money amount={amount} currency={currency} /> {label}
+                      </span>
+                    ))}
+                </div>
+              )}
+
+              {report.categories?.length > 0 && (
+                <div className="scan-cats">
+                  {report.categories.map((cat) => (
+                    <div className="scan-cat" key={cat.category}>
+                      <div className="row-tight" style={{ justifyContent: 'space-between' }}>
+                        <b>{cat.category}</b>
+                        <span>
+                          <Money amount={cat.total} currency={currency} /> · {cat.share}%
+                        </span>
+                      </div>
+                      <div className="scan-bar"><i style={{ width: `${cat.share}%` }} /></div>
+                      <small>
+                        {cat.count} line{cat.count === 1 ? '' : 's'}, averaging{' '}
+                        <Money amount={cat.average} currency={currency} />
+                      </small>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
+
+              <Findings findings={report.findings} currency={currency} />
+
+              <details className="scan-rows-toggle">
+                <summary>Every line ({report.rows.length})</summary>
+                <div className="tablewrap">
+                  <table className="scan-rows">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>What</th>
+                        <th>Category</th>
+                        <th className="num">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.rows.map((row, i) => (
+                        <tr key={i} className={row.confidence === 'low' ? 'unsure' : undefined}>
+                          <td className="when">{row.date}</td>
+                          <td>
+                            <b>{row.merchant}</b>
+                            <small>{row.what}</small>
+                            {/* The line as the bank printed it, so the tidier
+                                version above can be checked rather than trusted. */}
+                            <small className="raw">{row.raw}</small>
+                          </td>
+                          <td>{row.category}</td>
+                          <td className={`num ${row.direction === 'in' ? 'in' : ''}`}>
+                            {row.direction === 'in' ? '+' : ''}
+                            <Money amount={row.amount} currency={currency} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+
               <span className="muted" style={{ fontSize: '0.8rem' }}>
-                {rows.length} transaction{rows.length === 1 ? '' : 's'}. Nothing has been saved —
-                this is gone when you close it.
+                Nothing has been saved. This is gone when you close it.
               </span>
             </div>
           )}

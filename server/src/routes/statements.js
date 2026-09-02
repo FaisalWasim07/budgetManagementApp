@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/pool');
 const statementService = require('../services/statementService');
+const statementFindings = require('../services/statementFindings');
 const { h } = require('../util/route');
 
 const router = express.Router();
@@ -9,6 +10,19 @@ const router = express.Router();
 // is a ceiling on a mistake — a book pasted into the box — rather than on any
 // statement anybody actually holds.
 const MAX_TEXT = 400_000;
+
+// What this household already budgets for every month. Read so the scanner can
+// say which charges it already knows about and which it does not — the one
+// thing here that needs the ledger, and it only ever reads it.
+async function subscriptionsFor(householdId) {
+  return db.all(
+    `SELECT s.name, s.amount, s.direction, s.cycle
+       FROM subscriptions s
+       JOIN accounts a ON a.id = s.account_id
+      WHERE a.household_id = ? AND s.is_active = 1`,
+    [householdId]
+  );
+}
 
 // The categories this household already uses, so the model names things the
 // same way the rest of the app does rather than inventing a private vocabulary
@@ -53,12 +67,23 @@ router.post(
     }
 
     try {
-      const { rows, usage } = await statementService.scan({
+      const { rows, statement, usage } = await statementService.scan({
         text,
         categories: await categoriesFor(req.household.id),
         currency,
       });
-      res.json({ rows, usage });
+
+      // Every figure below this line is worked out from the rows, in code. The
+      // model counted nothing and totalled nothing — including the check that
+      // says whether its reading of the statement adds up to the bank's own
+      // closing balance.
+      const analysis = statementFindings.analyse(
+        rows,
+        await subscriptionsFor(req.household.id),
+        statement
+      );
+
+      res.json({ rows, statement, ...analysis, usage });
     } catch (err) {
       if (err instanceof statementService.StatementScanError) {
         // Logged in full; the caller is told the shape of the problem without

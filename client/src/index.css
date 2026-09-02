@@ -950,6 +950,28 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .scan-page figcaption { font-size: .78rem; color: var(--ink-2); }
 
+/* What was found in a statement, above the rows themselves. */
+.scan-report { gap: 14px; }
+.scan-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .9rem; }
+.scan-head .reconciled { font-size: .74rem; color: var(--ink-2); }
+.scan-credits { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--ink-2); }
+
+.scan-cats { display: flex; flex-direction: column; gap: 9px; }
+.scan-cat { display: flex; flex-direction: column; gap: 3px; font-size: .85rem; }
+.scan-cat small { font-size: .74rem; color: var(--ink-2); }
+/* The bar is the share, drawn. Only ever as wide as its own percentage, so two
+   categories side by side compare by eye without reading either number. */
+.scan-bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.scan-bar > i { display: block; height: 100%; background: var(--brand-deep); }
+
+.scan-findings { display: flex; flex-direction: column; gap: 12px; }
+.scan-findings h3 { font-size: .82rem; margin: 0 0 4px; }
+.scan-findings ul { margin: 0; padding-left: 17px; display: flex; flex-direction: column; gap: 3px; }
+.scan-findings li { font-size: .82rem; color: var(--ink-2); }
+.scan-findings li b { color: var(--ink); font-weight: 550; }
+
+.scan-rows-toggle > summary { cursor: pointer; font-size: .82rem; color: var(--ink-2); }
+
 /* The rows read out of a statement. Wide enough to need its own scroll on a
    phone rather than making the dialog scroll sideways. */
 .tablewrap { overflow-x: auto; }
