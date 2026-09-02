@@ -67,4 +67,20 @@ function results() {
 // without colliding on usernames.
 const unique = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
-module.exports = { BASE, client, results, unique };
+// Months, for suites whose subject is *when* something happens rather than a
+// particular date. Several rules in the app are relative to now — an item
+// cannot be ended before last month, a start date cannot move once it has
+// charged — so a suite that names fixed months is only testing them for as
+// long as real time agrees, and then reports the app as broken instead of
+// itself.
+//
+// Worked out here rather than imported from the server: a suite that borrowed
+// the app's own month arithmetic could not notice it being wrong.
+const monthName = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+const thisMonth = () => monthName(new Date());
+const shiftMonth = (month, by) => {
+  const [year, month1] = month.split('-').map(Number);
+  return monthName(new Date(Date.UTC(year, month1 - 1 + by, 1)));
+};
+
+module.exports = { BASE, client, results, unique, thisMonth, shiftMonth };

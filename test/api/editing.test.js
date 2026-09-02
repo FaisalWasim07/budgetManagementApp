@@ -1,11 +1,18 @@
 // Editing entries and transfers, and recurring money in both directions.
 // A transfer is two rows that must always agree; editing is where they would
 // most easily stop agreeing.
-const { client, results, unique } = require('../support/client');
+const { client, results, unique, thisMonth, shiftMonth } = require('../support/client');
 
 const { check, report } = results();
 const u = unique();
-const M = '2026-08';
+// Relative to today, not a fixed pair of months. Ending a recurring item is
+// refused before last month, so `M` has to be a month whose previous month is
+// still a legal end date. Naming August and July satisfied that only while
+// real time was in or before August 2026; from September this suite asked the
+// app to rewrite a recorded month, was refused, and reported the refusal as
+// recurring income failing to stop.
+const M = thisMonth();
+const PREV = shiftMonth(M, -1);
 
 (async () => {
   const me = client();
@@ -101,17 +108,18 @@ const M = '2026-08';
   // --- recurring money, both directions ----------------------------------
   const salary = await me.post('/api/subscriptions', {
     account_id: main.id, name: 'Salary', direction: 'income', amount: 20000,
-    cycle: 'monthly', start_month: '2026-07',
+    cycle: 'monthly', start_month: PREV,
   });
   check('recurring income can be created', salary.status === 201 && salary.data.direction === 'income',
     JSON.stringify(salary.data).slice(0, 80));
 
   const netflix = await me.post('/api/subscriptions', {
-    account_id: main.id, name: 'Netflix', amount: 56, cycle: 'monthly', start_month: '2026-07',
+    account_id: main.id, name: 'Netflix', amount: 56, cycle: 'monthly', start_month: PREV,
   });
   check('a subscription still defaults to going out', netflix.data.direction === 'expense');
 
-  // Jul + Aug = 2 salaries in, 2 Netflix out, on top of the 4,000 already there.
+  // Last month + this one = 2 salaries in, 2 Netflix out, on top of the 4,000
+  // already there.
   const expected = 4000 - 120 + 20000 * 2 - 56 * 2;
   check('recurring income and spending both hit the balance',
     Math.abs((await balance(main.id)) - expected) < 0.001,
@@ -128,8 +136,14 @@ const M = '2026-08';
     !categories.some((c) => c.category === 'Salary'),
     JSON.stringify(categories));
 
-  // Ending it stops it, without touching history.
-  await me.patch(`/api/subscriptions/${salary.data.id}`, { end_month: '2026-07' });
+  // Ending it stops it, without touching history. Last month is the earliest
+  // end date the app accepts, and the status is checked rather than assumed:
+  // a refusal here used to surface as the wrong total two lines below, which
+  // reads as broken maths rather than a rejected edit.
+  const ended = await me.patch(`/api/subscriptions/${salary.data.id}`, { end_month: PREV });
+  check('a recurring item can be ended as of last month',
+    ended.status === 200, `${ended.status} ${JSON.stringify(ended.data)}`);
+
   const afterEnd = (await me.get(`/api/summary/${M}`)).data;
   check('ending recurring income removes it from later months',
     afterEnd.household.income === 5500, String(afterEnd.household.income));
