@@ -24,10 +24,14 @@ const describeFailure = () =>
 // An account with a passkey has a second step. The password is checked first
 // and gets you nothing but a challenge — no session exists until the device
 // has signed it.
-export default function Login({ needsSetup, onSignedIn }) {
+export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  // Not the `code` below: that one is a recovery code answering a passkey
+  // challenge. This gates registration on a deployment that sets SIGNUP_CODE,
+  // and the two are never on screen at the same time.
+  const [signupCode, setSignupCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [challenge, setChallenge] = useState(null);
@@ -51,7 +55,7 @@ export default function Login({ needsSetup, onSignedIn }) {
     setError(null);
     try {
       const result = needsSetup
-        ? await setupFirstUser(username, password)
+        ? await setupFirstUser(username, password, signupCode.trim())
         : await login(username, password);
 
       if (result.needs === 'passkey') {
@@ -260,6 +264,26 @@ export default function Login({ needsSetup, onSignedIn }) {
               autoComplete="new-password"
               required
             />
+          </label>
+        )}
+
+        {/* Shown only when the server says this deployment has a signup code.
+            Without the field the form posts without one and is refused with
+            BAD_SIGNUP_CODE — a dead end, because there is nothing on screen to
+            correct. Kept on a failed attempt: a code you were given is not
+            the thing that was wrong when the password was. */}
+        {needsSetup && signupNeedsCode && (
+          <label className="field">
+            Signup code
+            <input
+              value={signupCode}
+              onChange={(e) => setSignupCode(e.target.value)}
+              autoComplete="off"
+              required
+            />
+            <span className="muted">
+              This Bayt asks for a code before anyone can sign up. Whoever set it up has it.
+            </span>
           </label>
         )}
 

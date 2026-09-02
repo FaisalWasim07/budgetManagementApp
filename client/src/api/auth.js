@@ -2,7 +2,11 @@ import { get, post, del } from './client';
 
 export const getAuthStatus = () => get('/auth/status');
 
-export const setupFirstUser = (username, password) => post('/auth/setup', { username, password });
+// The code is sent whether or not the form asked for one: on a deployment
+// with no SIGNUP_CODE the server ignores it, and on one that has it an empty
+// string is refused the same way a wrong code is.
+export const setupFirstUser = (username, password, code) =>
+  post('/auth/setup', { username, password, code });
 
 export const login = (username, password) => post('/auth/login', { username, password });
 

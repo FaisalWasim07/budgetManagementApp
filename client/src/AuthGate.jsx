@@ -54,7 +54,8 @@ export default function AuthGate() {
     return (
       <Login
         needsSetup={status.needsSetup}
-        onSignedIn={(user) => setStatus({ needsSetup: false, user })}
+        signupNeedsCode={status.signupNeedsCode}
+        onSignedIn={(user) => setStatus({ ...status, needsSetup: false, user })}
       />
     );
   }

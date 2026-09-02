@@ -212,6 +212,10 @@ too.
 an account. Set `SIGNUP_CODE` to a secret of your choosing and only people you
 give it to can sign up. Existing accounts are unaffected.
 
+That includes the very first account. If `SIGNUP_CODE` is already set the first
+time a new deployment is opened, the setup screen asks for it too — so either
+set it after you've created your own login, or have it to hand when you do.
+
 ## Signing in
 
 The first time you open the app it asks you to choose a username and password,
