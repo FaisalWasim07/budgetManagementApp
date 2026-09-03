@@ -104,14 +104,23 @@ const lastSent = () => sent[sent.length - 1];
   // The instructions go in a marked system block and the slice goes in the user
   // message. Both halves matter: a cached prefix ends at the first byte that
   // differs, so anything per-slice in the system block would cache nothing.
-  await service.scan({ text: 'a line of the statement', categories: ['Groceries'] });
+  await service.scan({ text: 'a line of the statement', currency: 'AED' });
   const call = lastSent();
   check('the instructions are sent as a block that can be cached',
     call.system[0].cache_control?.type === 'ephemeral', JSON.stringify(call.system[0].cache_control));
-  check('the household’s own categories are in it, so they are cached too',
-    call.system[0].text.includes('Groceries'));
+  check('with the currency of the account being read against',
+    call.system[0].text.includes('AED'));
   check('and the slice itself is the only thing that changes between requests',
     call.messages[0].content === 'a line of the statement', call.messages[0].content);
+
+  // Nothing from the ledger goes out with a scan. The household's own category
+  // names used to ride along in the cached block so the model would use the
+  // same words as the rest of the app — useful, and still the household's
+  // private vocabulary being sent to answer a question about a PDF.
+  check('nothing the household has typed anywhere is sent with the statement',
+    !('categories' in (lastSent().system[0] ?? {})) &&
+      !/Categories already used/.test(call.system[0].text),
+    call.system[0].text.slice(-160));
 
   // --- rows are checked before anything downstream sees them --------------
   const scanned = await service.scan({ text: 'a line' });

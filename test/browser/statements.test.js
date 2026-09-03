@@ -307,7 +307,7 @@ const check = (name, ok, detail = '') => {
       credits: { payments: 10117.51, refunds: 0, cashback: 0, income: 0 },
       from: '2026-08-01', to: '2026-08-11',
     },
-    reconciliation: { status: 'ok', closing: 9496.06 },
+    reconciliation: { status: 'ok', opening: 10117.51, closing: 9496.06, reads: 'card' },
     categories: [
       { category: 'Government', total: 1702.96, count: 1, average: 1702.96, share: 79.4 },
       { category: 'Groceries', total: 412.75, count: 1, average: 412.75, share: 19.3 },
@@ -315,8 +315,7 @@ const check = (name, ok, detail = '') => {
     ],
     findings: {
       duplicates: [{ date: '2026-08-03', merchant: 'Tap Coffee', amount: 28, times: 2, total: 56 }],
-      repeats: [{ merchant: 'Spotify', amount: 39, times: 2, total: 78, listed: false, listedAs: null }],
-      missingSubscriptions: [{ name: 'Gym', amount: 250 }],
+      repeats: [{ merchant: 'Spotify', amount: 39, times: 2, total: 78 }],
       outliers: [{ date: '2026-08-11', merchant: 'Abu Dhabi Service', category: 'Government',
         amount: 1702.96, typical: 100 }],
       frequent: [{ merchant: 'Tap Coffee', times: 7, total: 196, average: 28 }],
@@ -373,6 +372,14 @@ const check = (name, ok, detail = '') => {
   check('but a statement you just asked to have read is not masked',
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
     await page.locator('.scan-head').textContent());
+  // The one figure somebody opens a statement to find. It was being used — the
+  // reading is checked against it — and never shown.
+  const bill = await page.locator('.scan-bill').textContent();
+  check('what the statement closes at is on the report', bill.includes('9,496.06'), bill);
+  check('named as what it is on a card', bill.includes('Owed'), bill);
+  check('with where it started, so the month has both ends',
+    bill.includes('10,117.51'), bill);
+
   check('the report says what was spent',
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
     await page.locator('.scan-head').textContent());
@@ -388,10 +395,15 @@ const check = (name, ok, detail = '') => {
   check('with its share', (await page.locator('.scan-cat').first().textContent()).includes('79.4%'));
 
   const findingHeads = await page.locator('.scan-findings h3').allTextContents();
-  check('all five kinds of finding are shown when all five are found',
-    findingHeads.length === 5, JSON.stringify(findingHeads));
-  check('an unlisted repeat is named as such',
-    findingHeads.some((h) => h.includes('not in your subscriptions')), JSON.stringify(findingHeads));
+  check('every kind of finding is shown when every kind is found',
+    findingHeads.length === 4, JSON.stringify(findingHeads));
+  check('a charge on a cycle is reported from the statement itself',
+    findingHeads.some((h) => h.includes('regular cycle')), JSON.stringify(findingHeads));
+  // The scanner used to compare against the household's subscriptions and list
+  // what had *not* been charged — things the statement never mentioned, in a
+  // report about the statement.
+  check('and nothing is reported that the statement does not contain',
+    !findingHeads.some((h) => h.includes('Budgeted for')), JSON.stringify(findingHeads));
   check('a duplicate is flagged rather than asserted',
     (await page.locator('.scan-findings').textContent()).includes('Worth a look'));
 

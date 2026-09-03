@@ -20,34 +20,17 @@ const MAX_ROWS = 2000;
 // the model is finished. Slices of thirty lines come back in seconds each, and
 // the browser asks for the next one.
 
-// What this household already budgets for every month. Read so the scanner can
-// say which charges it already knows about and which it does not — the one
-// thing here that needs the ledger, and it only ever reads it.
-async function subscriptionsFor(householdId) {
-  return db.all(
-    `SELECT s.name, s.amount, s.direction, s.cycle
-       FROM subscriptions s
-       JOIN accounts a ON a.id = s.account_id
-      WHERE a.household_id = ? AND s.is_active = 1`,
-    [householdId]
-  );
-}
-
-// The categories this household already uses, so the model names things the
-// same way the rest of the app does rather than inventing a private vocabulary
-// per statement. Read-only, like everything this feature does to the ledger.
-async function categoriesFor(householdId) {
-  const rows = await db.all(
-    `SELECT DISTINCT t.category
-       FROM transactions t
-       JOIN accounts a ON a.id = t.account_id
-      WHERE a.household_id = ? AND t.category IS NOT NULL AND t.category <> ''
-      ORDER BY t.category`,
-    [householdId]
-  );
-  return rows.map((r) => r.category);
-}
-
+// Nothing here reads the ledger. Scanning a statement is a look at a document
+// somebody is holding, and it stays that: no transactions, no subscriptions, no
+// category list. Two of those used to be read — the household's subscriptions,
+// so the report could say which recurring charges were already budgeted for,
+// and its category names, so the model would use the same words the rest of the
+// app does. Both were useful and both were the wrong shape: they put the ledger
+// inside a statement report, which then listed things the statement had never
+// mentioned, and sent the household's own category names out with every slice.
+//
+// The account is looked up for one thing only, its currency, and that is a
+// property of what is being read rather than anything in the books.
 // What a statement may be read with. Served rather than hardcoded in the
 // browser so the list of models — and their prices — has one home, and a client
 // cannot ask for a model nobody put on it.
@@ -92,7 +75,6 @@ router.post(
       const model = statementService.modelFor(req.body.model);
       const { rows, statement, usage } = await statementService.scan({
         text,
-        categories: await categoriesFor(req.household.id),
         currency,
         model,
         effort: req.body.effort,
@@ -102,11 +84,7 @@ router.post(
       // model counted nothing and totalled nothing — including the check that
       // says whether its reading of the statement adds up to the bank's own
       // closing balance.
-      const analysis = statementFindings.analyse(
-        rows,
-        await subscriptionsFor(req.household.id),
-        statement
-      );
+      const analysis = statementFindings.analyse(rows, statement);
 
       // Priced here, where the prices live, so the browser adds up dollars
       // rather than tokens times a rate it holds a stale copy of.
@@ -155,13 +133,7 @@ router.post(
       }))
       .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
 
-    res.json(
-      statementFindings.analyse(
-        clean,
-        await subscriptionsFor(req.household.id),
-        req.body.statement ?? null
-      )
-    );
+    res.json(statementFindings.analyse(clean, req.body.statement ?? null));
   })
 );
 

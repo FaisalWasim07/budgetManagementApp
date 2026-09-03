@@ -3,12 +3,21 @@
 // or count — it is allowed to be wrong about what a line is, which you can see
 // and correct, and never about how much, which you cannot.
 //
-// Nothing in this file touches the database or writes anything. It takes rows
-// and a household's subscriptions, and returns what can be said about them.
+// Nothing in this file touches the database, reads it, or writes anything. It
+// takes the rows read out of one statement and returns what can be said about
+// that statement alone.
+//
+// That isolation is deliberate and was not always the case. This used to be
+// handed the household's subscriptions so it could say which recurring charges
+// were already budgeted for, and which budgeted ones had not been charged. It
+// read well and it was wrong: a scan is a look at a document, and pulling the
+// ledger into it made a statement report that was half ledger — listing things
+// the statement had never mentioned. The two halves are separate until somebody
+// asks for them not to be.
 
 // Two amounts are the same charge if they are within a fraction of a unit of
-// each other. Statements round, and a subscription recorded as 55.99 will show
-// up as 56.00 often enough to matter.
+// each other. Statements round, and a charge of 55.99 shows up as 56.00 often
+// enough to matter.
 const SAME_AMOUNT = 0.02;
 
 // A line is an outlier if it is this many times its own category's median. A
@@ -37,16 +46,6 @@ const key = (text) =>
     .replace(/[^a-z0-9 ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-const looksLike = (a, b) => {
-  const x = key(a);
-  const y = key(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  // One containing the other covers both "Netflix" inside "netflix com
-  // amsterdam" and a statement that abbreviates what the household spelled out.
-  return x.includes(y) || y.includes(x);
-};
 
 const median = (numbers) => {
   const sorted = [...numbers].sort((a, b) => a - b);
@@ -149,7 +148,7 @@ const daysBetween = (a, b) => Math.abs(new Date(a) - new Date(b)) / 86400000;
 // repeat that is not in the file. This earns its keep on a statement spanning
 // more than one cycle. Over a single month it will usually say nothing, which
 // is the honest answer rather than a guess dressed up as a finding.
-function repeats(rows, subscriptions) {
+function repeats(rows) {
   const groups = new Map();
   for (const row of rows.filter((r) => r.direction === 'out')) {
     const id = `${key(row.merchant)}|${row.amount.toFixed(2)}`;
@@ -168,31 +167,13 @@ function repeats(rows, subscriptions) {
       const dates = [...new Set(group.map((r) => r.date))].sort();
       return dates.every((date, i) => i === 0 || daysBetween(date, dates[i - 1]) >= PERIODIC_DAYS);
     })
-    .map((group) => {
-      const known = subscriptions.find(
-        (sub) => looksLike(sub.name, group[0].merchant) && sameAmount(sub.amount, group[0].amount)
-      );
-      return {
-        merchant: group[0].merchant,
-        amount: group[0].amount,
-        times: group.length,
-        total: sum(group),
-        listed: Boolean(known),
-        listedAs: known?.name ?? null,
-      };
-    })
+    .map((group) => ({
+      merchant: group[0].merchant,
+      amount: group[0].amount,
+      times: group.length,
+      total: sum(group),
+    }))
     .sort((a, b) => b.total - a.total);
-}
-
-// Something the household budgets for every month that this statement has no
-// charge for. Either it stopped and the budget has not caught up, or it went
-// out of a different account.
-function missingSubscriptions(rows, subscriptions) {
-  const out = rows.filter((r) => r.direction === 'out');
-  return subscriptions
-    .filter((sub) => sub.direction === 'expense' && sub.cycle === 'monthly')
-    .filter((sub) => !out.some((row) => looksLike(sub.name, row.merchant) && sameAmount(sub.amount, row.amount)))
-    .map((sub) => ({ name: sub.name, amount: money(sub.amount) }));
 }
 
 // Lines far above what is normal for their own category. Compared within the
@@ -284,7 +265,7 @@ function reconcile(rows, statement) {
 
   // A cent of rounding is not a misread statement.
   if (Math.abs(delta) <= 0.01) {
-    return { status: 'ok', closing: money(closing), reads: shape.reads };
+    return { status: 'ok', opening: money(opening), closing: money(closing), reads: shape.reads };
   }
 
   // A gap the size of one line is usually a row counted twice or missed at a
@@ -297,6 +278,7 @@ function reconcile(rows, statement) {
   return {
     status: 'mismatch',
     expected: shape.expected,
+    opening: money(opening),
     closing: money(closing),
     delta,
     reads: shape.reads,
@@ -304,9 +286,8 @@ function reconcile(rows, statement) {
   };
 }
 
-// Everything, in one pass, for a route that has rows and a household's
-// subscriptions and wants what can be said about them.
-function analyse(rows, subscriptions = [], statement = null) {
+// Everything, in one pass, for a route that has the rows of one statement.
+function analyse(rows, statement = null) {
   const groups = byCategory(rows);
   return {
     overview: overview(rows),
@@ -316,8 +297,7 @@ function analyse(rows, subscriptions = [], statement = null) {
     categories: groups.map(({ rows: _rows, ...rest }) => rest),
     findings: {
       duplicates: duplicates(rows),
-      repeats: repeats(rows, subscriptions),
-      missingSubscriptions: missingSubscriptions(rows, subscriptions),
+      repeats: repeats(rows),
       outliers: outliers(groups),
       frequent: frequent(rows),
     },
@@ -331,7 +311,6 @@ module.exports = {
   byCategory,
   duplicates,
   repeats,
-  missingSubscriptions,
   outliers,
   frequent,
 };

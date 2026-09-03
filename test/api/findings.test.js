@@ -60,47 +60,42 @@ const row = (date, merchant, amount, extra = {}) => ({
   check('and the same charge on another day is not a duplicate',
     dupes[0].total === 193, String(dupes[0].total));
 
-  // --- repeats, and whether they are known --------------------------------
+  // --- repeats, found in the statement and nowhere else -------------------
   const monthly = [
     row('2026-08-09', 'NETFLIX.COM AMSTERDAM', 56),
     row('2026-09-09', 'NETFLIX.COM AMSTERDAM', 56),
     row('2026-08-21', 'Spotify', 39),
     row('2026-09-21', 'Spotify', 39),
   ];
-  const known = [{ name: 'Netflix', amount: 56, direction: 'expense', cycle: 'monthly' }];
-  const repeated = findings.repeats(monthly, known);
+  const repeated = findings.repeats(monthly);
   check('a charge that came back a month later is a repeat', repeated.length === 2, String(repeated.length));
-  // The bank writes NETFLIX.COM AMSTERDAM where the household wrote Netflix.
-  // An exact match would find nothing, which is the whole reason for matching
-  // loosely.
-  check('one the household already budgets for is marked as known',
-    repeated.find((r) => r.merchant.includes('NETFLIX')).listed === true);
-  check('and named as they have it',
-    repeated.find((r) => r.merchant.includes('NETFLIX')).listedAs === 'Netflix');
-  check('one it does not know about is marked unlisted',
-    repeated.find((r) => r.merchant === 'Spotify').listed === false);
+  check('and is described from the statement alone',
+    repeated.every((r) => r.merchant && r.times === 2 && r.listed === undefined),
+    JSON.stringify(repeated));
 
-  const sameDayOnly = findings.repeats(
-    [row('2026-08-07', 'Talabat', 96.5), row('2026-08-07', 'Talabat', 96.5)],
-    []
-  );
+  const sameDayOnly = findings.repeats([
+    row('2026-08-07', 'Talabat', 96.5),
+    row('2026-08-07', 'Talabat', 96.5),
+  ]);
   check('two charges on one day are a duplicate, not a repeat', sameDayOnly.length === 0);
 
-  // --- subscriptions with no charge ---------------------------------------
-  const missing = findings.missingSubscriptions(
-    [row('2026-08-09', 'NETFLIX.COM AMSTERDAM', 56)],
-    [
-      { name: 'Netflix', amount: 56, direction: 'expense', cycle: 'monthly' },
-      { name: 'Gym', amount: 250, direction: 'expense', cycle: 'monthly' },
-      { name: 'Salary', amount: 20000, direction: 'income', cycle: 'monthly' },
-      { name: 'Insurance', amount: 900, direction: 'expense', cycle: 'yearly' },
-    ]
+  // --- nothing here knows the ledger exists -------------------------------
+  // This was not always true. The findings were handed the household's
+  // subscriptions, so a statement report could say which charges were already
+  // budgeted for and which budgeted ones had not appeared — and it then listed
+  // things the statement had never mentioned. A scan is a look at one document.
+  check('there is no way to ask this about a household at all',
+    findings.missingSubscriptions === undefined, Object.keys(findings).join(', '));
+  // The second argument is the statement now, where it used to be the
+  // household's subscriptions. Checked by its effect rather than its arity, so
+  // it fails if the meaning ever slides back.
+  const secondArg = findings.analyse(
+    [row('2026-08-02', 'Shop', 50)],
+    { openingBalance: 100, closingBalance: 150, periodStart: null, periodEnd: null }
   );
-  check('a monthly subscription with no charge on the statement is reported',
-    missing.length === 1 && missing[0].name === 'Gym', JSON.stringify(missing));
-  check('one that did charge is not', !missing.some((m) => m.name === 'Netflix'));
-  check('and neither is money coming in, or something billed yearly',
-    !missing.some((m) => m.name === 'Salary' || m.name === 'Insurance'));
+  check('and the second thing analyse takes is the statement, not a household',
+    secondArg.reconciliation.status === 'ok' && secondArg.reconciliation.closing === 150,
+    JSON.stringify(secondArg.reconciliation));
 
   // --- outliers -----------------------------------------------------------
   const coffees = [
@@ -141,13 +136,13 @@ const row = (date, merchant, amount, extra = {}) => ({
   check('and one large payment is not a habit', !often.some((f) => f.merchant === 'Ikea'));
 
   // --- nothing at all -----------------------------------------------------
-  const nothing = findings.analyse([], []);
+  const nothing = findings.analyse([]);
   check('an empty statement does not divide by zero',
     nothing.overview.spent === 0 && nothing.categories.length === 0,
     JSON.stringify(nothing.overview));
 
   // --- the rows are not repeated back -------------------------------------
-  const analysed = findings.analyse(mixed, []);
+  const analysed = findings.analyse(mixed);
   check('the summary does not carry every row a second time',
     analysed.categories.every((c) => c.rows === undefined));
 
@@ -177,7 +172,7 @@ const row = (date, merchant, amount, extra = {}) => ({
     row(`2026-08-${String(i + 1).padStart(2, '0')}`, 'ADNH CATERING LLC OPC', 20)
   );
   check('a daily charge at the same price is not called a subscription',
-    findings.repeats(canteen, []).length === 0, JSON.stringify(findings.repeats(canteen, [])));
+    findings.repeats(canteen).length === 0, JSON.stringify(findings.repeats(canteen)));
   check('but it is still gathered up as a habit',
     findings.frequent(canteen)[0].times === 15, JSON.stringify(findings.frequent(canteen)[0]));
 
@@ -192,6 +187,13 @@ const row = (date, merchant, amount, extra = {}) => ({
     JSON.stringify(findings.reconcile(balanced, statement)));
   check('and says it read as a card, where a purchase raises what is owed',
     findings.reconcile(balanced, statement).reads === 'card');
+  // Both ends of the arc are handed back, because the screen shows what the
+  // statement closes at — on a card, the bill — and that used to be computed
+  // with, checked against, and then never displayed.
+  check('a reading that adds up still reports the balances it was checked against',
+    findings.reconcile(balanced, statement).closing === 130 &&
+      findings.reconcile(balanced, statement).opening === 100,
+    JSON.stringify(findings.reconcile(balanced, statement)));
 
   // The same rows against a current account, where spending lowers the
   // balance. One formula for both would call every bank statement broken.

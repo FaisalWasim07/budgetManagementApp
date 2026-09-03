@@ -18,31 +18,20 @@ import { redact } from '../utils/statementRedact';
 // a list of empty headings reads as the feature having failed.
 function Findings({ findings, currency }) {
   if (!findings) return null;
-  const {
-    duplicates = [],
-    repeats = [],
-    missingSubscriptions = [],
-    outliers = [],
-    frequent = [],
-  } = findings;
-  const unlisted = repeats.filter((r) => !r.listed);
+  const { duplicates = [], repeats = [], outliers = [], frequent = [] } = findings;
 
   const sections = [
-    unlisted.length && {
-      key: 'unlisted',
-      title: 'Charging regularly, and not in your subscriptions',
-      items: unlisted.map((r) => (
+    // Everything here is about this statement and only this statement. It used
+    // to compare against the household's subscriptions — which ones were
+    // already budgeted for, and which budgeted ones had not been charged — and
+    // that section listed things the statement had never mentioned, in a report
+    // about the statement.
+    repeats.length && {
+      key: 'repeats',
+      title: 'Charging on a regular cycle',
+      items: repeats.map((r) => (
         <>
           <b>{r.merchant}</b> — <Money amount={r.amount} currency={currency} />, {r.times} times
-        </>
-      )),
-    },
-    missingSubscriptions.length && {
-      key: 'missing',
-      title: 'Budgeted for, but nothing charged on this statement',
-      items: missingSubscriptions.map((m) => (
-        <>
-          <b>{m.name}</b> — <Money amount={m.amount} currency={currency} /> a month
         </>
       )),
     },
@@ -630,6 +619,26 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       ? ` That is the size of the ${report.reconciliation.countedTwice.merchant} line, which may have been counted twice.`
                       : ' A line was probably missed or misread.'}{' '}
                     Take the figures below as a reading, not as fact.
+                  </div>
+                )}
+
+                {/* What the statement closes at — on a card, the bill. It was
+                  being used and not shown: the reading was checked against it,
+                  the screen said it added up, and the one figure a person opens
+                  a statement to find was nowhere on the report. */}
+                {report.reconciliation?.closing != null && (
+                  <div className="scan-bill">
+                    <span className="scan-bill-what">
+                      {report.reconciliation.reads === 'card' ? 'Owed at the end of this statement' : 'Balance at the end of this statement'}
+                    </span>
+                    <b>
+                      <Money amount={report.reconciliation.closing} currency={currency} />
+                    </b>
+                    {report.reconciliation.opening != null && (
+                      <span className="muted">
+                        opened at <Money amount={report.reconciliation.opening} currency={currency} />
+                      </span>
+                    )}
                   </div>
                 )}
 

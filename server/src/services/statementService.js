@@ -129,7 +129,12 @@ const ROW_SCHEMA = {
               '"cashback" and "refund" are money back from a purchase. "income" is a salary or ' +
               'similar arriving in a bank account.',
           },
-          category: { type: 'string' },
+          category: {
+            type: 'string',
+            description:
+              'A plain, obvious spending category — Groceries, Eating out, Fuel, Utilities. ' +
+              'Choose the ordinary word for it rather than anything clever.',
+          },
           confidence: {
             type: 'string',
             enum: ['high', 'low'],
@@ -193,31 +198,24 @@ const SYSTEM = [
 
 // Everything that does not change between slices lives here, and nothing that
 // does. That split is the whole point: a statement read in eighteen parts sent
-// the instructions and the category list eighteen times, which came to more
-// tokens than every transaction in the statement put together.
+// the instructions eighteen times, which came to more tokens than every
+// transaction in the statement put together.
+//
+// It used to carry the household's own category names too, so the scanner would
+// use the same words as the rest of the app. That is gone: a statement is read
+// on its own, and the household's ledger — including what it calls things — is
+// not sent anywhere to do it.
 //
 // Marked for caching, so the second slice onwards reads this back at a tenth of
 // the price instead of paying for it again. The slice itself is the only thing
 // in the user message, and it goes last, because a cached prefix ends at the
 // first byte that differs.
-function systemFor({ categories, currency }) {
-  const known = categories.length
-    ? [
-        'Categories already used in this household. Prefer one of these where it fits, so',
-        'the two halves of the app speak the same language. Invent a new one only when',
-        'nothing here is close:',
-        '',
-        categories.map((c) => `  ${c}`).join('\n'),
-      ].join('\n')
-    : 'This household has no categories yet, so choose plain, obvious ones.';
-
+function systemFor({ currency }) {
   return [
     {
       type: 'text',
       text: [
         SYSTEM,
-        '',
-        known,
         '',
         currency ? `Amounts on this statement are in ${currency}.` : '',
       ].join('\n'),
@@ -267,7 +265,7 @@ function clean(rows) {
     .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
 }
 
-async function scan({ text, categories = [], currency = null, model: asked, effort: askedEffort }) {
+async function scan({ text, currency = null, model: asked, effort: askedEffort }) {
   const anthropic = client();
   const model = modelFor(asked);
   const spec = MODELS[model];
@@ -280,7 +278,7 @@ async function scan({ text, categories = [], currency = null, model: asked, effo
     const stream = anthropic.messages.stream({
       model,
       max_tokens: MAX_TOKENS,
-      system: systemFor({ categories, currency }),
+      system: systemFor({ currency }),
       messages: [{ role: 'user', content: text }],
       // Effort only where the model takes one. Haiku rejects the field rather
       // than ignoring it, so this is not a nicety.

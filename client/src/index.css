@@ -966,6 +966,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .scan-model .muted { font-size: .74rem; }
 @media (max-width: 560px) { .scan-model { grid-template-columns: 1fr; } }
 
+/* What the statement closes at. On a card that is the bill, which is the one
+   figure somebody opens a statement to find, so it is given its own line above
+   everything worked out from the rows rather than a place in the prose. */
+.scan-bill {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  padding: 11px 15px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.scan-bill-what { font-size: .78rem; color: var(--ink-2); }
+.scan-bill b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.scan-bill .muted { font-size: .74rem; }
+
 /* What was found in a statement, above the rows themselves. */
 .scan-report { gap: 14px; }
 .scan-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .9rem; }
