@@ -190,10 +190,23 @@ const row = (date, merchant, amount, extra = {}) => ({
   check('a reading that adds up to the bank’s own closing balance passes',
     findings.reconcile(balanced, statement).status === 'ok',
     JSON.stringify(findings.reconcile(balanced, statement)));
+  check('and says it read as a card, where a purchase raises what is owed',
+    findings.reconcile(balanced, statement).reads === 'card');
 
-  const short = findings.reconcile([balanced[1]], statement);
+  // The same rows against a current account, where spending lowers the
+  // balance. One formula for both would call every bank statement broken.
+  const asAccount = findings.reconcile(balanced, { ...statement, closingBalance: 70 });
+  check('a current account reconciles the other way round', asAccount.status === 'ok',
+    JSON.stringify(asAccount));
+  check('and says so', asAccount.reads === 'account', asAccount.reads);
+
+  // The credit dropped rather than the debit, so only one orientation is
+  // remotely plausible and the gap it reports is unambiguous. With a broken
+  // reading the shape itself is a guess, and the closer of the two is the
+  // honest one to report against.
+  const short = findings.reconcile([balanced[0]], statement);
   check('a dropped line is caught', short.status === 'mismatch', JSON.stringify(short));
-  check('and the gap is exactly the line that went missing', short.delta === -50, String(short.delta));
+  check('and the gap is exactly the line that went missing', short.delta === 20, String(short.delta));
 
   const doubled = findings.reconcile([...balanced, balanced[0]], statement);
   check('a line counted twice is caught too', doubled.status === 'mismatch', String(doubled.delta));

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import Modal from './Modal';
-import { scanStatement } from '../api/statements';
+import { scanStatement, analyseStatement } from '../api/statements';
+import { chunkStatement, inBatches, AT_ONCE } from '../utils/statementChunks';
 import { Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 
@@ -104,6 +105,9 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? null);
   const [report, setReport] = useState(null);
   const [reading, setReading] = useState(false);
+  // How far through the slices it is. Shown rather than kept, because the wait
+  // is long enough that a spinner alone reads as the app having died.
+  const [progress, setProgress] = useState(null);
   const passwordRef = useRef(null);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0] ?? null;
@@ -171,12 +175,37 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   async function readTransactions() {
     setReading(true);
     setError(null);
+    setProgress({ done: 0, total: 0 });
     try {
-      setReport(await scanStatement(result.text, account?.id ?? null));
+      const chunks = chunkStatement(result.text);
+      setProgress({ done: 0, total: chunks.length });
+
+      const parts = await inBatches(
+        chunks,
+        AT_ONCE,
+        (chunk) => scanStatement(chunk, account?.id ?? null),
+        (done, total) => setProgress({ done, total })
+      );
+
+      // Slices come back in the order they were sent, so the rows are already
+      // in the order they were printed in.
+      const rows = parts.flatMap((part) => part.rows ?? []);
+      // Balances are printed once, at the top, so they arrive with whichever
+      // slice happened to carry the header.
+      const statement =
+        parts.map((part) => part.statement).find((s) => s && s.closingBalance != null) ?? null;
+
+      if (rows.length === 0) {
+        setError('Nothing in this file read as a transaction.');
+      } else {
+        const analysis = await analyseStatement(rows, statement);
+        setReport({ rows, statement, ...analysis });
+      }
     } catch (err) {
       setError(err.message);
     }
     setReading(false);
+    setProgress(null);
   }
 
   return (
@@ -264,7 +293,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               {!report && (
                 <>
                   <button className="primary" onClick={readTransactions} disabled={reading}>
-                    {reading ? 'Reading the transactions…' : 'Read the transactions'}
+                    {!reading
+                      ? 'Read the transactions'
+                      : progress?.total
+                        ? `Reading… part ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
+                        : 'Reading…'}
                   </button>
                   <span className="muted" style={{ fontSize: '0.8rem' }}>
                     The text below is sent to be read. The file and any password stay here.

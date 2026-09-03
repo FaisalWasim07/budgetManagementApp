@@ -264,11 +264,28 @@ function reconcile(rows, statement) {
 
   const out = rows.filter((r) => r.direction === 'out').reduce((t, r) => t + r.amount, 0);
   const inn = rows.filter((r) => r.direction === 'in').reduce((t, r) => t + r.amount, 0);
-  const expected = money(opening + out - inn);
-  const delta = money(expected - closing);
+
+  // Which way the sum runs depends on what the balance means, and statements do
+  // not agree. On a credit card the balance is what is owed, so a purchase
+  // raises it and a payment lowers it. On a current account it is what is
+  // there, and spending lowers it. Applying one formula to both would report
+  // every bank statement as not adding up, which is worse than not checking.
+  //
+  // Both are tried, and either balancing is the answer. That is not a loophole:
+  // landing exactly on the printed closing balance by accident, in the wrong
+  // direction, needs the debits and credits to be equal — at which point the
+  // orientation did not matter anyway.
+  const asCard = money(opening + out - inn);
+  const asAccount = money(opening - out + inn);
+  const shape = Math.abs(asCard - closing) <= Math.abs(asAccount - closing)
+    ? { reads: 'card', expected: asCard }
+    : { reads: 'account', expected: asAccount };
+  const delta = money(shape.expected - closing);
 
   // A cent of rounding is not a misread statement.
-  if (Math.abs(delta) <= 0.01) return { status: 'ok', closing: money(closing) };
+  if (Math.abs(delta) <= 0.01) {
+    return { status: 'ok', closing: money(closing), reads: shape.reads };
+  }
 
   // A gap the size of one line is usually a row counted twice or missed at a
   // page break. Only the first of those can be pointed at: a line that was
@@ -279,9 +296,10 @@ function reconcile(rows, statement) {
 
   return {
     status: 'mismatch',
-    expected,
+    expected: shape.expected,
     closing: money(closing),
     delta,
+    reads: shape.reads,
     countedTwice: twice ? { date: twice.date, merchant: twice.merchant, amount: twice.amount } : null,
   };
 }

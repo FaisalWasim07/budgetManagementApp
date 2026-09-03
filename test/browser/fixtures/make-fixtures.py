@@ -11,6 +11,9 @@
 #   statement-locked.pdf    the same, behind the user password below
 #   statement-scanned.pdf   one page, a picture of paper, no text layer at all
 #   statement-mixed.pdf     a typed page and a scanned one in the same file
+#   statement-long.pdf      ninety transactions over three pages — long enough
+#                           that it has to be read in slices, which is the case
+#                           that timed out when it was read in one
 #
 # The rows are deliberately the sort of thing a real statement carries: cryptic
 # card descriptors, a salary credit with no debit column, and a large one-off.
@@ -116,6 +119,29 @@ c.drawString(50, H - 95, "Transactions overleaf.")
 c.showPage()
 c.drawImage(ImageReader(scan), 0, 0, width=W, height=H, preserveAspectRatio=True, anchor="c")
 c.save()
+
+# Long enough to need slicing. The descriptions are numbered so the assembled
+# rows can be checked for order as well as for count.
+c = canvas.Canvas(out("statement-long.pdf"), pagesize=A4)
+c.setFont("Helvetica-Bold", 15)
+c.drawString(50, H - 60, "Emirates Example Bank")
+c.setFont("Helvetica", 9)
+c.drawString(50, H - 76, "Current Account 04-11-887342  ·  AED")
+c.drawString(50, H - 89, "Statement period 01 Aug 2026 to 31 Aug 2026")
+y = H - 125
+c.setFont("Helvetica", 9)
+for i in range(90):
+    if y < 60:
+        c.showPage()
+        c.setFont("Helvetica", 9)
+        y = H - 60
+    day = (i % 28) + 1
+    c.drawString(50, y, f"{day:02d} Aug 2026")
+    c.drawString(140, y, f"MERCHANT NUMBER {i + 1:03d}")
+    c.drawRightString(440, y, f"{(i + 1) * 1.5:.2f}")
+    y -= 17
+c.save()
+print("wrote statement-long.pdf")
 
 os.remove(scan)
 print("fixtures rewritten in", HERE)

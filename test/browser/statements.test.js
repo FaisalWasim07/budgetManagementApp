@@ -241,10 +241,29 @@ const check = (name, ok, detail = '') => {
     ...over,
   });
 
+  // Reading and working out are two requests now, so both are answered here.
+  // Splitting them is the point: the model writes rows a slice at a time, and
+  // the arithmetic runs once over all of them.
   const showReport = async (body) => {
     if (await page.locator('.modal.scanner').count()) await close();
     await page.route('**/api/statements/scan', (r) =>
-      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+      r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ rows: body.rows, statement: body.statement ?? null }),
+      })
+    );
+    await page.route('**/api/statements/analyse', (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          overview: body.overview,
+          reconciliation: body.reconciliation,
+          categories: body.categories,
+          findings: body.findings,
+        }),
+      })
     );
     await open('statement-plain.pdf');
     await page.waitForSelector('.scan-preview', { timeout: 20000 });
@@ -309,6 +328,72 @@ const check = (name, ok, detail = '') => {
   check('and says not to take the figures as fact', banner.includes('not as fact'));
   check('while still showing them', (await page.locator('.scan-cat').count()) === 3);
   await page.unroute('**/api/statements/scan');
+  await page.unroute('**/api/statements/analyse');
+
+  // --- a long statement, read in slices ------------------------------------
+  // The case that timed out. Ninety transactions asked for in one request means
+  // ninety rows written out before anything reaches the browser, which takes
+  // minutes and loses the lot. Each request is stubbed here; what is checked is
+  // that the work is split at all, and that the rows come back in the order
+  // they were printed rather than the order the slices happened to finish in.
+  await close();
+  let calls = 0;
+  const seen = [];
+  await page.route('**/api/statements/scan', async (route) => {
+    calls += 1;
+    const body = JSON.parse(route.request().postData());
+    // Answer with whatever merchant numbers this slice actually contains, so
+    // assembling them wrongly shows up as wrong order rather than as nothing.
+    const found = [...body.text.matchAll(/MERCHANT NUMBER (\d{3})/g)].map((m) => m[1]);
+    seen.push(found.length);
+    // Slices deliberately finish out of order: the later ones answer first.
+    await new Promise((r) => setTimeout(r, found.includes('001') ? 260 : 40));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        rows: found.map((n) => ({
+          date: '2026-08-01', raw: `MERCHANT NUMBER ${n}`, merchant: `Merchant ${n}`,
+          what: 'a shop', amount: Number(n), direction: 'out', kind: 'purchase',
+          category: 'Shopping', confidence: 'high',
+        })),
+        statement: null,
+      }),
+    });
+  });
+  await page.route('**/api/statements/analyse', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        overview: { lines: 90, spent: 1, credited: 0,
+          credits: { payments: 0, refunds: 0, cashback: 0, income: 0 }, from: null, to: null },
+        reconciliation: { status: 'unchecked' },
+        categories: [{ category: 'Shopping', total: 1, count: 90, average: 1, share: 100 }],
+        findings: {},
+      }),
+    })
+  );
+
+  await open('statement-long.pdf');
+  await page.waitForSelector('.scan-preview', { timeout: 25000 });
+  await page.click('.modal.scanner button:has-text("Read the transactions")');
+  await page.waitForSelector('.scan-report', { timeout: 40000 });
+
+  check('a long statement is read in more than one request', calls > 1, `${calls} requests`);
+  check('and no single request carries the whole thing',
+    Math.max(...seen) <= 30, `largest slice: ${Math.max(...seen)} lines`);
+  await page.click('.scan-rows-toggle summary');
+  const firstRow = await page.locator('.scan-rows .raw').first().textContent();
+  const lastRow = await page.locator('.scan-rows .raw').last().textContent();
+  check('the rows are assembled in the order they were printed, not the order they returned',
+    firstRow.includes('001') && lastRow.includes('090'), `${firstRow} … ${lastRow}`);
+  check('and every one of them survived the split',
+    (await page.locator('.scan-rows tbody tr').count()) === 90,
+    String(await page.locator('.scan-rows tbody tr').count()));
+
+  await page.unroute('**/api/statements/scan');
+  await page.unroute('**/api/statements/analyse');
 
   check('no page errors throughout', bad.length === 0, bad.join(' | '));
 

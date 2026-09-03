@@ -67,6 +67,37 @@ const u = unique();
       String(noKey.data.error).includes('ANTHROPIC_API_KEY'), String(noKey.data.error));
   }
 
+  // --- working out, which needs no model ----------------------------------
+  // Split from reading so a long statement can be read a slice at a time
+  // without the arithmetic seeing a third of it and calling that a finding.
+  const analysed = await me.post('/api/statements/analyse', {
+    rows: [
+      { date: '2026-08-03', merchant: 'Tap Coffee', amount: 28, direction: 'out',
+        kind: 'purchase', category: 'Eating out' },
+      { date: '2026-08-04', merchant: 'Carrefour', amount: 72, direction: 'out',
+        kind: 'purchase', category: 'Groceries' },
+    ],
+    statement: { openingBalance: 100, closingBalance: 0, periodStart: null, periodEnd: null },
+  });
+  check('rows are worked through without a model anywhere near it',
+    analysed.status === 200, `${analysed.status} ${JSON.stringify(analysed.data).slice(0, 90)}`);
+  check('and the totals are right', analysed.data.overview.spent === 100, String(analysed.data.overview.spent));
+  check('with the reading checked against the closing balance',
+    analysed.data.reconciliation.status === 'ok', JSON.stringify(analysed.data.reconciliation));
+  check('read as a current account, where spending lowers what is there',
+    analysed.data.reconciliation.reads === 'account', analysed.data.reconciliation.reads);
+
+  const noRows = await me.post('/api/statements/analyse', {});
+  check('nothing to work through is refused', noRows.status === 400, String(noRows.status));
+
+  // Amounts arrive from a browser, which is to say from anywhere.
+  const nonsense = await me.post('/api/statements/analyse', {
+    rows: [{ date: 'x', merchant: 'y', amount: 'not a number', direction: 'sideways' }],
+  });
+  check('and a row that is not one is dropped rather than trusted',
+    nonsense.status === 200 && nonsense.data.overview.lines === 0,
+    JSON.stringify(nonsense.data.overview));
+
   const { failed } = report('Statement scanning');
   process.exit(failed ? 1 : 0);
 })();

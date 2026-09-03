@@ -6,10 +6,19 @@ const { h } = require('../util/route');
 
 const router = express.Router();
 
-// A statement can be long, and a very long one costs real money to read. This
-// is a ceiling on a mistake — a book pasted into the box — rather than on any
-// statement anybody actually holds.
+// One request now carries a slice of a statement rather than all of it, so the
+// ceiling is per slice. It is a guard against a mistake — a book pasted into
+// the box — not against any statement anybody holds.
 const MAX_TEXT = 400_000;
+
+// A statement with more lines than this is not a statement.
+const MAX_ROWS = 2000;
+
+// Reading is split because the answer is long, not because the question is: a
+// statement of a hundred and fifteen transactions needs a hundred and fifteen
+// rows written out, which takes minutes and times the request out long before
+// the model is finished. Slices of thirty lines come back in seconds each, and
+// the browser asks for the next one.
 
 // What this household already budgets for every month. Read so the scanner can
 // say which charges it already knows about and which it does not — the one
@@ -93,6 +102,41 @@ router.post(
       }
       throw err;
     }
+  })
+);
+
+// The arithmetic, over every slice at once. No model, so it answers in
+// milliseconds — and it has to be separate from reading, because findings over
+// a third of a statement are not findings, they are a third of the truth.
+router.post(
+  '/analyse',
+  h(async (req, res) => {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+    if (!rows) return res.status(400).json({ error: 'There were no rows to work through.' });
+    if (rows.length > MAX_ROWS) {
+      return res.status(413).json({ error: 'That is more lines than this can work through at once.' });
+    }
+
+    // Only the fields the arithmetic uses, and coerced here rather than
+    // trusted: these arrive from a browser, which is to say from anywhere.
+    const clean = rows
+      .map((row) => ({
+        date: String(row.date ?? '').slice(0, 10),
+        merchant: String(row.merchant ?? ''),
+        amount: Math.abs(Number(row.amount)),
+        direction: row.direction === 'in' ? 'in' : 'out',
+        kind: String(row.kind ?? 'other'),
+        category: String(row.category ?? '') || 'Uncategorised',
+      }))
+      .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
+
+    res.json(
+      statementFindings.analyse(
+        clean,
+        await subscriptionsFor(req.household.id),
+        req.body.statement ?? null
+      )
+    );
   })
 );
 
