@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
 import { scanStatement, analyseStatement, getScanChoices } from '../api/statements';
-import { chunkStatement, inBatches, AT_ONCE } from '../utils/statementChunks';
+import { chunkStatement, inBatches, linesFor, AT_ONCE } from '../utils/statementChunks';
 import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 
@@ -153,6 +153,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? null);
   const [report, setReport] = useState(null);
   const [reading, setReading] = useState(false);
+  // The slices as they were cut, and whichever answers came back, held at their
+  // own index. Kept so the parts that failed can be asked for again on their
+  // own — re-reading the whole statement to recover one slice means paying for
+  // all of it a second time.
+  const [slices, setSlices] = useState(null);
   // What may be read with, and what was picked. The list comes from the server
   // so the prices have one home; until it arrives there is nothing to choose
   // between and the controls stay out of the way.
@@ -229,6 +234,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setError(null);
     setResult(null);
     setReport(null);
+    setSlices(null);
   }
 
   async function read(chosen, raw, tryPassword) {
@@ -280,62 +286,112 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
   // The one thing here that leaves the machine, and only when asked for. The
   // text goes; the file and the password never do.
+  // Builds the report from whatever slices are in hand. Kept apart from asking
+  // for them because it runs twice: once after the reading, and again after the
+  // missing parts of it have been fetched.
+  async function makeReport(chunks, held) {
+    const parts = held.filter(Boolean);
+
+    // Slices are held at their own index, so the rows are already in the order
+    // they were printed in whatever order the requests finished.
+    const rows = parts.flatMap((part) => part.rows ?? []);
+    // Balances are printed once, at the top, so they arrive with whichever
+    // slice happened to carry the header.
+    const statement =
+      parts.map((part) => part.statement).find((s) => s && s.closingBalance != null) ?? null;
+
+    if (rows.length === 0) {
+      setError('Nothing in this file read as a transaction.');
+      return;
+    }
+
+    // What the reading cost, added up across the slices. Shown rather than kept
+    // quiet: this is the one part of the app that spends money when a button is
+    // pressed, and finding that out from a bill later is no way to learn it.
+    const usage = parts.reduce(
+      (total, part) => ({
+        input: total.input + (part.usage?.input ?? 0),
+        output: total.output + (part.usage?.output ?? 0),
+        cached: total.cached + (part.usage?.cacheRead ?? 0),
+        // Priced by the server, per slice, and added up here. Tokens are what
+        // happened; money is what was actually being asked about.
+        cost: total.cost + (part.cost ?? 0),
+      }),
+      { input: 0, output: 0, cached: 0, cost: 0 }
+    );
+    const analysis = await analyseStatement(rows, statement);
+    setReport({
+      rows,
+      statement,
+      ...analysis,
+      usage,
+      parts: parts.length,
+      // Parts that never came back. Everything below is worked out from what
+      // did, so this is the first thing the report has to say: totals over five
+      // sixths of a statement are not that statement's totals.
+      missing: chunks.length - parts.length,
+      // What it was read with, taken from the reply rather than from the
+      // picker: if the server fell back, the report should say what actually
+      // read the statement.
+      model: parts.find((part) => part.model)?.model ?? model,
+    });
+  }
+
+  // Asks for a set of slices and puts each answer at its own index. `which` is
+  // the indexes to read — everything on the first go, only what is missing on a
+  // second. Returns the slices in hand afterwards.
+  async function fetchSlices(chunks, held, which) {
+    setProgress({ done: 0, total: which.length });
+    const { results } = await inBatches(
+      which.map((i) => chunks[i]),
+      AT_ONCE,
+      (chunk) => scanStatement(chunk, account?.id ?? null, model || null, effort || null),
+      (done, total) => setProgress({ done, total }),
+    );
+    const next = [...held];
+    which.forEach((chunkIndex, k) => {
+      if (results[k]) next[chunkIndex] = results[k];
+    });
+    return next;
+  }
+
   async function readTransactions() {
     setReading(true);
     setError(null);
     setProgress({ done: 0, total: 0 });
     try {
-      const chunks = chunkStatement(result.text);
-      setProgress({ done: 0, total: chunks.length });
-
-      const parts = await inBatches(
-        chunks,
-        AT_ONCE,
-        (chunk) => scanStatement(chunk, account?.id ?? null, model || null, effort || null),
-        (done, total) => setProgress({ done, total }),
-      );
-
-      // Slices come back in the order they were sent, so the rows are already
-      // in the order they were printed in.
-      const rows = parts.flatMap((part) => part.rows ?? []);
-      // Balances are printed once, at the top, so they arrive with whichever
-      // slice happened to carry the header.
-      const statement =
-        parts.map((part) => part.statement).find((s) => s && s.closingBalance != null) ?? null;
-
-      if (rows.length === 0) {
-        setError('Nothing in this file read as a transaction.');
-      } else {
-        // What the reading cost, added up across the slices. Shown rather than
-        // kept quiet: this is the one part of the app that spends money when a
-        // button is pressed, and finding that out from a bill later is no way
-        // to learn it.
-        const usage = parts.reduce(
-          (total, part) => ({
-            input: total.input + (part.usage?.input ?? 0),
-            output: total.output + (part.usage?.output ?? 0),
-            cached: total.cached + (part.usage?.cacheRead ?? 0),
-            // Priced by the server, per slice, and added up here. Tokens are
-            // what happened; money is what was actually being asked about.
-            cost: total.cost + (part.cost ?? 0),
-          }),
-          { input: 0, output: 0, cached: 0, cost: 0 }
-        );
-        const analysis = await analyseStatement(rows, statement);
-        setReport({
-          rows,
-          statement,
-          ...analysis,
-          usage,
-          parts: parts.length,
-          // What it was read with, taken from the reply rather than from the
-          // picker: if the server fell back, the report should say what
-          // actually read the statement.
-          model: parts.find((part) => part.model)?.model ?? model,
-        });
-      }
+      // Shorter slices where the model has been asked to think, because the
+      // thinking happens before the first row is written and the host stops
+      // waiting at sixty seconds regardless.
+      const chunks = chunkStatement(result.text, linesFor(effort));
+      const held = await fetchSlices(chunks, [], chunks.map((_, i) => i));
+      setSlices({ chunks, held });
+      await makeReport(chunks, held);
     } catch (err) {
       setError(err.message);
+    }
+    setReading(false);
+    setProgress(null);
+  }
+
+  // Asks again only for the parts that never arrived. The rest are already in
+  // hand and already paid for; fetching them a second time would cost the same
+  // again to learn nothing new.
+  async function readMissing() {
+    if (!slices) return;
+    const which = slices.chunks.map((_, i) => i).filter((i) => !slices.held[i]);
+    if (!which.length) return;
+
+    setReading(true);
+    setError(null);
+    try {
+      const held = await fetchSlices(slices.chunks, slices.held, which);
+      setSlices({ chunks: slices.chunks, held });
+      await makeReport(slices.chunks, held);
+    } catch (err) {
+      // The reading in hand is still the reading in hand. A failed second
+      // attempt says so and leaves it on screen rather than clearing it.
+      setError(`Those parts did not come back either: ${err.message}`);
     }
     setReading(false);
     setProgress(null);
@@ -492,11 +548,40 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
             {report && (
               <div className="stack-sm scan-report">
+                {/* Some of the statement never came back. Said first, and in
+                  the strongest terms the dialog has, because every figure below
+                  is worked out from what did arrive: the total is not the
+                  statement's total, and a category missing its largest charge
+                  looks exactly like a category that never had one. */}
+                {report.missing > 0 && (
+                  <div className="warn-banner">
+                    <b>
+                      {report.missing} part{report.missing === 1 ? '' : 's'} of this statement could
+                      not be read
+                    </b>
+                    , so what follows is {report.parts} part
+                    {report.parts === 1 ? '' : 's'} of it and nothing below is a complete total.
+                    {' '}
+                    <button className="link" onClick={readMissing} disabled={reading}>
+                      {reading
+                        ? progress?.total
+                          ? `Reading… ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
+                          : 'Reading…'
+                        : `Read the missing part${report.missing === 1 ? '' : 's'}`}
+                    </button>{' '}
+                    — only those, so the rest is not paid for twice. A lower effort makes each part
+                    quicker and less likely to be dropped.
+                  </div>
+                )}
+
                 {/* Whether to believe any of the rest of it. The bank prints what
                   the account started and ended at, so the reading can be checked
                   against arithmetic rather than trusted — and when it does not
-                  add up, that is said before anything else, not after. */}
-                {report.reconciliation?.status === 'mismatch' && (
+                  add up, that is said before anything else, not after.
+                  Held back when parts are missing: rows we know were never read
+                  cannot fail to add up, and saying "this does not add up" there
+                  blames the reading for something already admitted above. */}
+                {!report.missing && report.reconciliation?.status === 'mismatch' && (
                   <div className="warn-banner">
                     This does not add up. Following the rows from the opening balance lands on{' '}
                     <b>

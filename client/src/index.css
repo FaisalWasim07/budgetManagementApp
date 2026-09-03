@@ -1220,6 +1220,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   color: var(--ink); border-radius: 12px; padding: 11px 15px; font-size: .87rem;
 }
 
+/* A button that reads as part of the sentence it sits in, because that is
+   where the offer belongs: the banner says what went wrong, and the thing to do
+   about it is the next few words rather than a control parked somewhere else.
+   Scoped to the banner so no other button in the app inherits it. */
+.warn-banner button.link {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: var(--ink); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.warn-banner button.link:disabled { cursor: default; opacity: .6; text-decoration: none; }
+
 .invite-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 3px 7px; border-radius: 6px; font-size: .82rem; word-break: break-all; }
 
 /* ── Swipe a row away ────────────────────────────────────────────

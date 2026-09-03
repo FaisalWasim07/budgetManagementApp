@@ -11,18 +11,39 @@ export const setActiveHousehold = (id) => {
   activeHousehold = id ?? null;
 };
 
+// A request that never got a reply at all — the connection died, the host gave
+// up, the phone changed network. Distinct from an error the server sent, which
+// arrives as an ordinary Error with the server's own words in it, because the
+// two want different things done about them: this one is worth retrying.
+export class NetworkError extends Error {
+  constructor(cause) {
+    super('The connection dropped before an answer came back.');
+    this.name = 'NetworkError';
+    this.cause = cause;
+  }
+}
+
 async function request(path, options = {}) {
-  const response = await fetch(`/api${path}`, {
-    // Balances change under these URLs constantly, and a reply from a cache is
-    // the app quietly showing you last minute's money.
-    cache: 'no-store',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(activeHousehold ? { 'X-Household-Id': String(activeHousehold) } : {}),
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
+      // Balances change under these URLs constantly, and a reply from a cache is
+      // the app quietly showing you last minute's money.
+      cache: 'no-store',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(activeHousehold ? { 'X-Household-Id': String(activeHousehold) } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    // fetch rejects only when the request did not complete. Every browser words
+    // this uselessly — Safari says "Load failed", Chrome "Failed to fetch" —
+    // and those words went straight to the screen, where they told nobody
+    // anything. What actually happened is that nothing came back.
+    throw new NetworkError(err);
+  }
   if (!response.ok) {
     // The auth routes are how you get in, so a 401 there is a wrong password
     // being reported normally, not a session that has just lapsed.
