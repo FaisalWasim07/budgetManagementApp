@@ -1,9 +1,10 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from './Modal';
 import { scanStatement, analyseStatement, getScanChoices } from '../api/statements';
 import { chunkStatement, inBatches, linesFor, AT_ONCE } from '../utils/statementChunks';
 import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
+import { redact } from '../utils/statementRedact';
 
 // Reading a statement, and nothing more than reading it. Nothing here is saved:
 // no row, no file, no table. Close the dialog and the statement is gone, which
@@ -130,6 +131,16 @@ function costPhrase(dollars) {
   return ` for about $${dollars.toFixed(dollars < 1 ? 3 : 2)}`;
 }
 
+// What was taken out, as a sentence. A count on its own — "7 things hidden" —
+// invites the one question it does not answer.
+function hiddenPhrase({ found, dropped }) {
+  const bits = found.map((f) => f.what);
+  if (dropped) bits.push(`${dropped} line${dropped === 1 ? '' : 's'} of letterhead`);
+  if (!bits.length) return 'Nothing in this statement needed hiding.';
+  const last = bits.pop();
+  return `Hidden before sending: ${bits.length ? `${bits.join(', ')} and ${last}` : last}.`;
+}
+
 // Effort is a capability, not a preference — Haiku rejects the field outright.
 // The picker follows what the chosen model actually takes.
 const EFFORT_WORDS = {
@@ -158,6 +169,10 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // own — re-reading the whole statement to recover one slice means paying for
   // all of it a second time.
   const [slices, setSlices] = useState(null);
+  // On by default. Off is there because no rule that catches an account number
+  // can be certain it has not caught something else, and the person holding the
+  // statement can see which it did.
+  const [sanitise, setSanitise] = useState(true);
   // What may be read with, and what was picked. The list comes from the server
   // so the prices have one home; until it arrives there is nothing to choose
   // between and the controls stay out of the way.
@@ -192,6 +207,15 @@ export default function StatementScanner({ onClose, accounts = [] }) {
       live = false;
     };
   }, []);
+
+  // What will actually be sent. Everything downstream reads this rather than
+  // the text as it came out of the file — the slicer, the preview and the
+  // request — so there is no path by which the screen shows one thing and
+  // another leaves.
+  const outgoing = useMemo(() => {
+    if (!result?.hasText) return null;
+    return sanitise ? redact(result.text) : { text: result.text, found: [], dropped: 0, count: 0 };
+  }, [result, sanitise]);
 
   const chosen = choices?.models.find((m) => m.id === model) ?? null;
 
@@ -363,7 +387,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
       // Shorter slices where the model has been asked to think, because the
       // thinking happens before the first row is written and the host stops
       // waiting at sixty seconds regardless.
-      const chunks = chunkStatement(result.text, linesFor(effort));
+      const chunks = chunkStatement(outgoing.text, linesFor(effort));
       const held = await fetchSlices(chunks, [], chunks.map((_, i) => i));
       setSlices({ chunks, held });
       await makeReport(chunks, held);
@@ -721,7 +745,29 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
-            {result.hasText && <pre className="scan-preview">{result.text}</pre>}
+            {result.hasText && (
+              <div className="scan-sanitise">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={sanitise}
+                    onChange={(e) => setSanitise(e.target.checked)}
+                    disabled={reading || !!report}
+                  />
+                  Hide account numbers and contact details
+                </label>
+                {/* Said against the preview it describes, because the preview
+                  is the proof: this is not a promise about what was sent, it
+                  is the thing that was sent. */}
+                <span className="muted">
+                  {sanitise
+                    ? `${hiddenPhrase(outgoing)} What you see below is what leaves this browser — the file and any password do not.`
+                    : 'The text below goes exactly as it is printed, account numbers and all.'}
+                </span>
+              </div>
+            )}
+
+            {result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
 
             {result.pages
               ?.filter((page) => page.image)

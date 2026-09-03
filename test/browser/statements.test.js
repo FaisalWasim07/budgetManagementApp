@@ -161,6 +161,35 @@ const check = (name, ok, detail = '') => {
   const readIt = page.locator('.modal.scanner button:has-text("Read the transactions")');
   check('a statement that has text offers to have it read', await readIt.count() === 1);
 
+  // --- what is taken out before any of it is sent --------------------------
+  // The fixture's letterhead carries an account number, which has nothing to do
+  // with what was spent and would otherwise ride along with every slice.
+  const sanitised = await page.locator('.scan-preview').textContent();
+  check('the account number in the letterhead is gone from the preview',
+    !sanitised.includes('887342'), sanitised.slice(0, 120));
+  check('and the currency beside it is not, because the reading needs it',
+    sanitised.includes('AED'), sanitised.slice(0, 120));
+  check('every merchant reference survives, digits and all',
+    ['TAP*DUB4471', 'TLB*ORDER 88213', 'SPOTIFY P39A2B'].every((m) => sanitised.includes(m)),
+    sanitised.slice(0, 200));
+  check('and so does every amount',
+    ['28.00', '412.75', '1,450.00'].every((a) => sanitised.includes(a)), sanitised.slice(0, 200));
+
+  const said = await page.locator('.scan-sanitise').textContent();
+  check('the screen says what it hid, not just that it hid something',
+    said.includes('account number'), said);
+  check('and that the preview is the proof rather than a promise',
+    said.includes('what leaves this browser'), said);
+
+  // Off is there because no rule that catches an account number can be certain
+  // it caught nothing else, and the person holding the statement can see which.
+  await page.uncheck('.scan-sanitise input');
+  check('turning it off puts the statement back as printed',
+    (await page.locator('.scan-preview').textContent()).includes('887342'));
+  check('and says so plainly',
+    (await page.locator('.scan-sanitise').textContent()).includes('exactly as it is printed'));
+  await page.check('.scan-sanitise input');
+
   // --- choosing what reads it ----------------------------------------------
   // The list comes from the server, so this also checks the route answers: an
   // empty picker here means /statements/models did not.
@@ -415,6 +444,7 @@ const check = (name, ok, detail = '') => {
   let calls = 0;
   const seen = [];
   const asked = [];
+  const sentText = [];
   await page.route('**/api/statements/scan', async (route) => {
     calls += 1;
     const body = JSON.parse(route.request().postData());
@@ -423,6 +453,10 @@ const check = (name, ok, detail = '') => {
     // assembling them wrongly shows up as wrong order rather than as nothing.
     const found = [...body.text.matchAll(/MERCHANT NUMBER (\d{3})/g)].map((m) => m[1]);
     seen.push(found.length);
+    // The header rides along with every slice, so anything left in it is sent
+    // once per part. This is the check that matters: not what the preview
+    // showed, but what was actually in the request.
+    sentText.push(body.text);
     // Slices deliberately finish out of order: the later ones answer first.
     await new Promise((r) => setTimeout(r, found.includes('001') ? 260 : 40));
     await route.fulfill({
@@ -460,6 +494,8 @@ const check = (name, ok, detail = '') => {
   check('a long statement is read in more than one request', calls > 1, `${calls} requests`);
   // The picker is only worth having if what it picks is what gets sent — on
   // every slice, not just the first.
+  check('the account number is in none of the requests, not merely hidden on screen',
+    sentText.every((t) => !t.includes('887342')), String(sentText.length) + ' requests');
   check('what was picked is what every slice is read with',
     asked.every((a) => a.model === 'claude-opus-5' && a.effort === 'medium'),
     JSON.stringify(asked[0]));

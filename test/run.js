@@ -25,6 +25,7 @@ const SUITES = [
   'api/push.test.js',
   'api/statements.test.js',
   'api/scanning.test.js',
+  'api/redact.test.js',
   'api/findings.test.js',
   'api/notify.test.js',
   'api/whois.test.js',
