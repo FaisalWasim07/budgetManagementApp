@@ -131,6 +131,85 @@
   --shadow-brand: 0 4px 14px rgba(34,197,142,.32);
 }
 
+/* ── bklit chart theming ─────────────────────────────────────────────
+   The vendored charts (client/src/vendor/bklit) read their colours from
+   this fixed set of --chart-* variables rather than props, so they are
+   mapped once, here, onto tokens Bayt already has — the same series
+   colours and grid every other chart in the app already uses, not a
+   second palette. Three separate rules rather than edits inside the
+   three blocks above: additive, so nothing existing is touched, and
+   the cascade is identical either way. */
+:root {
+  --chart-background:  var(--surface);
+  --chart-foreground:  var(--ink);
+  --chart-foreground-muted: var(--ink-3);
+  --chart-label:       var(--ink-2);
+  --chart-line-primary:   var(--series-in);
+  --chart-line-secondary: var(--series-out);
+  --chart-grid:        var(--grid);
+  --chart-crosshair:   var(--ink-3);
+  --chart-tooltip-background: var(--surface);
+  --chart-indicator-color:           var(--series-in);
+  --chart-indicator-secondary-color: var(--series-out);
+  /* Unused by the three chart types Bayt draws (no markers, no brush) —
+     defined anyway so nothing an unvendored code path might still
+     reference renders as literally unset. */
+  --chart-marker-background: var(--surface);
+  --chart-marker-border:     var(--line);
+  --chart-marker-foreground: var(--ink);
+  --chart-marker-badge-background: var(--brand-deep);
+  --chart-marker-badge-foreground: var(--action-in);
+  --chart-segment-background: var(--surface-2);
+  --chart-segment-line:       var(--line);
+  --chart-brush-border:       var(--line);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    --chart-background:  var(--surface);
+    --chart-foreground:  var(--ink);
+    --chart-foreground-muted: var(--ink-3);
+    --chart-label:       var(--ink-2);
+    --chart-line-primary:   var(--series-in);
+    --chart-line-secondary: var(--series-out);
+    --chart-grid:        var(--grid);
+    --chart-crosshair:   var(--ink-3);
+    --chart-tooltip-background: var(--surface);
+    --chart-indicator-color:           var(--series-in);
+    --chart-indicator-secondary-color: var(--series-out);
+    --chart-marker-background: var(--surface);
+    --chart-marker-border:     var(--line);
+    --chart-marker-foreground: var(--ink);
+    --chart-marker-badge-background: var(--brand-deep);
+    --chart-marker-badge-foreground: var(--action-in);
+    --chart-segment-background: var(--surface-2);
+    --chart-segment-line:       var(--line);
+    --chart-brush-border:       var(--line);
+  }
+}
+
+:root[data-theme='dark'] {
+  --chart-background:  var(--surface);
+  --chart-foreground:  var(--ink);
+  --chart-foreground-muted: var(--ink-3);
+  --chart-label:       var(--ink-2);
+  --chart-line-primary:   var(--series-in);
+  --chart-line-secondary: var(--series-out);
+  --chart-grid:        var(--grid);
+  --chart-crosshair:   var(--ink-3);
+  --chart-tooltip-background: var(--surface);
+  --chart-indicator-color:           var(--series-in);
+  --chart-indicator-secondary-color: var(--series-out);
+  --chart-marker-background: var(--surface);
+  --chart-marker-border:     var(--line);
+  --chart-marker-foreground: var(--ink);
+  --chart-marker-badge-background: var(--brand-deep);
+  --chart-marker-badge-foreground: var(--action-in);
+  --chart-segment-background: var(--surface-2);
+  --chart-segment-line:       var(--line);
+  --chart-brush-border:       var(--line);
+}
+
 :root {
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
@@ -1132,7 +1211,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .chart h3 { font-size: 1rem; }
 .chart .sub { font-size: .8rem; color: var(--ink-3); margin: 2px 0 14px; }
 /* Recharts measures its own container; without this it can only ever grow. */
-.chart .recharts-wrapper { max-width: 100%; }
 .chart-legend { display: flex; gap: 15px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-2); margin-bottom: 12px; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend i { width: 9px; height: 9px; border-radius: 3px; }

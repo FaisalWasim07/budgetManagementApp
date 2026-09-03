@@ -1,0 +1,13 @@
+/* Utilities and theme tokens only — never the full "tailwindcss" import.
+   That would pull in Preflight, Tailwind's element reset, which would
+   restyle every <button>, <h1> and box-sizing rule in the app; Bayt already
+   has its own hand-written base styles in index.css and does not need a
+   second one fighting it. This file exists only so the Tailwind utility
+   classes used inside client/src/vendor/bklit/** (font sizing, flex layout,
+   spacing) resolve to real CSS — nothing here is meant to be reached for
+   outside that directory. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "./charts";
+@source "./components";

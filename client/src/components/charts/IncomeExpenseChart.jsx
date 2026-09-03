@@ -1,14 +1,24 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { categoricalColors, chrome } from '../../utils/palette';
+import {
+  BarChart,
+  Bar,
+  BarXAxis,
+  Grid,
+  ChartTooltip,
+  YAxis,
+} from '../../vendor/bklit/charts/index.js';
+import { categoricalColors } from '../../utils/palette';
 import { useDisplay } from '../../utils/display';
 import { shortMonth } from '../../utils/month';
 import { formatTick } from '../../utils/currency';
 
 export default function IncomeExpenseChart({ trend, currency }) {
   const [income, spending, , subs] = categoricalColors();
-  const c = chrome();
   const { money, amountsHidden } = useDisplay();
-  const ticks = amountsHidden ? () => '•••' : formatTick;
+
+  // BarXAxis reads xDataKey's value raw — no tickFormatter prop exists, so the
+  // display label is written into the row itself rather than the ISO month.
+  // Twelve consecutive months never collide on their short name.
+  const data = trend.map((t) => ({ ...t, month: shortMonth(t.month) }));
 
   return (
     <div className="chart">
@@ -29,40 +39,23 @@ export default function IncomeExpenseChart({ trend, currency }) {
         </span>
       </div>
 
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke={c.gridline} vertical={false} />
-          <XAxis
-            dataKey="month"
-            tickFormatter={shortMonth}
-            tick={{ fill: c.muted, fontSize: 11 }}
-            axisLine={{ stroke: c.baseline }}
-            tickLine={false}
-            interval="preserveStartEnd"
-            minTickGap={8}
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '2.35 / 1' }}>
+        <BarChart data={data} xDataKey="month" aspectRatio="2.35 / 1" barGap={0.16}>
+          <Grid horizontal />
+          <YAxis formatValue={amountsHidden ? () => '•••' : formatTick} />
+          <Bar dataKey="income" fill={income} lineCap="round" />
+          <Bar dataKey="expenses" fill={spending} lineCap="round" />
+          <Bar dataKey="subscriptions" fill={subs} lineCap="round" />
+          <BarXAxis />
+          <ChartTooltip
+            rows={(point) => [
+              { color: income, label: 'Came in', value: money(point.income, currency) },
+              { color: spending, label: 'Went out', value: money(point.expenses, currency) },
+              { color: subs, label: 'Subscriptions', value: money(point.subscriptions, currency) },
+            ]}
           />
-          <YAxis
-            tick={{ fill: c.muted, fontSize: 11 }}
-            axisLine={{ stroke: c.baseline }}
-            tickLine={false}
-            width={46}
-            tickFormatter={ticks}
-          />
-          <Tooltip
-            labelFormatter={shortMonth}
-            formatter={(v) => money(v, currency)}
-            contentStyle={{
-              background: c.surface,
-              border: `1px solid ${c.gridline}`,
-              borderRadius: 10,
-              color: c.textPrimary,
-            }}
-          />
-          <Bar dataKey="income" name="Came in" fill={income} radius={[6, 6, 0, 0]} />
-          <Bar dataKey="expenses" name="Went out" fill={spending} radius={[6, 6, 0, 0]} />
-          <Bar dataKey="subscriptions" name="Subscriptions" fill={subs} radius={[6, 6, 0, 0]} />
         </BarChart>
-      </ResponsiveContainer>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,11 @@ import { ToastProvider } from './utils/toast';
 import { refresh, registerWorker } from './utils/push';
 import { applyTheme, loadTheme } from './utils/theme';
 import './index.css';
+// Utility classes only, scoped to client/src/vendor/bklit — see that file's
+// own comment for why this is safe to import globally despite living beside
+// a hand-written CSS system: it carries no reset, and Tailwind v4 only
+// generates a class the moment something under vendor/bklit actually uses it.
+import './vendor/bklit/tailwind.css';
 
 // Applied before the first render so the login screen honours the saved theme
 // too — App keeps it in sync from there.
@@ -34,5 +39,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ToastProvider>
       <AuthGate />
     </ToastProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

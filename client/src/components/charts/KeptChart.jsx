@@ -1,15 +1,5 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { chrome, sequentialBlue } from '../../utils/palette';
+import { BarChart, Bar, BarXAxis, Grid, ChartTooltip } from '../../vendor/bklit/charts/index.js';
+import { sequentialBlue } from '../../utils/palette';
 import { shortMonth } from '../../utils/month';
 
 // What was left of each month's income after everything went out, as a share
@@ -20,11 +10,11 @@ import { shortMonth } from '../../utils/month';
 // It is a percentage rather than an amount, so the privacy toggle leaves it
 // alone: a share gives away nothing about how much.
 export default function KeptChart({ trend }) {
-  const c = chrome();
   const good = sequentialBlue();
+  const bad = '#BE123C';
 
   const data = trend.map((t) => ({
-    month: t.month,
+    month: shortMonth(t.month),
     // A month with nothing coming in has no share to report. null rather than
     // zero, or a month you were between jobs would read as a month you kept
     // exactly none of a real income.
@@ -46,46 +36,29 @@ export default function KeptChart({ trend }) {
           No income recorded yet, so there is no share to work out.
         </p>
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke={c.gridline} vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickFormatter={shortMonth}
-              tick={{ fill: c.muted, fontSize: 11 }}
-              axisLine={{ stroke: c.baseline }}
-              tickLine={false}
-              interval="preserveStartEnd"
-              minTickGap={8}
-            />
-            <YAxis
-              tick={{ fill: c.muted, fontSize: 11 }}
-              axisLine={{ stroke: c.baseline }}
-              tickLine={false}
-              width={40}
-              tickFormatter={(v) => `${v}%`}
-            />
-            <Tooltip
-              labelFormatter={shortMonth}
-              formatter={(v) => [`${v}% kept`, '']}
-              separator=""
-              contentStyle={{
-                background: c.surface,
-                border: `1px solid ${c.gridline}`,
-                borderRadius: 10,
-                color: c.textPrimary,
-              }}
-            />
+        <div style={{ position: 'relative', width: '100%', aspectRatio: '2.35 / 1' }}>
+          <BarChart data={data} xDataKey="month" aspectRatio="2.35 / 1">
             {/* Zero is the line that matters: below it the month cost more
                 than it earned. */}
-            <ReferenceLine y={0} stroke={c.baseline} />
-            <Bar dataKey="kept" name="Kept" radius={[6, 6, 0, 0]}>
-              {data.map((d) => (
-                <Cell key={d.month} fill={d.kept != null && d.kept < 0 ? '#BE123C' : good} />
-              ))}
-            </Bar>
+            <Grid horizontal highlightRowValues={[0]} highlightRowStroke="var(--ink-3)" />
+            <Bar
+              dataKey="kept"
+              fill={good}
+              lineCap="round"
+              fillFor={(row) => (row.kept < 0 ? bad : undefined)}
+            />
+            <BarXAxis />
+            <ChartTooltip
+              rows={(point) => [
+                {
+                  color: point.kept < 0 ? bad : good,
+                  label: point.kept < 0 ? 'Overspent by' : 'Kept',
+                  value: `${Math.abs(point.kept)}%`,
+                },
+              ]}
+            />
           </BarChart>
-        </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

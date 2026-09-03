@@ -1,3 +1,4 @@
+import { PieChart, PieSlice } from '../../vendor/bklit/charts/index.js';
 import { Money } from '../../utils/display';
 import { categoricalColors } from '../../utils/palette';
 import { formatMonth } from '../../utils/month';
@@ -6,13 +7,14 @@ import { formatMonth } from '../../utils/month';
 // was this" at a glance, which is the question a category breakdown is for;
 // the ranking it is bad at — was rent bigger than groceries — is answered by
 // the legend beside it, which is sorted and carries the amounts.
+//
+// PieChart, not RingChart: bklit's Ring is a concentric progress ring — each
+// one its own radius, scaled against its own maxValue, the Apple-Watch-rings
+// shape — and a single category at 100% of the month sent it a full-circle
+// sweep it renders as NaN. PieChart's arc() layout is the one that actually
+// divides one ring into proportional slices.
 const MAX_SLICES = 6;
 const REST = 'var(--ink-3)';
-
-const R = 52;
-const STROKE = 20;
-const SIZE = (R + STROKE / 2) * 2 + 2;
-const CIRCUMFERENCE = 2 * Math.PI * R;
 
 export default function CategoryChart({ categories, currency, month }) {
   const colors = categoricalColors();
@@ -24,16 +26,12 @@ export default function CategoryChart({ categories, currency, month }) {
     ...(rest > 0 ? [{ category: 'Everything else', amount: rest, color: REST }] : []),
   ];
   const total = data.reduce((sum, c) => sum + c.amount, 0);
-
-  // Where each arc starts, as a length along the circle. Drawn from twelve
-  // o'clock, clockwise, biggest first.
-  let at = 0;
-  const slices = data.map((row) => {
-    const length = total > 0 ? (row.amount / total) * CIRCUMFERENCE : 0;
-    const slice = { ...row, length, offset: at };
-    at += length;
-    return slice;
-  });
+  // PieSlice's own `color` prop only reaches its hover glow — the fill it
+  // actually paints comes from `getFill`, which reads `color` off the DATA
+  // ITEM first and only falls back to bklit's own --chart-1..5 palette
+  // (which Bayt has no reason to define, since it already has one). Carrying
+  // color on the row is the documented way in, and the one that works.
+  const pieData = data.map((c) => ({ label: c.category, value: c.amount, color: c.color }));
 
   return (
     <div className="chart">
@@ -47,27 +45,19 @@ export default function CategoryChart({ categories, currency, month }) {
       ) : (
         <div className="donut-wrap">
           <div className="donut">
-            <svg viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Spending by category">
-              <g transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}>
-                {slices.map((slice) => (
-                  <circle
-                    key={slice.category}
-                    cx={SIZE / 2}
-                    cy={SIZE / 2}
-                    r={R}
-                    fill="none"
-                    stroke={slice.color}
-                    strokeWidth={STROKE}
-                    // A 1px gap between arcs, so two neighbouring slices read as
-                    // two things rather than one long one.
-                    strokeDasharray={`${Math.max(0, slice.length - 1)} ${CIRCUMFERENCE}`}
-                    strokeDashoffset={-slice.offset}
-                  >
-                    <title>{slice.category}</title>
-                  </circle>
-                ))}
-              </g>
-            </svg>
+            <PieChart data={pieData} size={148} innerRadius={44}>
+              {pieData.map((item, i) => (
+                <PieSlice index={i} key={item.label} />
+              ))}
+            </PieChart>
+            {/* Not <PieCenter>: its own built-in content is NumberFlow, which
+                knows nothing about the privacy toggle or a currency symbol —
+                and its render-prop override only fires while a slice is
+                actively hovered, defaulting back to that same unmasked number
+                the rest of the time, which is most of the time. This sibling
+                span is exactly what sat over the hand-drawn donut before;
+                <Money> already knows how to become dots when the eye is
+                clicked, which is the property that matters here. */}
             <span className="donut-centre">
               <small>went out</small>
               <Money amount={total} currency={currency} compact />
@@ -75,7 +65,7 @@ export default function CategoryChart({ categories, currency, month }) {
           </div>
 
           <ul className="donut-legend">
-            {slices.map((slice) => (
+            {data.map((slice) => (
               <li key={slice.category}>
                 <i style={{ background: slice.color }} />
                 <span className="n">{slice.category}</span>
