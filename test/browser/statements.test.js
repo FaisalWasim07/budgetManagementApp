@@ -203,6 +203,113 @@ const check = (name, ok, detail = '') => {
   check('and does so without an error of its own', oldBad.length === 0, oldBad.join(' | '));
   await old.close();
 
+  // --- the report the scan produces ---------------------------------------
+  // The model call is stubbed. What is being checked is the screen: this view
+  // only ever appears after a successful scan, so without a stub nothing has
+  // ever rendered it, and a mistake in it would first be seen by whoever
+  // scanned their statement.
+  const stub = (over = {}) => ({
+    rows: [
+      { date: '2026-08-03', raw: 'TAP*DUB4471 AE', merchant: 'Tap Coffee', what: 'a coffee shop',
+        amount: 28, direction: 'out', kind: 'purchase', category: 'Eating out', confidence: 'high' },
+      { date: '2026-08-04', raw: 'CARREFOUR MALL', merchant: 'Carrefour', what: 'a supermarket',
+        amount: 412.75, direction: 'out', kind: 'purchase', category: 'Groceries', confidence: 'high' },
+      { date: '2026-08-11', raw: 'ABU DHABI SERVICE', merchant: 'Abu Dhabi Service', what: 'unclear',
+        amount: 1702.96, direction: 'out', kind: 'purchase', category: 'Government', confidence: 'low' },
+      { date: '2026-08-01', raw: 'TRANSFER PAYMENT RECEIVED', merchant: 'Card payment', what: 'paying the card',
+        amount: 10117.51, direction: 'in', kind: 'payment', category: 'Payment', confidence: 'high' },
+    ],
+    overview: {
+      lines: 4, spent: 2143.71, credited: 10117.51,
+      credits: { payments: 10117.51, refunds: 0, cashback: 0, income: 0 },
+      from: '2026-08-01', to: '2026-08-11',
+    },
+    reconciliation: { status: 'ok', closing: 9496.06 },
+    categories: [
+      { category: 'Government', total: 1702.96, count: 1, average: 1702.96, share: 79.4 },
+      { category: 'Groceries', total: 412.75, count: 1, average: 412.75, share: 19.3 },
+      { category: 'Eating out', total: 28, count: 1, average: 28, share: 1.3 },
+    ],
+    findings: {
+      duplicates: [{ date: '2026-08-03', merchant: 'Tap Coffee', amount: 28, times: 2, total: 56 }],
+      repeats: [{ merchant: 'Spotify', amount: 39, times: 2, total: 78, listed: false, listedAs: null }],
+      missingSubscriptions: [{ name: 'Gym', amount: 250 }],
+      outliers: [{ date: '2026-08-11', merchant: 'Abu Dhabi Service', category: 'Government',
+        amount: 1702.96, typical: 100 }],
+      frequent: [{ merchant: 'Tap Coffee', times: 7, total: 196, average: 28 }],
+    },
+    ...over,
+  });
+
+  const showReport = async (body) => {
+    if (await page.locator('.modal.scanner').count()) await close();
+    await page.route('**/api/statements/scan', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+    );
+    await open('statement-plain.pdf');
+    await page.waitForSelector('.scan-preview', { timeout: 20000 });
+    await page.click('.modal.scanner button:has-text("Read the transactions")');
+    await page.waitForSelector('.scan-report', { timeout: 20000 });
+  };
+
+  // Amounts are hidden every time the app opens, and a statement is the last
+  // thing that should be an exception to that. Checked before anything is
+  // revealed, because this is the state somebody scanning on a train is in.
+  await showReport(stub());
+  check('a statement’s figures are hidden like every other figure in the app',
+    (await page.locator('.scan-head').textContent()).includes('•'),
+    await page.locator('.scan-head').textContent());
+
+  // Revealed for the rest, so the arithmetic can actually be read.
+  await page.click('.modal.scanner button[aria-label="Close"]');
+  await page.waitForTimeout(300);
+  await page.click('button[aria-label="Show amounts"]');
+  await page.waitForTimeout(300);
+
+  await showReport(stub());
+  check('the report says what was spent',
+    (await page.locator('.scan-head').textContent()).includes('2,143.71'),
+    await page.locator('.scan-head').textContent());
+  check('and that the reading adds up',
+    (await page.locator('.scan-head .reconciled').count()) === 1);
+  // The bug the real statement found: a card payment is not money received.
+  check('paying the card off is described as that, not as income',
+    (await page.locator('.scan-credits').textContent()).includes('paid off the card'),
+    await page.locator('.scan-credits').textContent());
+
+  check('every category is drawn with a bar', (await page.locator('.scan-cat .scan-bar').count()) === 3);
+  check('largest first', (await page.locator('.scan-cat b').first().textContent()) === 'Government');
+  check('with its share', (await page.locator('.scan-cat').first().textContent()).includes('79.4%'));
+
+  const findingHeads = await page.locator('.scan-findings h3').allTextContents();
+  check('all five kinds of finding are shown when all five are found',
+    findingHeads.length === 5, JSON.stringify(findingHeads));
+  check('an unlisted repeat is named as such',
+    findingHeads.some((h) => h.includes('not in your subscriptions')), JSON.stringify(findingHeads));
+  check('a duplicate is flagged rather than asserted',
+    (await page.locator('.scan-findings').textContent()).includes('Worth a look'));
+
+  check('the rows are behind a fold rather than filling the dialog',
+    (await page.locator('.scan-rows-toggle summary').textContent()).includes('4'));
+  await page.click('.scan-rows-toggle summary');
+  check('and open to the line as the bank printed it',
+    (await page.locator('.scan-rows .raw').first().textContent()).includes('TAP*DUB4471'));
+  check('with a low-confidence line marked',
+    (await page.locator('.scan-rows tr.unsure').count()) === 1);
+
+  // --- a reading that does not add up --------------------------------------
+  await showReport(stub({
+    reconciliation: { status: 'mismatch', expected: 8969.26, closing: 9496.06, delta: -526.8,
+      countedTwice: null },
+  }));
+  const banner = await page.locator('.modal.scanner .warn-banner').textContent();
+  check('a reading that does not add up says so before anything else',
+    banner.includes('does not add up'), banner.slice(0, 60));
+  check('and names the gap', banner.includes('526.8'), banner.slice(0, 200));
+  check('and says not to take the figures as fact', banner.includes('not as fact'));
+  check('while still showing them', (await page.locator('.scan-cat').count()) === 3);
+  await page.unroute('**/api/statements/scan');
+
   check('no page errors throughout', bad.length === 0, bad.join(' | '));
 
   await browser.close();
