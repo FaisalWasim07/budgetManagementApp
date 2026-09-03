@@ -133,15 +133,41 @@ const lastSent = () => sent[sent.length - 1];
   check('an unknown model is priced as the default rather than as free',
     service.priceOf({ model: 'nonsense', usage }) === opus);
 
-  // The whole reason the instructions are sent as one cacheable block: on every
-  // slice after the first they are read back at about a tenth of the price.
-  const cached = service.priceOf({
+  // The three input buckets are separate: `input` is what was sent uncached,
+  // and the cached and written tokens are charged on top of it, not carved out
+  // of it. Getting this backwards drove the fresh input to zero on every slice
+  // after the first and under-reported a real scan by a fifth.
+  const nineFresh = service.priceOf({
+    model: 'claude-opus-5',
+    usage: { input: 19_000, output: 2_000, cacheRead: 0, cacheWrite: 0 },
+  });
+  const nineCached = service.priceOf({
     model: 'claude-opus-5',
     usage: { input: 10_000, output: 2_000, cacheRead: 9_000, cacheWrite: 0 },
   });
-  check('reading the instructions back from cache costs less than sending them again',
-    cached < opus, `${cached} < ${opus}`);
-  check('but not nothing — cached input is still charged', cached > 0.05, String(cached));
+  // The whole reason the instructions are sent as one cacheable block: on every
+  // slice after the first they are read back at about a tenth of the price.
+  check('nineteen thousand tokens in cost less when nine of them came from cache',
+    nineCached < nineFresh, `${nineCached} < ${nineFresh}`);
+  check('but not nothing — cached input is still charged',
+    nineCached > opus, `${nineCached} > ${opus}`);
+  // The bug itself, pinned: cached tokens are additional input, so adding them
+  // to a run can only make it dearer. It used to make it cheaper than free.
+  const withCache = service.priceOf({
+    model: 'claude-opus-5',
+    usage: { input: 10_000, output: 2_000, cacheRead: 9_000, cacheWrite: 0 },
+  });
+  check('cached tokens are charged on top of the input, never subtracted from it',
+    withCache > opus, `${withCache} vs ${opus} with no cache`);
+  check('and the fresh input is still paid for in full',
+    Math.abs(withCache - (opus + (9_000 * 0.1 * 5) / 1e6)) < 1e-9, String(withCache));
+
+  const written = service.priceOf({
+    model: 'claude-opus-5',
+    usage: { input: 10_000, output: 2_000, cacheRead: 0, cacheWrite: 9_000 },
+  });
+  check('writing the cache costs a quarter more than sending those tokens plainly',
+    Math.abs(written - (opus + (9_000 * 1.25 * 5) / 1e6)) < 1e-9, String(written));
 
   const free = service.priceOf({ model: 'claude-opus-5', usage: { input: 0, output: 0 } });
   check('a run that used nothing costs nothing', free === 0, String(free));

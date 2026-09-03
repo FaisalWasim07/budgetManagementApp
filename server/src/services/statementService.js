@@ -332,17 +332,24 @@ async function scan({ text, categories = [], currency = null, model: asked, effo
 
 // What a run cost, worked out here because the prices are here. The browser is
 // told a number of dirhams, not a price list it could get wrong or go stale on.
+// The three input buckets are separate, and that is the whole subtlety here.
+// `input_tokens` counts only what was sent uncached — it does not include the
+// tokens read back from cache or the ones written to it, so the total input is
+// the three added together, never one carved out of another.
+//
+// This was wrong, and wrong in the direction that flatters: subtracting the
+// cached tokens from the input drove the fresh count to zero on every slice
+// after the first, and the price of the statement text itself was quietly not
+// charged for. A scan reported at twenty cents had cost twenty-five.
 function priceOf({ model, usage }) {
   const spec = MODELS[model] || MODELS[DEFAULT_MODEL];
-  const fresh = Math.max(0, (usage.input || 0) - (usage.cacheRead || 0));
+  const fresh = usage.input || 0;
   const cached = usage.cacheRead || 0;
-  // Writing a cache entry costs a quarter more than sending the tokens plainly;
-  // reading one back costs a tenth. Both are counted, or the first slice looks
-  // free and the saving looks larger than it is.
   const written = usage.cacheWrite || 0;
+  // Writing a cache entry costs a quarter more than sending the tokens plainly;
+  // reading one back costs a tenth.
   const dollars =
-    ((fresh + written * 1.25) * spec.input +
-      cached * CACHE_DISCOUNT * spec.input +
+    ((fresh + written * 1.25 + cached * CACHE_DISCOUNT) * spec.input +
       (usage.output || 0) * spec.output) /
     1_000_000;
   return dollars;

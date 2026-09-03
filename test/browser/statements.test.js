@@ -401,6 +401,11 @@ const check = (name, ok, detail = '') => {
   const cost = await page.locator('.scan-cost').textContent();
   check('what the reading cost is shown in money, not only in tokens',
     cost.includes('$'), cost);
+  // 12,000 sent uncached plus 9,000 read back from cache is 21,000 tokens of
+  // input. Reporting the 12,000 as the total and then saying 9,000 of it came
+  // from cache was a line that could not be true.
+  check('the tokens in are every bucket added up, not one carved out of another',
+    cost.includes('21,000 tokens in'), cost);
   check('and it names what actually read the statement', cost.includes('Opus 5'), cost);
   check('with the tokens kept, because they are what explains the money',
     cost.includes('tokens in'), cost);

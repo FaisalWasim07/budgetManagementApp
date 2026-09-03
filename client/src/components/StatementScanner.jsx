@@ -334,14 +334,20 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     // pressed, and finding that out from a bill later is no way to learn it.
     const usage = parts.reduce(
       (total, part) => ({
+        // Three separate buckets, not one carved out of another: `input` is
+        // what was sent uncached, and the cached and written tokens are on top
+        // of it. Added together they are the input; taken as a subset they
+        // produced a line reading "25,459 tokens in, of which 29,206 were read
+        // from cache", which is not possible.
         input: total.input + (part.usage?.input ?? 0),
         output: total.output + (part.usage?.output ?? 0),
         cached: total.cached + (part.usage?.cacheRead ?? 0),
+        written: total.written + (part.usage?.cacheWrite ?? 0),
         // Priced by the server, per slice, and added up here. Tokens are what
         // happened; money is what was actually being asked about.
         cost: total.cost + (part.cost ?? 0),
       }),
-      { input: 0, output: 0, cached: 0, cost: 0 }
+      { input: 0, output: 0, cached: 0, written: 0, cost: 0 }
     );
     const analysis = await analyseStatement(rows, statement);
     setReport({
@@ -732,13 +738,17 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       // that costs twice as much as the last one did so for a
                       // reason that is visible here.
                       `${costPhrase(report.usage.cost)}: ` +
-                      `${report.usage.input.toLocaleString()} tokens in and ` +
+                      `${(
+                        report.usage.input +
+                        report.usage.cached +
+                        report.usage.written
+                      ).toLocaleString()} tokens in and ` +
                       `${report.usage.output.toLocaleString()} out` +
                       // Cached tokens are charged at about a tenth, so this is
                       // the difference between the bill and what it would have
                       // been. Nothing to show when nothing cached.
                       (report.usage.cached
-                        ? `, of which ${report.usage.cached.toLocaleString()} were read from cache.`
+                        ? `, of which ${report.usage.cached.toLocaleString()} were read back from cache rather than sent again.`
                         : '.')
                     : ''}
                 </span>
