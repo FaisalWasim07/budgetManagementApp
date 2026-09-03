@@ -67,6 +67,26 @@ const u = unique();
       String(noKey.data.error).includes('ANTHROPIC_API_KEY'), String(noKey.data.error));
   }
 
+  // --- what it may be read with -------------------------------------------
+  // The list is served rather than held in the browser, so a client cannot ask
+  // for a model nobody put on it, and the prices have one home.
+  const models = await me.get('/api/statements/models');
+  check('the models on offer are served, not hardcoded in the page',
+    models.status === 200 && Array.isArray(models.data.models),
+    `${models.status} ${JSON.stringify(models.data).slice(0, 80)}`);
+  check('each one says what it is and what it costs',
+    models.data.models.every((m) => m.id && m.label && m.note && m.input > 0 && m.output > 0),
+    JSON.stringify(models.data.models));
+  check('with a default that is one of them',
+    models.data.models.some((m) => m.id === models.data.defaultModel), models.data.defaultModel);
+  check('and a default effort that is one of the efforts',
+    models.data.efforts.includes(models.data.defaultEffort), models.data.defaultEffort);
+  // Not every model takes an effort — Haiku refuses the field rather than
+  // ignoring it, so the browser has to be told which ones do.
+  check('models say whether they take an effort at all',
+    models.data.models.every((m) => typeof m.effort === 'boolean'),
+    JSON.stringify(models.data.models.map((m) => [m.id, m.effort])));
+
   // --- working out, which needs no model ----------------------------------
   // Split from reading so a long statement can be read a slice at a time
   // without the arithmetic seeing a third of it and calling that a finding.

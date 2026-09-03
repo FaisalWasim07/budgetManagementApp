@@ -950,6 +950,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .scan-page figcaption { font-size: .78rem; color: var(--ink-2); }
 
+/* The two pickers that decide how the statement gets read. Side by side on a
+   desktop, because they are one decision; stacked on a phone, where two selects
+   in a row leave neither of them wide enough to read a model name in. */
+.scan-model { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.scan-model .field { margin: 0; }
+.scan-model .muted { font-size: .74rem; }
+@media (max-width: 560px) { .scan-model { grid-template-columns: 1fr; } }
+
 /* What was found in a statement, above the rows themselves. */
 .scan-report { gap: 14px; }
 .scan-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .9rem; }

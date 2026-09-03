@@ -1,6 +1,6 @@
-import { useContext, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
-import { scanStatement, analyseStatement } from '../api/statements';
+import { scanStatement, analyseStatement, getScanChoices } from '../api/statements';
 import { chunkStatement, inBatches, AT_ONCE } from '../utils/statementChunks';
 import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
@@ -98,6 +98,46 @@ function Findings({ findings, currency }) {
 
 const isPdf = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 
+// Whoever scans statements scans them the same way every month, so the choice
+// is remembered. It is only ever a preference: the server checks it against its
+// own list, so a stale name left here from a model that has since gone falls
+// back rather than failing.
+const REMEMBERED = 'budget.scan';
+
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private browsing. The choice still holds for this scan.
+  }
+}
+
+function recall(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+// A scan costs cents, so two decimal places would round most of them to zero
+// and the honest answer to "what did that cost" would read as "nothing". Under
+// a cent it says so in words rather than printing $0.00 — and "about" is
+// dropped there, because "about less than a cent" is not a figure.
+function costPhrase(dollars) {
+  if (!dollars) return '';
+  if (dollars < 0.01) return ' for less than a cent';
+  return ` for about $${dollars.toFixed(dollars < 1 ? 3 : 2)}`;
+}
+
+// Effort is a capability, not a preference — Haiku rejects the field outright.
+// The picker follows what the chosen model actually takes.
+const EFFORT_WORDS = {
+  low: 'Low — read it and write it out',
+  medium: 'Medium — think a little about the odd line',
+  high: 'High — deliberate over every line',
+};
+
 export default function StatementScanner({ onClose, accounts = [] }) {
   const [file, setFile] = useState(null);
   const [bytes, setBytes] = useState(null);
@@ -113,6 +153,12 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? null);
   const [report, setReport] = useState(null);
   const [reading, setReading] = useState(false);
+  // What may be read with, and what was picked. The list comes from the server
+  // so the prices have one home; until it arrives there is nothing to choose
+  // between and the controls stay out of the way.
+  const [choices, setChoices] = useState(null);
+  const [model, setModel] = useState(() => recall(`${REMEMBERED}.model`) ?? '');
+  const [effort, setEffort] = useState(() => recall(`${REMEMBERED}.effort`) ?? '');
   // How far through the slices it is. Shown rather than kept, because the wait
   // is long enough that a spinner alone reads as the app having died.
   const [progress, setProgress] = useState(null);
@@ -120,6 +166,47 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0] ?? null;
   const currency = account?.currency ?? '';
+
+  // Asked for once, when the dialog opens, rather than on every file: it is a
+  // fixed list and the answer does not change between statements. A failure
+  // here is not worth an error — the scan works perfectly well on the server's
+  // own defaults, so the pickers simply do not appear.
+  useEffect(() => {
+    let live = true;
+    getScanChoices()
+      .then((got) => {
+        if (!live) return;
+        setChoices(got);
+        setModel((current) =>
+          got.models.some((m) => m.id === current) ? current : got.defaultModel
+        );
+        setEffort((current) => (got.efforts.includes(current) ? current : got.defaultEffort));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const chosen = choices?.models.find((m) => m.id === model) ?? null;
+
+  // Named in the report from what actually read it, which is not necessarily
+  // what was picked — the server has the last word on the model.
+  const modelLabel =
+    choices?.models.find((m) => m.id === (report?.model ?? model))?.label ?? 'the model';
+
+  // Written down as it is picked, not when the scan starts: the choice is worth
+  // keeping even if the file turns out to be the wrong one and the dialog is
+  // closed again.
+  function pickModel(id) {
+    setModel(id);
+    remember(`${REMEMBERED}.model`, id);
+  }
+
+  function pickEffort(value) {
+    setEffort(value);
+    remember(`${REMEMBERED}.effort`, value);
+  }
 
   // Figures are hidden everywhere else in the app because the ledger simply
   // sits there: open the app on a train and your balances are on screen
@@ -204,7 +291,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
       const parts = await inBatches(
         chunks,
         AT_ONCE,
-        (chunk) => scanStatement(chunk, account?.id ?? null),
+        (chunk) => scanStatement(chunk, account?.id ?? null, model || null, effort || null),
         (done, total) => setProgress({ done, total }),
       );
 
@@ -228,11 +315,24 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             input: total.input + (part.usage?.input ?? 0),
             output: total.output + (part.usage?.output ?? 0),
             cached: total.cached + (part.usage?.cacheRead ?? 0),
+            // Priced by the server, per slice, and added up here. Tokens are
+            // what happened; money is what was actually being asked about.
+            cost: total.cost + (part.cost ?? 0),
           }),
-          { input: 0, output: 0, cached: 0 }
+          { input: 0, output: 0, cached: 0, cost: 0 }
         );
         const analysis = await analyseStatement(rows, statement);
-        setReport({ rows, statement, ...analysis, usage, parts: parts.length });
+        setReport({
+          rows,
+          statement,
+          ...analysis,
+          usage,
+          parts: parts.length,
+          // What it was read with, taken from the reply rather than from the
+          // picker: if the server fell back, the report should say what
+          // actually read the statement.
+          model: parts.find((part) => part.model)?.model ?? model,
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -324,6 +424,53 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       ))}
                     </select>
                   </label>
+                )}
+
+                {choices && !report && (
+                  <div className="scan-model">
+                    <label className="field">
+                      Read it with
+                      <select
+                        value={model}
+                        onChange={(e) => pickModel(e.target.value)}
+                        disabled={reading}
+                      >
+                        {choices.models.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                      {/* The note is the whole reason for offering a choice.
+                        Naming three models without saying what the difference
+                        buys you is a question nobody can answer. */}
+                      <span className="muted">{chosen?.note}</span>
+                    </label>
+
+                    {/* Only where the model takes one. Haiku refuses the field
+                      outright rather than ignoring it, so an effort picker
+                      beside it would be a control that breaks the scan. */}
+                    {chosen?.effort && (
+                      <label className="field">
+                        How hard to think
+                        <select
+                          value={effort}
+                          onChange={(e) => pickEffort(e.target.value)}
+                          disabled={reading}
+                        >
+                          {choices.efforts.map((e) => (
+                            <option key={e} value={e}>
+                              {EFFORT_WORDS[e] ?? e}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="muted">
+                          Reading a printed list is mostly transcription, and thinking is billed
+                          like writing. Low is usually right.
+                        </span>
+                      </label>
+                    )}
+                  </div>
                 )}
 
                 {!report && (
@@ -468,7 +615,14 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                 <span className="muted scan-cost" style={{ fontSize: '0.8rem' }}>
                   Nothing has been saved. This is gone when you close it.
                   {report.usage?.output
-                    ? ` Read in ${report.parts} part${report.parts === 1 ? '' : 's'}, ` +
+                    ? ` Read by ${modelLabel} in ${report.parts} part${
+                        report.parts === 1 ? '' : 's'
+                      }` +
+                      // Money first, because that is the question. Tokens are
+                      // kept because they are what explains the money — a scan
+                      // that costs twice as much as the last one did so for a
+                      // reason that is visible here.
+                      `${costPhrase(report.usage.cost)}: ` +
                       `${report.usage.input.toLocaleString()} tokens in and ` +
                       `${report.usage.output.toLocaleString()} out` +
                       // Cached tokens are charged at about a tenth, so this is

@@ -10,7 +10,63 @@ const Anthropic = require('@anthropic-ai/sdk');
 // one, and is acted on — so the model is allowed to be wrong about *what*
 // something is, which is visible and correctable, and never about *how much*.
 
-const MODEL = 'claude-opus-5';
+// What a statement may be read with, and what each costs per million tokens.
+// The list lives here rather than in the browser so a request cannot name a
+// model nobody chose — anything arriving from a client is a suggestion, and an
+// unrecognised one falls back rather than being passed on to the API.
+//
+// `effort` is not universal. It is rejected outright by Haiku 4.5, so the flag
+// is a capability rather than a preference: sending it there fails the request.
+const MODELS = {
+  'claude-opus-5': {
+    label: 'Opus 5',
+    note: 'The most careful reader, and the dearest.',
+    input: 5,
+    output: 25,
+    effort: true,
+  },
+  'claude-sonnet-5': {
+    label: 'Sonnet 5',
+    note: 'Less than half the price, and quick.',
+    input: 2,
+    output: 10,
+    effort: true,
+  },
+  'claude-haiku-4-5': {
+    label: 'Haiku 4.5',
+    note: 'A fifth of Opus. Reading a statement is mostly transcription.',
+    input: 1,
+    output: 5,
+    effort: false,
+  },
+};
+
+const DEFAULT_MODEL = 'claude-opus-5';
+
+// Anything above high is for problems with something to reason about, which
+// reading a printed list of transactions is not.
+const EFFORTS = ['low', 'medium', 'high'];
+
+// Cached input is billed at roughly a tenth, which is the whole reason the
+// instructions are sent as a cacheable block.
+const CACHE_DISCOUNT = 0.1;
+
+// What the browser needs to offer a choice, without it holding the prices.
+const choices = () => ({
+  models: Object.entries(MODELS).map(([id, m]) => ({
+    id,
+    label: m.label,
+    note: m.note,
+    input: m.input,
+    output: m.output,
+    effort: m.effort,
+  })),
+  efforts: EFFORTS,
+  defaultModel: DEFAULT_MODEL,
+  defaultEffort: 'low',
+});
+
+const modelFor = (asked) => (MODELS[asked] ? asked : DEFAULT_MODEL);
 
 // One request carries about thirty lines, so the answer is about thirty rows —
 // a few thousand tokens. This is a ceiling on a runaway, not a target: it was
@@ -28,7 +84,7 @@ const MAX_TOKENS = 8000;
 // nobody reads — and it was the single largest thing wrong with what a scan
 // cost. Low effort is the right setting for work of this shape, and it is
 // faster for the same reason.
-const EFFORT = 'low';
+const DEFAULT_EFFORT = 'low';
 
 // One row per line on the statement. `strict` schema-valid output, so what
 // comes back is checked before this code ever sees it — no parsing prose, no
@@ -211,19 +267,26 @@ function clean(rows) {
     .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
 }
 
-async function scan({ text, categories = [], currency = null }) {
+async function scan({ text, categories = [], currency = null, model: asked, effort: askedEffort }) {
   const anthropic = client();
+  const model = modelFor(asked);
+  const spec = MODELS[model];
+  const effort = EFFORTS.includes(askedEffort) ? askedEffort : DEFAULT_EFFORT;
 
   let message;
   try {
     // Streamed because the response is long and a non-streaming request of this
     // size runs into the SDK's HTTP timeout before the model has finished.
     const stream = anthropic.messages.stream({
-      model: MODEL,
+      model,
       max_tokens: MAX_TOKENS,
       system: systemFor({ categories, currency }),
       messages: [{ role: 'user', content: text }],
-      output_config: { effort: EFFORT, format: { type: 'json_schema', schema: ROW_SCHEMA } },
+      // Effort only where the model takes one. Haiku rejects the field rather
+      // than ignoring it, so this is not a nicety.
+      output_config: spec.effort
+        ? { effort, format: { type: 'json_schema', schema: ROW_SCHEMA } }
+        : { format: { type: 'json_schema', schema: ROW_SCHEMA } },
     });
     message = await stream.finalMessage();
   } catch (err) {
@@ -267,4 +330,33 @@ async function scan({ text, categories = [], currency = null }) {
   };
 }
 
-module.exports = { scan, StatementScanError, ROW_SCHEMA, MODEL };
+// What a run cost, worked out here because the prices are here. The browser is
+// told a number of dirhams, not a price list it could get wrong or go stale on.
+function priceOf({ model, usage }) {
+  const spec = MODELS[model] || MODELS[DEFAULT_MODEL];
+  const fresh = Math.max(0, (usage.input || 0) - (usage.cacheRead || 0));
+  const cached = usage.cacheRead || 0;
+  // Writing a cache entry costs a quarter more than sending the tokens plainly;
+  // reading one back costs a tenth. Both are counted, or the first slice looks
+  // free and the saving looks larger than it is.
+  const written = usage.cacheWrite || 0;
+  const dollars =
+    ((fresh + written * 1.25) * spec.input +
+      cached * CACHE_DISCOUNT * spec.input +
+      (usage.output || 0) * spec.output) /
+    1_000_000;
+  return dollars;
+}
+
+module.exports = {
+  scan,
+  choices,
+  modelFor,
+  priceOf,
+  StatementScanError,
+  ROW_SCHEMA,
+  MODELS,
+  DEFAULT_MODEL,
+  DEFAULT_EFFORT,
+  EFFORTS,
+};

@@ -161,6 +161,48 @@ const check = (name, ok, detail = '') => {
   const readIt = page.locator('.modal.scanner button:has-text("Read the transactions")');
   check('a statement that has text offers to have it read', await readIt.count() === 1);
 
+  // --- choosing what reads it ----------------------------------------------
+  // The list comes from the server, so this also checks the route answers: an
+  // empty picker here means /statements/models did not.
+  await page.waitForSelector('.scan-model select', { timeout: 10000 });
+  const models = page.locator('.scan-model select').first();
+  check('there is a choice of what to read it with',
+    (await models.locator('option').count()) >= 2,
+    String(await models.locator('option').count()));
+  check('and each one says what it costs you in plain words',
+    (await page.locator('.scan-model .muted').first().textContent()).length > 10,
+    await page.locator('.scan-model .muted').first().textContent());
+
+  // Effort is a capability, not a preference: Haiku refuses the field outright,
+  // so offering the control beside it would be offering a way to break the scan.
+  check('a model that takes an effort offers one',
+    (await page.locator('.scan-model select').count()) === 2,
+    String(await page.locator('.scan-model select').count()));
+  await models.selectOption('claude-haiku-4-5');
+  await page
+    .waitForFunction(() => document.querySelectorAll('.scan-model select').length === 1, null, {
+      timeout: 5000,
+    })
+    .catch(() => {});
+  check('and one that does not, does not',
+    (await page.locator('.scan-model select').count()) === 1,
+    String(await page.locator('.scan-model select').count()));
+
+  // Whoever scans statements scans them the same way every month.
+  await close();
+  await open('statement-plain.pdf');
+  await page.waitForSelector('.scan-model select', { timeout: 20000 });
+  check('the choice is still there next time',
+    (await page.locator('.scan-model select').first().inputValue()) === 'claude-haiku-4-5',
+    await page.locator('.scan-model select').first().inputValue());
+  await page.locator('.scan-model select').first().selectOption('claude-opus-5');
+  await page.waitForFunction(
+    () => document.querySelectorAll('.scan-model select').length === 2,
+    null,
+    { timeout: 5000 }
+  );
+  await page.locator('.scan-model select').nth(1).selectOption('medium');
+
   // The suites run without a key, so this is what a deployment that has not set
   // one answers. It should name the cause on screen rather than fail as nothing.
   await readIt.click();
@@ -262,7 +304,15 @@ const check = (name, ok, detail = '') => {
       r.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ rows: body.rows, statement: body.statement ?? null }),
+        body: JSON.stringify({
+          rows: body.rows,
+          statement: body.statement ?? null,
+          // The route prices each slice, because the prices live with it. The
+          // browser only ever adds the slices up.
+          model: 'claude-opus-5',
+          usage: { input: 12000, output: 3000, cacheRead: 9000, cacheWrite: 0 },
+          cost: 0.0885,
+        }),
       })
     );
     await page.route('**/api/statements/analyse', (r) =>
@@ -316,6 +366,19 @@ const check = (name, ok, detail = '') => {
   check('a duplicate is flagged rather than asserted',
     (await page.locator('.scan-findings').textContent()).includes('Worth a look'));
 
+  // The one part of this app that spends money when a button is pressed.
+  // Finding that out from a bill at the end of the month is no way to learn it,
+  // so it is on screen the moment the reading finishes.
+  const cost = await page.locator('.scan-cost').textContent();
+  check('what the reading cost is shown in money, not only in tokens',
+    cost.includes('$'), cost);
+  check('and it names what actually read the statement', cost.includes('Opus 5'), cost);
+  check('with the tokens kept, because they are what explains the money',
+    cost.includes('tokens in'), cost);
+  check('including what was read back from cache rather than paid for twice',
+    cost.includes('from cache'), cost);
+  check('and it still says nothing was saved', cost.includes('Nothing has been saved'), cost);
+
   check('the rows are behind a fold rather than filling the dialog',
     (await page.locator('.scan-rows-toggle summary').textContent()).includes('4'));
   await page.click('.scan-rows-toggle summary');
@@ -351,9 +414,11 @@ const check = (name, ok, detail = '') => {
   await close();
   let calls = 0;
   const seen = [];
+  const asked = [];
   await page.route('**/api/statements/scan', async (route) => {
     calls += 1;
     const body = JSON.parse(route.request().postData());
+    asked.push({ model: body.model, effort: body.effort });
     // Answer with whatever merchant numbers this slice actually contains, so
     // assembling them wrongly shows up as wrong order rather than as nothing.
     const found = [...body.text.matchAll(/MERCHANT NUMBER (\d{3})/g)].map((m) => m[1]);
@@ -393,6 +458,11 @@ const check = (name, ok, detail = '') => {
   await page.waitForSelector('.scan-report', { timeout: 40000 });
 
   check('a long statement is read in more than one request', calls > 1, `${calls} requests`);
+  // The picker is only worth having if what it picks is what gets sent — on
+  // every slice, not just the first.
+  check('what was picked is what every slice is read with',
+    asked.every((a) => a.model === 'claude-opus-5' && a.effort === 'medium'),
+    JSON.stringify(asked[0]));
   check('and no single request carries the whole thing',
     Math.max(...seen) <= 60, `largest slice: ${Math.max(...seen)} lines`);
   await page.click('.scan-rows-toggle summary');

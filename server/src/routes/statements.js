@@ -48,6 +48,16 @@ async function categoriesFor(householdId) {
   return rows.map((r) => r.category);
 }
 
+// What a statement may be read with. Served rather than hardcoded in the
+// browser so the list of models — and their prices — has one home, and a client
+// cannot ask for a model nobody put on it.
+router.get(
+  '/models',
+  h(async (req, res) => {
+    res.json(statementService.choices());
+  })
+);
+
 // Reads a statement and hands the rows straight back. Nothing is written: no
 // statement row, no transaction, no file. The response *is* the result, and
 // closing the tab is the whole cleanup.
@@ -76,10 +86,16 @@ router.post(
     }
 
     try {
+      // The model and effort are a suggestion from the browser. An
+      // unrecognised one falls back to the default rather than being passed on
+      // to the API, so the choice is always one of ours.
+      const model = statementService.modelFor(req.body.model);
       const { rows, statement, usage } = await statementService.scan({
         text,
         categories: await categoriesFor(req.household.id),
         currency,
+        model,
+        effort: req.body.effort,
       });
 
       // Every figure below this line is worked out from the rows, in code. The
@@ -92,7 +108,16 @@ router.post(
         statement
       );
 
-      res.json({ rows, statement, ...analysis, usage });
+      // Priced here, where the prices live, so the browser adds up dollars
+      // rather than tokens times a rate it holds a stale copy of.
+      res.json({
+        rows,
+        statement,
+        ...analysis,
+        usage,
+        model,
+        cost: statementService.priceOf({ model, usage }),
+      });
     } catch (err) {
       if (err instanceof statementService.StatementScanError) {
         // Logged in full; the caller is told the shape of the problem without
