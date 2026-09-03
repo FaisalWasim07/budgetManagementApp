@@ -101,9 +101,18 @@ const check = (name, ok, detail = '') => {
 
   await page.fill('.modal.scanner input[type="password"]', 'not-the-one');
   await page.click('.modal.scanner button:has-text("Open it")');
-  await page.waitForTimeout(1200);
-  check('a wrong password is refused, and can be corrected in place',
-    (await page.locator('.modal.scanner .field .muted').last().textContent()).includes('did not open it'));
+  // Waited for rather than slept through. Opening a PDF to find out the
+  // password is wrong takes as long as the machine takes, and a fixed pause
+  // long enough on a quiet one is a coin toss on a busy one.
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll('.modal.scanner .field .muted')].some((el) =>
+        el.textContent.includes('did not open it')
+      ),
+    null,
+    { timeout: 25000 }
+  );
+  check('a wrong password is refused, and can be corrected in place', true);
   check('and still shows nothing', await page.locator('.scan-preview').count() === 0);
 
   await page.fill('.modal.scanner input[type="password"]', PASSWORD);
@@ -385,7 +394,7 @@ const check = (name, ok, detail = '') => {
 
   check('a long statement is read in more than one request', calls > 1, `${calls} requests`);
   check('and no single request carries the whole thing',
-    Math.max(...seen) <= 30, `largest slice: ${Math.max(...seen)} lines`);
+    Math.max(...seen) <= 60, `largest slice: ${Math.max(...seen)} lines`);
   await page.click('.scan-rows-toggle summary');
   const firstRow = await page.locator('.scan-rows .raw').first().textContent();
   const lastRow = await page.locator('.scan-rows .raw').last().textContent();

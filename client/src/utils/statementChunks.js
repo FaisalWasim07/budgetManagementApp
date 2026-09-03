@@ -10,9 +10,18 @@
 // Slices of thirty lines come back in seconds each. The wait is the same work
 // but visible, and a slice that fails costs one slice.
 
-// Lines of statement per request. Small enough that the answer is quick, large
-// enough that a transaction and its continuation line stay together.
-export const LINES_PER_CHUNK = 30;
+// Lines of statement per request.
+//
+// Thirty was cautious to the point of being expensive. A real statement came
+// back in eighteen parts, and because the instructions and the category list
+// ride along with each one, the repetition came to more tokens than every
+// transaction in the statement put together. The answers were tiny — about
+// seven hundred tokens a slice against a ceiling of eight thousand — so the
+// caution was buying nothing.
+//
+// Sixty halves the number of requests and so halves what is repeated, while
+// still leaving an answer well short of anything that could time out.
+export const LINES_PER_CHUNK = 60;
 
 // How many are in the air at once. Enough to keep the total wait short, few
 // enough not to look like a burst to anything counting requests.
@@ -65,10 +74,22 @@ export function chunkStatement(text, linesPerChunk = LINES_PER_CHUNK) {
 // Runs the slices a few at a time, reporting progress as each lands. Results
 // keep their original order however they finish, because a statement read out
 // of order is a statement in the wrong order.
+//
+// The first slice goes on its own. Everything that does not change between
+// slices is cached server-side after the first request that sends it, and three
+// requests leaving together would all miss that cache and all pay to write it.
+// One request ahead of the rest turns eighteen full-price prefixes into one.
 export async function inBatches(items, limit, run, onProgress) {
   const results = new Array(items.length);
   let next = 0;
   let done = 0;
+
+  if (items.length > 1) {
+    results[0] = await run(items[0], 0);
+    next = 1;
+    done = 1;
+    onProgress?.(done, items.length);
+  }
 
   const worker = async () => {
     for (;;) {

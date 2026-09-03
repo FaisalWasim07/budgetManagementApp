@@ -135,7 +135,16 @@ const SYSTEM = [
   'derived cannot check the rows you derived it from.',
 ].join('\n');
 
-function prompt({ text, categories, currency }) {
+// Everything that does not change between slices lives here, and nothing that
+// does. That split is the whole point: a statement read in eighteen parts sent
+// the instructions and the category list eighteen times, which came to more
+// tokens than every transaction in the statement put together.
+//
+// Marked for caching, so the second slice onwards reads this back at a tenth of
+// the price instead of paying for it again. The slice itself is the only thing
+// in the user message, and it goes last, because a cached prefix ends at the
+// first byte that differs.
+function systemFor({ categories, currency }) {
   const known = categories.length
     ? [
         'Categories already used in this household. Prefer one of these where it fits, so',
@@ -143,17 +152,22 @@ function prompt({ text, categories, currency }) {
         'nothing here is close:',
         '',
         categories.map((c) => `  ${c}`).join('\n'),
-        '',
       ].join('\n')
-    : 'This household has no categories yet, so choose plain, obvious ones.\n';
+    : 'This household has no categories yet, so choose plain, obvious ones.';
 
   return [
-    known,
-    currency ? `Amounts on this statement are in ${currency}.\n` : '',
-    'Here is the statement, as text pulled out of the file:',
-    '',
-    text,
-  ].join('\n');
+    {
+      type: 'text',
+      text: [
+        SYSTEM,
+        '',
+        known,
+        '',
+        currency ? `Amounts on this statement are in ${currency}.` : '',
+      ].join('\n'),
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
 }
 
 // Thrown where the cause is a missing or refused key rather than a bad
@@ -207,8 +221,8 @@ async function scan({ text, categories = [], currency = null }) {
     const stream = anthropic.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: prompt({ text, categories, currency }) }],
+      system: systemFor({ categories, currency }),
+      messages: [{ role: 'user', content: text }],
       output_config: { effort: EFFORT, format: { type: 'json_schema', schema: ROW_SCHEMA } },
     });
     message = await stream.finalMessage();
@@ -242,8 +256,13 @@ async function scan({ text, categories = [], currency = null }) {
     statement: parsed.statement ?? null,
     rows: clean(Array.isArray(parsed.rows) ? parsed.rows : []),
     usage: {
-      input: message.usage?.input_tokens ?? null,
-      output: message.usage?.output_tokens ?? null,
+      input: message.usage?.input_tokens ?? 0,
+      output: message.usage?.output_tokens ?? 0,
+      // Reported separately so it is possible to tell whether caching is
+      // actually working. Zero across every slice means the prefix is shorter
+      // than the model's minimum and nothing is being cached at all.
+      cacheRead: message.usage?.cache_read_input_tokens ?? 0,
+      cacheWrite: message.usage?.cache_creation_input_tokens ?? 0,
     },
   };
 }

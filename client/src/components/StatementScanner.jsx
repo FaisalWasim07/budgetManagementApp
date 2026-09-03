@@ -227,8 +227,9 @@ export default function StatementScanner({ onClose, accounts = [] }) {
           (total, part) => ({
             input: total.input + (part.usage?.input ?? 0),
             output: total.output + (part.usage?.output ?? 0),
+            cached: total.cached + (part.usage?.cacheRead ?? 0),
           }),
-          { input: 0, output: 0 }
+          { input: 0, output: 0, cached: 0 }
         );
         const analysis = await analyseStatement(rows, statement);
         setReport({ rows, statement, ...analysis, usage, parts: parts.length });
@@ -469,7 +470,13 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   {report.usage?.output
                     ? ` Read in ${report.parts} part${report.parts === 1 ? '' : 's'}, ` +
                       `${report.usage.input.toLocaleString()} tokens in and ` +
-                      `${report.usage.output.toLocaleString()} out.`
+                      `${report.usage.output.toLocaleString()} out` +
+                      // Cached tokens are charged at about a tenth, so this is
+                      // the difference between the bill and what it would have
+                      // been. Nothing to show when nothing cached.
+                      (report.usage.cached
+                        ? `, of which ${report.usage.cached.toLocaleString()} were read from cache.`
+                        : '.')
                     : ''}
                 </span>
               </div>
