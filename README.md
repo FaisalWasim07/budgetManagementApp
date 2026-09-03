@@ -428,6 +428,16 @@ itself and changes nothing for the rest of the app.
 come back in the response and are gone when you close the dialog. Nothing here
 can write to your ledger, so a misread line cannot reach your budget.
 
+The model is set in `server/src/services/statementService.js` and reads at low
+effort. That matters more than it sounds: Opus thinks by default and thinking
+bills as output, so on a task that is essentially transcription the deliberation
+cost several times what the answer did. If scans still feel expensive,
+`claude-haiku-4-5` is a fifth of the price — and the reconciliation line is how
+you tell whether it read your statements as well, rather than having to guess.
+
+Every scan reports what it used, at the bottom of the report. Pressing that
+button spends money and the app says how much rather than leaving it to a bill.
+
 It needs `ANTHROPIC_API_KEY` set. Without one, opening a statement and reading
 its text still works — everything that happens in the browser is unaffected —
 and the button answers that no key is set.

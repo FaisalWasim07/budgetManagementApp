@@ -12,10 +12,23 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const MODEL = 'claude-opus-5';
 
-// Generous, because the answer is a row per transaction and a statement can
-// carry a few hundred. Streaming is what makes a ceiling this high safe: the
-// SDK's own HTTP timeout is the thing that would otherwise bite first.
-const MAX_TOKENS = 32000;
+// One request carries about thirty lines, so the answer is about thirty rows —
+// a few thousand tokens. This is a ceiling on a runaway, not a target: it was
+// 32,000 when a request carried a whole statement, and left far too much room
+// for one to generate its way through several dollars before anything stopped
+// it.
+const MAX_TOKENS = 8000;
+
+// Reading a statement is transcription. The lines are already there, in order,
+// with the amounts printed on them; what is being asked for is to write them
+// out as rows and name what each merchant is.
+//
+// Opus thinks by default, at high effort, and thinking bills as output. On a
+// task with nothing to reason about that is money spent producing deliberation
+// nobody reads — and it was the single largest thing wrong with what a scan
+// cost. Low effort is the right setting for work of this shape, and it is
+// faster for the same reason.
+const EFFORT = 'low';
 
 // One row per line on the statement. `strict` schema-valid output, so what
 // comes back is checked before this code ever sees it — no parsing prose, no
@@ -196,7 +209,7 @@ async function scan({ text, categories = [], currency = null }) {
       max_tokens: MAX_TOKENS,
       system: SYSTEM,
       messages: [{ role: 'user', content: prompt({ text, categories, currency }) }],
-      output_config: { format: { type: 'json_schema', schema: ROW_SCHEMA } },
+      output_config: { effort: EFFORT, format: { type: 'json_schema', schema: ROW_SCHEMA } },
     });
     message = await stream.finalMessage();
   } catch (err) {
