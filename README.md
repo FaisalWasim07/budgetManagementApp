@@ -417,6 +417,13 @@ looks exactly like a right one and gets acted on, so the model is allowed to be
 wrong about *what* something is — visible, and correctable — and never about
 *how much*.
 
+Figures in the scanner are **not** hidden by the amounts toggle, unlike
+everywhere else. That toggle exists because the ledger simply sits there — open
+the app in public and your balances are on screen whether you meant them to be
+or not. A scan is the opposite: you have just chosen a file and asked for it to
+be read, with the statement itself in front of you. The dialog opts out for
+itself and changes nothing for the rest of the app.
+
 **Nothing is stored.** There is no statements table and no migration; the rows
 come back in the response and are gone when you close the dialog. Nothing here
 can write to your ledger, so a misread line cannot reach your budget.

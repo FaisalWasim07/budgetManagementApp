@@ -61,7 +61,10 @@ const check = (name, ok, detail = '') => {
     await page.waitForSelector('.modal.scanner', { timeout: 10000 });
     await page.setInputFiles('.modal.scanner input[type="file"]', path.join(FIXTURES, name));
   };
+  // A no-op when the dialog is already shut, so a section can close up after
+  // itself without the next one having to know whether it did.
   const close = async () => {
+    if (!(await page.locator('.modal.scanner').count())) return;
     await page.click('.modal.scanner button[aria-label="Close"]');
     await page.waitForTimeout(300);
   };
@@ -245,7 +248,7 @@ const check = (name, ok, detail = '') => {
   // Splitting them is the point: the model writes rows a slice at a time, and
   // the arithmetic runs once over all of them.
   const showReport = async (body) => {
-    if (await page.locator('.modal.scanner').count()) await close();
+    await close();
     await page.route('**/api/statements/scan', (r) =>
       r.fulfill({
         status: 200,
@@ -271,21 +274,17 @@ const check = (name, ok, detail = '') => {
     await page.waitForSelector('.scan-report', { timeout: 20000 });
   };
 
-  // Amounts are hidden every time the app opens, and a statement is the last
-  // thing that should be an exception to that. Checked before anything is
-  // revealed, because this is the state somebody scanning on a train is in.
+  // The app hides every figure each time it opens, because the ledger simply
+  // sits there. A scan is the opposite: a file was just chosen and asked to be
+  // read. Masking it in that moment is friction with nothing behind it, so the
+  // dialog opts out — checked here with the app-wide setting still on, which is
+  // the state anybody scanning is in by default.
   await showReport(stub());
-  check('a statement’s figures are hidden like every other figure in the app',
-    (await page.locator('.scan-head').textContent()).includes('•'),
+  check('the app is still hiding figures everywhere else',
+    (await page.locator('button[aria-label="Show amounts"]').count()) === 1);
+  check('but a statement you just asked to have read is not masked',
+    (await page.locator('.scan-head').textContent()).includes('2,143.71'),
     await page.locator('.scan-head').textContent());
-
-  // Revealed for the rest, so the arithmetic can actually be read.
-  await page.click('.modal.scanner button[aria-label="Close"]');
-  await page.waitForTimeout(300);
-  await page.click('button[aria-label="Show amounts"]');
-  await page.waitForTimeout(300);
-
-  await showReport(stub());
   check('the report says what was spent',
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
     await page.locator('.scan-head').textContent());
@@ -327,6 +326,10 @@ const check = (name, ok, detail = '') => {
   check('and names the gap', banner.includes('526.8'), banner.slice(0, 200));
   check('and says not to take the figures as fact', banner.includes('not as fact'));
   check('while still showing them', (await page.locator('.scan-cat').count()) === 3);
+  await close();
+  check('and closing it leaves the rest of the app hidden as it was',
+    (await page.locator('button[aria-label="Show amounts"]').count()) === 1);
+
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');
 
