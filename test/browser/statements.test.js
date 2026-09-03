@@ -162,6 +162,47 @@ const check = (name, ok, detail = '') => {
   check('and the statement text is still on screen',
     (await page.locator('.scan-preview').textContent()).includes('CARREFOUR'));
 
+  // --- an older iPhone -----------------------------------------------------
+  // pdf.js reads text by iterating a ReadableStream with `for await`, which
+  // Safari could not do until 17.4. Taking the async iterator away is exactly
+  // what an older iPhone looks like, and without the polyfill the read dies
+  // with "undefined is not a function" the moment a PDF is picked.
+  const old = await browser.newContext();
+  const oldPage = await old.newPage();
+  const oldBad = [];
+  oldPage.on('pageerror', (e) => oldBad.push(e.message));
+  await oldPage.addInitScript(() => {
+    delete ReadableStream.prototype[Symbol.asyncIterator];
+  });
+  await oldPage.goto(URL, { waitUntil: 'networkidle' });
+  await oldPage.evaluate(
+    async ([u, p]) => {
+      await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p }),
+      });
+    },
+    [`old_${stamp}`, 'oldpass123456']
+  );
+  await oldPage.goto(URL, { waitUntil: 'networkidle' });
+  await oldPage.waitForSelector('input[placeholder="Our household"]', { timeout: 15000 });
+  await oldPage.fill('input[placeholder="Our household"]', 'Old Phone');
+  await oldPage.locator('input.person-name').nth(0).fill('Faisal');
+  await oldPage.click('button:has-text("Create household")');
+  await oldPage.waitForSelector('.topbar', { timeout: 15000 });
+  await oldPage.click('.side-nav button:has-text("Stats")');
+  await oldPage.waitForTimeout(500);
+  await oldPage.click('button:has-text("Scan a statement")');
+  await oldPage.waitForSelector('.modal.scanner', { timeout: 10000 });
+  await oldPage.setInputFiles('.modal.scanner input[type="file"]',
+    path.join(FIXTURES, 'statement-plain.pdf'));
+  await oldPage.waitForSelector('.scan-preview', { timeout: 25000 });
+  check('a browser without ReadableStream async iteration still reads a statement',
+    (await oldPage.locator('.scan-preview').textContent()).includes('CARREFOUR'));
+  check('and does so without an error of its own', oldBad.length === 0, oldBad.join(' | '));
+  await old.close();
+
   check('no page errors throughout', bad.length === 0, bad.join(' | '));
 
   await browser.close();

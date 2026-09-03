@@ -13,6 +13,34 @@ import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 // text is pulled out here, and only that text is ever sent anywhere.
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
+// pdf.js reads a page's text by iterating a ReadableStream with `for await`,
+// and Safari only learned to do that in 17.4. On an older iPhone the stream has
+// no async iterator, so the loop calls undefined and the read dies with
+// "undefined is not a function" the moment a PDF is picked — on a phone that
+// opens every other page in the app perfectly.
+//
+// The reader underneath already has the shape an async iterator needs: read()
+// resolves to {value, done}. So this is a handful of lines rather than a
+// dependency, and it installs only where it is missing.
+if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.asyncIterator]) {
+  ReadableStream.prototype[Symbol.asyncIterator] = function asyncIterator() {
+    const reader = this.getReader();
+    return {
+      next: () => reader.read(),
+      // Called when the loop is left early — by a break, or by something
+      // throwing further in. Without it the reader stays locked and the stream
+      // can never be read again.
+      return(value) {
+        reader.releaseLock();
+        return Promise.resolve({ done: true, value });
+      },
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+    };
+  };
+}
+
 // pdf.js reports "you need a password" and "that password is wrong" as the same
 // exception with different codes. They are different questions to the person
 // holding the file, so they are different answers here.
