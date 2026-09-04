@@ -3227,10 +3227,14 @@ th.num {
 
 /* ── Auth screens ────────────────────────────────────────────────── */
 /* ── Passkeys ────────────────────────────────────────────────────────── */
-/* Where a passkey can be reached from, under the dates. Quieter than either,
-   because it is the line you only read when something is wrong — and when
-   something is wrong it is usually the whole answer. */
+/* Where a passkey can be reached from, on its own line under the dates.
+   Quieter than either, because it is the line you only read when something is
+   wrong — and when something is wrong it is usually the whole answer.
+   `display: block` is load-bearing: the dates beside it are a <small> too, and
+   two of those in a row ran together into "not used yetin the device that
+   made it". */
 .passkey-where {
+  display: block;
   color: var(--ink-3);
   font-style: italic;
 }
