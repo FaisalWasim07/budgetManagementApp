@@ -1,57 +1,11 @@
 import { useDisplay } from '../../utils/display';
-import { formatMonth, hasActivity } from '../../utils/month';
-import Sparkline from './Sparkline';
-import { KpiMoney, KpiPercent } from './KpiValue';
+import { hasActivity } from '../../utils/month';
+import StatCard from './StatCard';
 
-// Whether a move up is a good move depends on the figure: net worth rising is
-// good, spending rising is not. `higherIsBetter` is what decides the colour,
-// so nothing here has to hard-code green.
-function Kpi({
-  label,
-  children,
-  values,
-  current,
-  previous,
-  higherIsBetter,
-  month,
-  format,
-  absolute = false,
-}) {
-  const has = previous != null && Number.isFinite(previous);
-  const change = has ? current - previous : null;
-  // A percentage of a number that was zero is not a percentage; those months
-  // get the absolute move instead of "∞%". A figure that is already a
-  // percentage moves in points, never in a percentage of a percentage.
-  const pct =
-    has && !absolute && Math.abs(previous) > 0.005 ? (change / Math.abs(previous)) * 100 : null;
-  const flat = change != null && Math.abs(change) < 0.005;
-  const good = change == null || flat ? null : change > 0 === higherIsBetter;
-  const tone = good == null ? 'flat' : good ? 'up' : 'down';
-
-  return (
-    <div className="kpi">
-      <span className="k">{label}</span>
-      <span className="v">{children}</span>
-      <span className={`d ${tone}`}>
-        {change == null ? (
-          <span className="muted">no earlier month</span>
-        ) : flat ? (
-          <>unchanged since {formatMonth(month).split(' ')[0]}</>
-        ) : (
-          <>
-            <b>
-              {change > 0 ? '↑' : '↓'}{' '}
-              {pct == null ? format(Math.abs(change)) : `${Math.abs(pct).toFixed(0)}%`}
-            </b>{' '}
-            vs {formatMonth(month).split(' ')[0]}
-          </>
-        )}
-      </span>
-      <Sparkline values={values} tone={tone} signature={`${month}-${label}`} />
-    </div>
-  );
-}
-
+// The four figures above the charts, each one a bklit stat card: what it is
+// now, which way it moved, and the shape of the year behind it — and, on hover,
+// what any month in that year was. StatCard.jsx is where the block lives; this
+// is only the wiring.
 export default function KpiRow({ summary, trend, month }) {
   const currency = summary.primaryCurrency;
   const { household } = summary;
@@ -65,78 +19,78 @@ export default function KpiRow({ summary, trend, month }) {
   const previous = hasActivity(before) ? before : null;
   const prevMonth = previous?.month ?? month;
 
+  const months = trend.map((t) => t.month);
   const outOf = (t) => t.expenses + t.subscriptions;
   // What was left of what came in, as a share of it. A month with nothing
   // coming in has no share to report rather than a rate of minus infinity.
   const keptRate = (t) => (t.income > 0 ? ((t.income - outOf(t)) / t.income) * 100 : null);
 
-  const kept = trend.map(keptRate);
+  // A month with no share drops out of the Kept sparkline entirely, and its
+  // month label has to drop with it or the hover would name the wrong one.
+  const keptPoints = trend
+    .map((t) => ({ month: t.month, value: keptRate(t) }))
+    .filter((p) => p.value != null);
   const keptNow =
     household.income > 0
       ? ((household.income - household.expenses - household.subscriptions) / household.income) * 100
       : null;
   const keptPrev = previous ? keptRate(previous) : null;
 
-  // The delta line (the "vs July" bit) still falls back to the text money()
-  // formatter when a percentage is not available: that path had to be masked
-  // by the eye, and used to print the figure in the clear otherwise. The
-  // headline value uses KpiMoney, which rolls between values on every render
-  // instead of blinking to the new one — but hands over to the same <Money>
-  // dust animation while amounts are hidden, so the two never overlap.
+  // The absolute fallback in a card's badge — the "↓ AED 1.2K" it falls back to
+  // when a percentage would be meaningless — goes through the same masked
+  // formatter as every other amount, so the eye still hides it.
   const moneyText = (v) => money(v, currency, { compact: true });
 
   return (
     <div className="kpis">
-      <Kpi
-        label="Came in"
+      <StatCard
+        title="Came in"
         values={trend.map((t) => t.income)}
+        months={months}
         current={household.income}
         previous={previous?.income}
         higherIsBetter
         month={prevMonth}
         format={moneyText}
-      >
-        <KpiMoney amount={household.income} currency={currency} />
-      </Kpi>
+        currency={currency}
+      />
 
-      <Kpi
-        label="Went out"
+      <StatCard
+        title="Went out"
         values={trend.map(outOf)}
+        months={months}
         current={household.expenses + household.subscriptions}
         previous={previous ? outOf(previous) : null}
         higherIsBetter={false}
         month={prevMonth}
         format={moneyText}
-      >
-        <KpiMoney amount={household.expenses + household.subscriptions} currency={currency} />
-      </Kpi>
+        currency={currency}
+      />
 
-      {/* Not masked by the eye: a share of what came in gives away no amount,
-          and it is the one figure here that is worth reading over a shoulder. */}
-      <Kpi
-        label="Kept"
-        values={kept.filter((v) => v != null)}
-        current={keptNow ?? 0}
+      <StatCard
+        title="Kept"
+        values={keptPoints.map((p) => p.value)}
+        months={keptPoints.map((p) => p.month)}
+        current={keptNow}
         previous={keptNow == null ? null : keptPrev}
         higherIsBetter
         month={prevMonth}
         absolute
+        kind="percent"
         format={(v) => `${Math.round(v)} point${Math.round(v) === 1 ? '' : 's'}`}
-      >
-        <KpiPercent value={keptNow} />
-      </Kpi>
+      />
 
-      <Kpi
-        label="Net worth"
+      <StatCard
+        title="Net worth"
         values={trend.map((t) => t.netWorth)}
+        months={months}
         current={household.netWorth}
         previous={previous?.netWorth}
         higherIsBetter
         month={prevMonth}
         format={moneyText}
-      >
-        <KpiMoney amount={household.netWorth} currency={currency} />
-      </Kpi>
+        currency={currency}
+      />
     </div>
   );
 }

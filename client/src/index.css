@@ -871,33 +871,18 @@ h3 {
   color: var(--ink-3);
 }
 
+/* Home's sparkline is a bklit AreaChart now, which measures its own container
+   rather than carrying a viewBox — so the box is what says how big it is, and
+   the colours come from the `tone` prop rather than from here. */
 .spark {
   flex: none;
+  width: 150px;
+  height: 52px;
 }
-.spark .fill {
-  fill: var(--brand);
-  opacity: 0.16;
-}
-.spark .line {
-  fill: none;
-  stroke: var(--brand);
-  stroke-width: 2.2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-.spark .dot {
-  fill: var(--brand-deep);
-}
-.spark.down .fill {
-  fill: var(--neg);
-  opacity: 0.12;
-}
-.spark.down .line {
-  stroke: var(--neg);
-}
-.spark.down .dot {
-  fill: var(--neg);
+.spark > div {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: auto !important;
 }
 
 /* ── Quick add: the desk half of entering money ──────────────────
@@ -2863,6 +2848,14 @@ th.num {
   gap: 2px;
   min-width: 0;
 }
+/* Title on the left, the move on the right — bklit's stat card puts its
+   trend badge in the card header, and this is that row. */
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .kpi .k {
   font-size: 0.73rem;
   font-weight: 550;
@@ -2881,14 +2874,29 @@ th.num {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.kpi .d b {
+/* shadcn's Badge, in Bayt's own terms: the block asked for a component library
+   Bayt does not have, and this is the whole of what it was for. Tinted from the
+   same variable that colours the sparkline, so the badge and the shape under it
+   never disagree about which way the figure went. */
+.kpi-badge {
+  flex: none;
+  font-size: 0.68rem;
   font-weight: 620;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
-.kpi .d.up b {
+.kpi-badge.up {
   color: var(--pos);
+  border-color: color-mix(in srgb, var(--pos) 22%, transparent);
+  background: color-mix(in srgb, var(--pos) 10%, transparent);
 }
-.kpi .d.down b {
+.kpi-badge.down {
   color: var(--neg);
+  border-color: color-mix(in srgb, var(--neg) 22%, transparent);
+  background: color-mix(in srgb, var(--neg) 10%, transparent);
 }
 
 /* The sparkline sits under the figure rather than beside it: at a quarter of

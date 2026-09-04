@@ -16,3 +16,8 @@ export { PieChart } from './pie-chart.tsx';
 export { PieSlice } from './pie-slice.tsx';
 export { AreaChart } from './area-chart.tsx';
 export { Area } from './area.tsx';
+// The value/label stack bklit's own stat cards put above their chart, and the
+// hook its stat-card hover bridge reads the hovered point from — see
+// ../blocks/index.js.
+export { ChartStatFlow } from './chart-stat-flow.tsx';
+export { useChart } from './chart-context.tsx';

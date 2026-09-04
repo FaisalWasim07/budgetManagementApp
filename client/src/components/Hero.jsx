@@ -1,45 +1,15 @@
 import { Money } from '../utils/display';
 import { formatMonth, hasActivity, shiftMonth } from '../utils/month';
+import Sparkline from './charts/Sparkline';
+import EndDot from './charts/EndDot';
 
 // A sparkline, not a chart: no axes, no ticks, no numbers. It answers one
 // question — has this been going up? — and the figure beside it answers the
-// rest. Values are normalised to their own range so a flat year still shows
-// its shape rather than a dead straight line at the bottom.
-function Spark({ values, rising }) {
-  if (values.length < 2) return null;
-
-  const width = 150;
-  const height = 52;
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
-  const span = hi - lo || 1;
-  // Inset by the radius of the end dot, or half of it is cut off by the edge
-  // of the box.
-  const pad = 4;
-  const x = (i) => pad + ((width - pad * 2) / (values.length - 1)) * i;
-  const y = (v) => height - 6 - ((v - lo) / span) * (height - 16);
-
-  const last = values.length - 1;
-  const line = values
-    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
-    .join(' ');
-
-  return (
-    <svg
-      className={rising ? 'spark' : 'spark down'}
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={`Net worth over the last ${values.length} months, ${rising ? 'rising' : 'falling'}`}
-    >
-      <path className="fill" d={`${line} L${x(last)} ${height} L${x(0)} ${height} Z`} />
-      <path className="line" d={line} />
-      <circle className="dot" cx={x(last)} cy={y(values[last])} r="3.4" />
-    </svg>
-  );
-}
+// rest. It used to roll its own path maths; it is bklit's AreaChart now, like
+// every other shape in the app, which is what buys it the draw-in. Two things
+// it kept: `normalise`, because a year spent between 120k and 130k has to show
+// its shape and not a flat line pinned to the top of the box, and the end dot,
+// which bklit's Area has no marker for.
 
 export default function Hero({ summary, trend, month }) {
   const { household, primaryCurrency } = summary;
@@ -62,6 +32,11 @@ export default function Hero({ summary, trend, month }) {
   const before = trend.length >= 2 ? trend[trend.length - 2] : null;
   const previous = hasActivity(before) ? before.netWorth : null;
   const delta = previous == null ? null : household.netWorth - previous;
+  // A first month has nothing to have fallen from, so it reads as rising.
+  const rising = delta == null ? true : delta >= 0;
+  // Home's colour, not the ledger's green: this is the headline figure, and it
+  // is brand-coloured on the way up. Only a fall recolours it.
+  const tone = rising ? 'brand' : 'down';
 
   return (
     <div className="hero">
@@ -111,7 +86,20 @@ export default function Hero({ summary, trend, month }) {
           </p>
         )}
       </div>
-      <Spark values={values} rising={delta == null ? true : delta >= 0} />
+      <Sparkline
+        values={values}
+        months={trend.map((t) => t.month)}
+        tone={tone}
+        signature={month}
+        normalise
+        margin={{ top: 5, right: 5, bottom: 2, left: 5 }}
+        className="spark"
+        label={`Net worth over the last ${values.length} months, ${
+          rising ? 'rising' : 'falling'
+        }`}
+      >
+        <EndDot tone={tone} color={rising ? 'var(--brand-deep)' : 'var(--neg)'} />
+      </Sparkline>
     </div>
   );
 }

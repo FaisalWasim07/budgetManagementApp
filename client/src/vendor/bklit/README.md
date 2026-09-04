@@ -22,6 +22,16 @@ gauge, funnel, scatter, sunburst, candlestick, choropleth, live-line, chart
 brush/zoom, legacy legend...) that were never copied, so importing it directly
 would throw on the first missing file.
 
+`blocks/` is the same arrangement one level up: bklit's registry also ships
+*blocks*, compositions of the charts, and `@bklit/stat-card-area-01` is the one
+Bayt's KPI row is built on. Only one of its five files came over —
+`stat-card-hover-bridge.tsx`, which is the only one carrying logic rather than
+Tailwind. `blocks/index.js` says what happened to the other four; the short
+version is that `registryDependencies` asked for shadcn's `card` and `badge`,
+which Bayt has no business adopting when it already has `.card` and can draw a
+badge in six lines of its own CSS. `components/charts/StatCard.jsx` is where
+that adaptation lives.
+
 Update by re-copying files from a fresh checkout of the upstream repo, the same
 way they got here — never hand-edit generated-looking internals; if a real
 customization is needed, do it the way `chart-formatters.ts` was: once, with a
