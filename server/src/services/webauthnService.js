@@ -169,31 +169,39 @@ async function finishRegistration(user, challengeId, response, label) {
 
 // ── Signing in with one ────────────────────────────────────────────────
 
-// A passkey made on a phone reports itself as `internal` — meaning "built into
-// the device I was made on". Passed back verbatim, a laptop reads that as "not
-// here" and fails on its own built-in authenticator without ever offering the
-// phone, which is the whole point of a passkey being portable.
+// No transport hints are sent with a sign-in, and that is the whole of the
+// fix for a bug worth writing down.
 //
-// `hybrid` is the transport for the scan-a-QR-with-your-phone route, so any
-// credential that lives inside a device is offered that way too. The device
-// that actually holds it still takes the fast path; the others now have a path
-// at all.
-function loginTransports(stored) {
-  const transports = toTransports(stored);
-  if (!transports) return undefined;
-  if (!transports.includes('internal') || transports.includes('hybrid')) return transports;
-  return [...transports, 'hybrid'];
-}
-
+// A passkey made on a phone reports itself as `internal` — "built into the
+// device I was made on" — and so does one made by Windows Hello. Sent back
+// verbatim, a laptop reads `internal` as "here", fails on its own built-in
+// authenticator, and never offers the phone. The first attempt at fixing that
+// appended `hybrid` (the scan-a-QR route) to any credential claiming
+// `internal`, so the list became ["internal", "hybrid"].
+//
+// That made it worse rather than better, and specifically on Windows. Chrome
+// and Edge hand the hints straight to the Windows platform API, which then has
+// to choose between an authenticator it holds and a phone it does not; it
+// answers "Something went wrong. There was a problem signing in with your
+// passkey" — its own dialog, raised before anything reaches this server, so
+// nothing here ever saw it fail.
+//
+// Transports are a hint, not a constraint. Omitting them says "try whatever
+// you have", which is what was wanted all along: the machine holding the
+// passkey takes the fast path, and everything else is offered the phone. The
+// stored transports are kept — they are what the authenticator reported at
+// registration, and verification still reads them — they are simply not used
+// to narrow a sign-in.
+//
+// Note for anyone tempted to reintroduce them: the browser suite cannot catch
+// this. It drives Chrome's virtual authenticator, which bypasses the Windows
+// platform API entirely and passes either way.
 async function startLogin(user) {
   const credentials = await listCredentials(user.id);
   const options = await generateAuthenticationOptions({
     rpID: rpID(),
     userVerification: 'required',
-    allowCredentials: credentials.map((c) => ({
-      id: c.credential_id,
-      transports: loginTransports(c.transports),
-    })),
+    allowCredentials: credentials.map((c) => ({ id: c.credential_id })),
   });
 
   const challengeId = await openChallenge(user.id, 'login', options.challenge);

@@ -64,6 +64,25 @@ const RP_ID = process.env.RP_ID || 'localhost';
   check('it hands back a challenge instead', Boolean(step1.data.challengeId && step1.data.options?.challenge));
   check('and no user', !step1.data.user);
 
+  // No transport hints. They are a hint, not a constraint, and narrowing a
+  // sign-in with them is what broke Windows Hello: a passkey made there reports
+  // `internal`, the server used to append `hybrid` to it, and Chrome handed
+  // both to the Windows platform API, which answered with its own "Something
+  // went wrong" dialog before any of this code saw a request. Omitting them
+  // says "try whatever you have", which is what was wanted all along.
+  //
+  // Pinned here rather than in the browser suite because the browser suite
+  // cannot see it: Chrome's virtual authenticator bypasses the Windows platform
+  // API and passes either way.
+  const offered = step1.data.options.allowCredentials ?? [];
+  check('the passkey is offered by id', offered.length === 1 && Boolean(offered[0].id),
+    JSON.stringify(offered));
+  check(
+    'and without a transport hint to narrow which device may answer',
+    offered.every((c) => c.transports === undefined),
+    JSON.stringify(offered),
+  );
+
   // The half-authenticated state really is half: the cookie it might have set
   // has to be worth nothing.
   const peek = await second.get('/api/auth/me');
