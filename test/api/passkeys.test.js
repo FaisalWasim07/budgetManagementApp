@@ -57,6 +57,25 @@ const RP_ID = process.env.RP_ID || 'localhost';
   });
   check('the same challenge cannot be used twice', replayed.status === 400, String(replayed.status));
 
+  // Adding a second passkey excludes the first, so the browser can say "you
+  // already have one of these" — but by id alone, with no transport hint.
+  // A passkey made on a phone is stored as `internal`, and handing that to a
+  // desktop asks it to look for a phone credential in its own hardware; Windows
+  // can read it as "already held" and refuse to enrol at all. Same reasoning as
+  // the sign-in options above, and the browser suite cannot see this one either.
+  const again = await me.post('/api/auth/passkeys/start');
+  const excluded = again.data.options.excludeCredentials ?? [];
+  check(
+    'a second passkey excludes the first by id',
+    excluded.length === 1 && Boolean(excluded[0].id),
+    JSON.stringify(excluded),
+  );
+  check(
+    'and without a transport hint telling a laptop it holds a phone credential',
+    excluded.every((c) => c.transports === undefined),
+    JSON.stringify(excluded),
+  );
+
   // --- signing in now takes two steps -------------------------------------
   const second = client();
   const step1 = await second.post('/api/auth/login', { username, password });

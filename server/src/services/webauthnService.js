@@ -110,10 +110,16 @@ async function startRegistration(user) {
     attestationType: 'none',
     // Offering a device that is already registered lets the browser say "you
     // have one of these already" instead of silently making a second.
-    excludeCredentials: existing.map((c) => ({
-      id: c.credential_id,
-      transports: toTransports(c.transports),
-    })),
+    //
+    // By id alone, for the same reason sign-in sends no transports either — see
+    // the note above startLogin. A passkey made on a phone is stored as
+    // `internal`, and handing that to a desktop asks it to check an
+    // authenticator "built into this device" for a credential that lives on
+    // another one. Windows can read that as "I already hold this" and refuse to
+    // enrol, which turns a phone passkey into a reason you cannot add a second
+    // one on your laptop. Without the hint the browser checks whatever it
+    // actually has, which is what the exclusion is for.
+    excludeCredentials: existing.map((c) => ({ id: c.credential_id })),
     authenticatorSelection: {
       // Discoverable, so signing in can start from the passkey itself rather
       // than needing the username first.
