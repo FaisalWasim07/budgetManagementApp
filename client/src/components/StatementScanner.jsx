@@ -187,7 +187,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
         if (!live) return;
         setChoices(got);
         setModel((current) =>
-          got.models.some((m) => m.id === current) ? current : got.defaultModel
+          got.models.some((m) => m.id === current) ? current : got.defaultModel,
         );
         setEffort((current) => (got.efforts.includes(current) ? current : got.defaultEffort));
       })
@@ -336,7 +336,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
         // happened; money is what was actually being asked about.
         cost: total.cost + (part.cost ?? 0),
       }),
-      { input: 0, output: 0, cached: 0, written: 0, cost: 0 }
+      { input: 0, output: 0, cached: 0, written: 0, cost: 0 },
     );
     const analysis = await analyseStatement(rows, statement);
     setReport({
@@ -383,7 +383,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
       // thinking happens before the first row is written and the host stops
       // waiting at sixty seconds regardless.
       const chunks = chunkStatement(outgoing.text, linesFor(effort));
-      const held = await fetchSlices(chunks, [], chunks.map((_, i) => i));
+      const held = await fetchSlices(
+        chunks,
+        [],
+        chunks.map((_, i) => i),
+      );
       setSlices({ chunks, held });
       await makeReport(chunks, held);
     } catch (err) {
@@ -579,8 +583,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       not be read
                     </b>
                     , so what follows is {report.parts} part
-                    {report.parts === 1 ? '' : 's'} of it and nothing below is a complete total.
-                    {' '}
+                    {report.parts === 1 ? '' : 's'} of it and nothing below is a complete total.{' '}
                     <button className="link" onClick={readMissing} disabled={reading}>
                       {reading
                         ? progress?.total
@@ -629,14 +632,17 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                 {report.reconciliation?.closing != null && (
                   <div className="scan-bill">
                     <span className="scan-bill-what">
-                      {report.reconciliation.reads === 'card' ? 'Owed at the end of this statement' : 'Balance at the end of this statement'}
+                      {report.reconciliation.reads === 'card'
+                        ? 'Owed at the end of this statement'
+                        : 'Balance at the end of this statement'}
                     </span>
                     <b>
                       <Money amount={report.reconciliation.closing} currency={currency} />
                     </b>
                     {report.reconciliation.opening != null && (
                       <span className="muted">
-                        opened at <Money amount={report.reconciliation.opening} currency={currency} />
+                        opened at{' '}
+                        <Money amount={report.reconciliation.opening} currency={currency} />
                       </span>
                     )}
                   </div>
@@ -716,7 +722,19 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       <tbody>
                         {report.rows.map((row, i) => (
                           <tr key={i} className={row.confidence === 'low' ? 'unsure' : undefined}>
-                            <td className="when">{row.date}</td>
+                            <td className="when">
+                              {row.date}
+                              {/* The posting date, when the statement printed
+                                two columns and they differ. Shown small and
+                                quieter than the transaction date it sits
+                                under, because it is a bank fact rather than a
+                                spending fact — useful for lining a row up
+                                against a bank feed, but not what somebody
+                                asks "when did that coffee happen". */}
+                              {row.postDate && (
+                                <small className="post-date">posts {row.postDate}</small>
+                              )}
+                            </td>
                             <td>
                               <b>{row.merchant}</b>
                               <small>{row.what}</small>

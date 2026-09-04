@@ -1,9 +1,16 @@
+import { motion } from 'motion/react';
 import { Money } from '../../utils/display';
 import { categoricalColors } from '../../utils/palette';
 
 // One bar per account, everything converted to the primary currency so
 // accounts in different currencies can be compared by eye. Colour groups the
 // bars by person rather than decorating them.
+//
+// Same shape as PersonSpendChart: a list of proportional bars, no shared
+// axis, no time. The bar is animated by `motion` (bklit's own animation
+// library) — the same entrance spring as every chart on the page — but the
+// surrounding row stays as markup so the account name and its balance sit
+// on-screen without hovering.
 export default function AccountBalancesChart({ persons, currency }) {
   const colors = categoricalColors();
 
@@ -15,7 +22,7 @@ export default function AccountBalancesChart({ persons, currency }) {
         name: `${person.name.split(' ')[0]} · ${a.name}`,
         value: a.balancePrimary,
         color: colors[personIndex % colors.length],
-      }))
+      })),
   );
 
   rows.sort((a, b) => b.value - a.value);
@@ -31,15 +38,19 @@ export default function AccountBalancesChart({ persons, currency }) {
           No convertible balances yet.
         </p>
       ) : (
-        rows.map((row) => (
+        rows.map((row, i) => (
           <div className="hbar" key={row.key}>
             <span className="n">{row.name}</span>
             <span className="a">
               <Money amount={row.value} currency={currency} compact />
             </span>
             <span className="t">
-              <span
-                style={{ width: `${max > 0 ? (row.value / max) * 100 : 0}%`, background: row.color }}
+              <motion.span
+                key={row.key}
+                initial={{ width: 0 }}
+                animate={{ width: `${max > 0 ? (row.value / max) * 100 : 0}%` }}
+                transition={{ type: 'spring', stiffness: 140, damping: 22, delay: i * 0.05 }}
+                style={{ background: row.color }}
               />
             </span>
           </div>

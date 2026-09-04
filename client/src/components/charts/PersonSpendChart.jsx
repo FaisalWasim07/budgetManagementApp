@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import { Money } from '../../utils/display';
 import { categoricalColors } from '../../utils/palette';
 import { formatMonth } from '../../utils/month';
@@ -9,6 +10,13 @@ import { formatMonth } from '../../utils/month';
 // Spending here means everything that went out — what was spent plus what the
 // recurring items took — because a person whose money mostly leaves on
 // subscriptions has still spent it.
+//
+// The bar is the point but there is no shared axis, no tooltip and no time,
+// so this is not a bklit BarChart — a chart context per row would just wrap
+// two lines of animation in a hundred lines of provider. Instead the bar
+// grows in via `motion` — bklit's own animation library, so the entrance
+// spring matches every other chart on the page — and the row keeps its
+// visible name, amount and share, which the user actually reads.
 export default function PersonSpendChart({ persons, currency, month }) {
   const colors = categoricalColors();
 
@@ -30,14 +38,16 @@ export default function PersonSpendChart({ persons, currency, month }) {
   return (
     <div className="chart">
       <h3>Who spent what</h3>
-      <p className="sub">{formatMonth(month)}, converted to {currency}</p>
+      <p className="sub">
+        {formatMonth(month)}, converted to {currency}
+      </p>
 
       {rows.length === 0 ? (
         <p className="muted" style={{ fontSize: '.88rem' }}>
           Nothing went out this month.
         </p>
       ) : (
-        rows.map((row) => (
+        rows.map((row, i) => (
           <div className="hbar" key={row.id}>
             <span className="n">
               {row.name}
@@ -53,8 +63,12 @@ export default function PersonSpendChart({ persons, currency, month }) {
               <small> {all > 0 ? Math.round((row.total / all) * 100) : 0}%</small>
             </span>
             <span className="t">
-              <span
-                style={{ width: `${max > 0 ? (row.total / max) * 100 : 0}%`, background: row.color }}
+              <motion.span
+                key={`${month}-${row.id}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${max > 0 ? (row.total / max) * 100 : 0}%` }}
+                transition={{ type: 'spring', stiffness: 140, damping: 22, delay: i * 0.06 }}
+                style={{ background: row.color }}
               />
             </span>
           </div>

@@ -1,41 +1,7 @@
-import { Money, useDisplay } from '../../utils/display';
+import { useDisplay } from '../../utils/display';
 import { formatMonth, hasActivity } from '../../utils/month';
-
-// Four figures across the top of Stats, each with the same three parts: what
-// it is now, how it moved since last month, and the shape of the last twelve.
-// The shape is what stops a single month being read as a trend.
-function Mini({ values, tone }) {
-  if (values.length < 2) return null;
-
-  const width = 120;
-  const height = 34;
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
-  const span = hi - lo;
-  const pad = 3;
-  const x = (i) => (width / (values.length - 1)) * i;
-  // A salary that was the same twelve months running has no range to spread
-  // over. Normalising it anyway would pin the line to the floor, where it is
-  // half-hidden by the edge and reads as a bug rather than as "flat".
-  const y = (v) =>
-    span === 0 ? height / 2 : height - pad - ((v - lo) / span) * (height - pad * 2);
-
-  const line = values
-    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
-    .join(' ');
-
-  return (
-    <svg
-      className={`mini ${tone}`}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path className="fill" d={`${line} L${width} ${height} L0 ${height} Z`} />
-      <path className="line" d={line} />
-    </svg>
-  );
-}
+import Sparkline from './Sparkline';
+import { KpiMoney, KpiPercent } from './KpiValue';
 
 // Whether a move up is a good move depends on the figure: net worth rising is
 // good, spending rising is not. `higherIsBetter` is what decides the colour,
@@ -81,7 +47,7 @@ function Kpi({
           </>
         )}
       </span>
-      <Mini values={values} tone={tone} />
+      <Sparkline values={values} tone={tone} signature={`${month}-${label}`} />
     </div>
   );
 }
@@ -105,15 +71,18 @@ export default function KpiRow({ summary, trend, month }) {
   const keptRate = (t) => (t.income > 0 ? ((t.income - outOf(t)) / t.income) * 100 : null);
 
   const kept = trend.map(keptRate);
-  const keptNow = household.income > 0
-    ? ((household.income - household.expenses - household.subscriptions) / household.income) * 100
-    : null;
+  const keptNow =
+    household.income > 0
+      ? ((household.income - household.expenses - household.subscriptions) / household.income) * 100
+      : null;
   const keptPrev = previous ? keptRate(previous) : null;
 
-  const asMoney = (v) => <Money amount={v} currency={currency} compact />;
-  // Through the same masking as every other amount. This is what a delta falls
-  // back to when last month was zero, and it used to print the figure in the
-  // clear with the eye shut.
+  // The delta line (the "vs July" bit) still falls back to the text money()
+  // formatter when a percentage is not available: that path had to be masked
+  // by the eye, and used to print the figure in the clear otherwise. The
+  // headline value uses KpiMoney, which rolls between values on every render
+  // instead of blinking to the new one — but hands over to the same <Money>
+  // dust animation while amounts are hidden, so the two never overlap.
   const moneyText = (v) => money(v, currency, { compact: true });
 
   return (
@@ -127,7 +96,7 @@ export default function KpiRow({ summary, trend, month }) {
         month={prevMonth}
         format={moneyText}
       >
-        {asMoney(household.income)}
+        <KpiMoney amount={household.income} currency={currency} />
       </Kpi>
 
       <Kpi
@@ -139,7 +108,7 @@ export default function KpiRow({ summary, trend, month }) {
         month={prevMonth}
         format={moneyText}
       >
-        {asMoney(household.expenses + household.subscriptions)}
+        <KpiMoney amount={household.expenses + household.subscriptions} currency={currency} />
       </Kpi>
 
       {/* Not masked by the eye: a share of what came in gives away no amount,
@@ -154,7 +123,7 @@ export default function KpiRow({ summary, trend, month }) {
         absolute
         format={(v) => `${Math.round(v)} point${Math.round(v) === 1 ? '' : 's'}`}
       >
-        {keptNow == null ? <span className="muted">—</span> : `${Math.round(keptNow)}%`}
+        <KpiPercent value={keptNow} />
       </Kpi>
 
       <Kpi
@@ -166,9 +135,8 @@ export default function KpiRow({ summary, trend, month }) {
         month={prevMonth}
         format={moneyText}
       >
-        {asMoney(household.netWorth)}
+        <KpiMoney amount={household.netWorth} currency={currency} />
       </Kpi>
-
     </div>
   );
 }

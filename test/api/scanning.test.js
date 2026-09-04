@@ -18,7 +18,7 @@ const { check, report } = results();
 const Anthropic = require(
   require.resolve('@anthropic-ai/sdk', {
     paths: [path.join(__dirname, '../../server/src/services')],
-  })
+  }),
 );
 
 process.env.ANTHROPIC_API_KEY = 'test-key-not-a-real-one';
@@ -32,11 +32,24 @@ const answer = {
       text: JSON.stringify({
         rows: [
           {
-            date: '2026-08-03',
+            date: '2026-07-30',
+            postDate: '2026-08-01',
             raw: 'TAP COFFEE DUBAI',
             merchant: 'Tap Coffee',
             what: 'a coffee shop',
             amount: 28,
+            direction: 'out',
+            kind: 'purchase',
+            category: 'Eating out',
+            confidence: 'high',
+          },
+          {
+            date: '2026-08-04',
+            postDate: '2026-08-04',
+            raw: 'ONLY ONE DATE COLUMN',
+            merchant: 'Somewhere',
+            what: 'a shop',
+            amount: 12,
             direction: 'out',
             kind: 'purchase',
             category: 'Eating out',
@@ -71,34 +84,53 @@ const lastSent = () => sent[sent.length - 1];
 (async () => {
   // --- the choice reaches the API -----------------------------------------
   await service.scan({ text: 'a line', model: 'claude-sonnet-5', effort: 'medium' });
-  check('the model picked is the model asked for', lastSent().model === 'claude-sonnet-5',
-    lastSent().model);
-  check('and so is the effort', lastSent().output_config.effort === 'medium',
-    String(lastSent().output_config.effort));
+  check(
+    'the model picked is the model asked for',
+    lastSent().model === 'claude-sonnet-5',
+    lastSent().model,
+  );
+  check(
+    'and so is the effort',
+    lastSent().output_config.effort === 'medium',
+    String(lastSent().output_config.effort),
+  );
 
   // --- a name nobody put on the list --------------------------------------
   // The browser can send anything. An unrecognised model must fall back rather
   // than be passed on: forwarding it would turn a typo into a 404 from the API,
   // and a made-up name into somebody else's bill.
   await service.scan({ text: 'a line', model: 'claude-opus-9-ultra' });
-  check('a model nobody offered falls back rather than being forwarded',
-    lastSent().model === 'claude-opus-5', lastSent().model);
-  check('and modelFor says the same about nothing at all',
-    service.modelFor(undefined) === service.DEFAULT_MODEL && service.modelFor(null) === service.DEFAULT_MODEL);
+  check(
+    'a model nobody offered falls back rather than being forwarded',
+    lastSent().model === 'claude-opus-5',
+    lastSent().model,
+  );
+  check(
+    'and modelFor says the same about nothing at all',
+    service.modelFor(undefined) === service.DEFAULT_MODEL &&
+      service.modelFor(null) === service.DEFAULT_MODEL,
+  );
 
   await service.scan({ text: 'a line', effort: 'extreme' });
-  check('an effort nobody offered falls back to the default',
+  check(
+    'an effort nobody offered falls back to the default',
     lastSent().output_config.effort === service.DEFAULT_EFFORT,
-    lastSent().output_config.effort);
+    lastSent().output_config.effort,
+  );
 
   // --- effort is a capability, not a preference ---------------------------
   // Haiku rejects the field outright. Sent there it is not ignored, it fails
   // the request — so it has to be absent, not merely unset.
   await service.scan({ text: 'a line', model: 'claude-haiku-4-5', effort: 'high' });
-  check('a model that does not take an effort is not sent one',
-    !('effort' in lastSent().output_config), Object.keys(lastSent().output_config).join(', '));
-  check('it is still asked for the same shape of answer',
-    lastSent().output_config.format?.type === 'json_schema');
+  check(
+    'a model that does not take an effort is not sent one',
+    !('effort' in lastSent().output_config),
+    Object.keys(lastSent().output_config).join(', '),
+  );
+  check(
+    'it is still asked for the same shape of answer',
+    lastSent().output_config.format?.type === 'json_schema',
+  );
 
   // --- what makes the caching work ----------------------------------------
   // The instructions go in a marked system block and the slice goes in the user
@@ -106,30 +138,78 @@ const lastSent = () => sent[sent.length - 1];
   // differs, so anything per-slice in the system block would cache nothing.
   await service.scan({ text: 'a line of the statement', currency: 'AED' });
   const call = lastSent();
-  check('the instructions are sent as a block that can be cached',
-    call.system[0].cache_control?.type === 'ephemeral', JSON.stringify(call.system[0].cache_control));
-  check('with the currency of the account being read against',
-    call.system[0].text.includes('AED'));
-  check('and the slice itself is the only thing that changes between requests',
-    call.messages[0].content === 'a line of the statement', call.messages[0].content);
+  check(
+    'the instructions are sent as a block that can be cached',
+    call.system[0].cache_control?.type === 'ephemeral',
+    JSON.stringify(call.system[0].cache_control),
+  );
+  check('with the currency of the account being read against', call.system[0].text.includes('AED'));
+  check(
+    'and the slice itself is the only thing that changes between requests',
+    call.messages[0].content === 'a line of the statement',
+    call.messages[0].content,
+  );
 
   // Nothing from the ledger goes out with a scan. The household's own category
   // names used to ride along in the cached block so the model would use the
   // same words as the rest of the app — useful, and still the household's
   // private vocabulary being sent to answer a question about a PDF.
-  check('nothing the household has typed anywhere is sent with the statement',
+  check(
+    'nothing the household has typed anywhere is sent with the statement',
     !('categories' in (lastSent().system[0] ?? {})) &&
       !/Categories already used/.test(call.system[0].text),
-    call.system[0].text.slice(-160));
+    call.system[0].text.slice(-160),
+  );
 
   // --- rows are checked before anything downstream sees them --------------
   const scanned = await service.scan({ text: 'a line' });
-  check('the rows come back read', scanned.rows.length === 1 && scanned.rows[0].amount === 28,
-    JSON.stringify(scanned.rows));
-  check('with the bank’s own figures alongside them',
-    scanned.statement.closingBalance === 128, JSON.stringify(scanned.statement));
-  check('and what it used', scanned.usage.input === 10_000 && scanned.usage.output === 2_000,
-    JSON.stringify(scanned.usage));
+  check(
+    'the rows come back read',
+    scanned.rows.length === 2 && scanned.rows[0].amount === 28,
+    JSON.stringify(scanned.rows),
+  );
+  check(
+    'with the bank’s own figures alongside them',
+    scanned.statement.closingBalance === 128,
+    JSON.stringify(scanned.statement),
+  );
+
+  // --- both dates a statement can print, kept apart -----------------------
+  // A bank statement's transaction date is when the thing happened; the
+  // posting date is when the card settled it, often a day or two later —
+  // and sometimes in a different calendar month at the edges. Both are
+  // needed, and the transaction date is the one every downstream figure
+  // uses; the posting date rides along for anyone reconciling against a
+  // bank feed. The schema requires the field, and a row where the two
+  // dates match gets `postDate: null` — the model sometimes echoes the
+  // same date rather than leaving it null, and echoing it downstream
+  // would put the same fact on the screen twice.
+  const dateSchema = service.ROW_SCHEMA.properties.rows.items.properties.date;
+  const postSchema = service.ROW_SCHEMA.properties.rows.items.properties.postDate;
+  check(
+    'the schema says which date is which',
+    /transaction/i.test(dateSchema.description) && /posting/i.test(postSchema.description),
+    dateSchema.description.slice(0, 60) + ' | ' + postSchema.description.slice(0, 60),
+  );
+  check(
+    'both fields are required, so the model does not silently drop one',
+    service.ROW_SCHEMA.properties.rows.items.required.includes('postDate'),
+  );
+  check(
+    'a row that straddled a month is kept as two dates',
+    scanned.rows[0].date === '2026-07-30' && scanned.rows[0].postDate === '2026-08-01',
+    `${scanned.rows[0].date} / ${scanned.rows[0].postDate}`,
+  );
+  check(
+    'a row where they matched is left with postDate null, not a duplicate of the transaction date',
+    scanned.rows[1].date === '2026-08-04' && scanned.rows[1].postDate === null,
+    `${scanned.rows[1].date} / ${scanned.rows[1].postDate}`,
+  );
+  check(
+    'and what it used',
+    scanned.usage.input === 10_000 && scanned.usage.output === 2_000,
+    JSON.stringify(scanned.usage),
+  );
 
   // --- the money ----------------------------------------------------------
   const usage = { input: 10_000, output: 2_000, cacheRead: 0, cacheWrite: 0 };
@@ -138,9 +218,15 @@ const lastSent = () => sent[sent.length - 1];
   const haiku = service.priceOf({ model: 'claude-haiku-4-5', usage });
   // 10,000 in at $5 and 2,000 out at $25 per million.
   check('a run is priced from the tokens it used', Math.abs(opus - 0.1) < 1e-9, String(opus));
-  check('a cheaper model is cheaper', sonnet < opus && haiku < sonnet, `${opus} ${sonnet} ${haiku}`);
-  check('an unknown model is priced as the default rather than as free',
-    service.priceOf({ model: 'nonsense', usage }) === opus);
+  check(
+    'a cheaper model is cheaper',
+    sonnet < opus && haiku < sonnet,
+    `${opus} ${sonnet} ${haiku}`,
+  );
+  check(
+    'an unknown model is priced as the default rather than as free',
+    service.priceOf({ model: 'nonsense', usage }) === opus,
+  );
 
   // The three input buckets are separate: `input` is what was sent uncached,
   // and the cached and written tokens are charged on top of it, not carved out
@@ -156,38 +242,58 @@ const lastSent = () => sent[sent.length - 1];
   });
   // The whole reason the instructions are sent as one cacheable block: on every
   // slice after the first they are read back at about a tenth of the price.
-  check('nineteen thousand tokens in cost less when nine of them came from cache',
-    nineCached < nineFresh, `${nineCached} < ${nineFresh}`);
-  check('but not nothing — cached input is still charged',
-    nineCached > opus, `${nineCached} > ${opus}`);
+  check(
+    'nineteen thousand tokens in cost less when nine of them came from cache',
+    nineCached < nineFresh,
+    `${nineCached} < ${nineFresh}`,
+  );
+  check(
+    'but not nothing — cached input is still charged',
+    nineCached > opus,
+    `${nineCached} > ${opus}`,
+  );
   // The bug itself, pinned: cached tokens are additional input, so adding them
   // to a run can only make it dearer. It used to make it cheaper than free.
   const withCache = service.priceOf({
     model: 'claude-opus-5',
     usage: { input: 10_000, output: 2_000, cacheRead: 9_000, cacheWrite: 0 },
   });
-  check('cached tokens are charged on top of the input, never subtracted from it',
-    withCache > opus, `${withCache} vs ${opus} with no cache`);
-  check('and the fresh input is still paid for in full',
-    Math.abs(withCache - (opus + (9_000 * 0.1 * 5) / 1e6)) < 1e-9, String(withCache));
+  check(
+    'cached tokens are charged on top of the input, never subtracted from it',
+    withCache > opus,
+    `${withCache} vs ${opus} with no cache`,
+  );
+  check(
+    'and the fresh input is still paid for in full',
+    Math.abs(withCache - (opus + (9_000 * 0.1 * 5) / 1e6)) < 1e-9,
+    String(withCache),
+  );
 
   const written = service.priceOf({
     model: 'claude-opus-5',
     usage: { input: 10_000, output: 2_000, cacheRead: 0, cacheWrite: 9_000 },
   });
-  check('writing the cache costs a quarter more than sending those tokens plainly',
-    Math.abs(written - (opus + (9_000 * 1.25 * 5) / 1e6)) < 1e-9, String(written));
+  check(
+    'writing the cache costs a quarter more than sending those tokens plainly',
+    Math.abs(written - (opus + (9_000 * 1.25 * 5) / 1e6)) < 1e-9,
+    String(written),
+  );
 
   const free = service.priceOf({ model: 'claude-opus-5', usage: { input: 0, output: 0 } });
   check('a run that used nothing costs nothing', free === 0, String(free));
 
   // --- the list the browser is given --------------------------------------
   const choices = service.choices();
-  check('every model offered can actually be picked',
+  check(
+    'every model offered can actually be picked',
     choices.models.every((m) => service.modelFor(m.id) === m.id),
-    JSON.stringify(choices.models.map((m) => m.id)));
-  check('and the default effort is one that is offered',
-    choices.efforts.includes(choices.defaultEffort), choices.defaultEffort);
+    JSON.stringify(choices.models.map((m) => m.id)),
+  );
+  check(
+    'and the default effort is one that is offered',
+    choices.efforts.includes(choices.defaultEffort),
+    choices.defaultEffort,
+  );
 
   const { failed } = report('Statement scanning: model, effort and cost');
   process.exit(failed ? 1 : 0);

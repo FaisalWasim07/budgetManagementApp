@@ -42,7 +42,7 @@ const check = (name, ok, detail = '') => {
         body: JSON.stringify({ username: u, password: p }),
       });
     },
-    [`scan_${stamp}`, 'scanpass1234']
+    [`scan_${stamp}`, 'scanpass1234'],
   );
   await page.goto(URL, { waitUntil: 'networkidle' });
 
@@ -70,9 +70,14 @@ const check = (name, ok, detail = '') => {
   };
 
   // --- where it lives -----------------------------------------------------
-  check('Stats carries the scan action', await page.locator('button:has-text("Scan a statement")').count() === 1);
-  check('and it is in the top bar rather than a strip of its own',
-    await page.locator('#tool-slot button:has-text("Scan a statement")').count() === 1);
+  check(
+    'Stats carries the scan action',
+    (await page.locator('button:has-text("Scan a statement")').count()) === 1,
+  );
+  check(
+    'and it is in the top bar rather than a strip of its own',
+    (await page.locator('#tool-slot button:has-text("Scan a statement")').count()) === 1,
+  );
 
   // --- a typed statement --------------------------------------------------
   await open('statement-plain.pdf');
@@ -83,21 +88,29 @@ const check = (name, ok, detail = '') => {
   // The one that matters: pdf.js hands back positioned fragments, and without
   // rebuilding lines from the coordinates every date lands in one run and every
   // amount in another, nowhere near the row they belong to.
-  check('a row keeps its date, description and amounts on one line',
+  check(
+    'a row keeps its date, description and amounts on one line',
     /03 Aug 2026.*TAP\*DUB4471.*28\.00.*12,402\.00/.test(plain),
-    (plain.split('\n').find((l) => l.includes('TAP*DUB4471')) || '').trim());
-  check('nothing was asked for that was not needed',
-    await page.locator('.modal.scanner input[type="password"]').count() === 0);
-  check('and nothing is shown as a picture', await page.locator('.scan-page').count() === 0);
+    (plain.split('\n').find((l) => l.includes('TAP*DUB4471')) || '').trim(),
+  );
+  check(
+    'nothing was asked for that was not needed',
+    (await page.locator('.modal.scanner input[type="password"]').count()) === 0,
+  );
+  check('and nothing is shown as a picture', (await page.locator('.scan-page').count()) === 0);
 
   // --- a locked one -------------------------------------------------------
   await close();
   await open('statement-locked.pdf');
   await page.waitForSelector('.modal.scanner input[type="password"]', { timeout: 20000 });
   check('a locked statement asks rather than failing', true);
-  check('and says the password stays here',
-    (await page.locator('.modal.scanner .field .muted').last().textContent()).includes('not sent anywhere'));
-  check('with nothing shown before it opens', await page.locator('.scan-preview').count() === 0);
+  check(
+    'and says the password stays here',
+    (await page.locator('.modal.scanner .field .muted').last().textContent()).includes(
+      'not sent anywhere',
+    ),
+  );
+  check('with nothing shown before it opens', (await page.locator('.scan-preview').count()) === 0);
 
   await page.fill('.modal.scanner input[type="password"]', 'not-the-one');
   await page.click('.modal.scanner button:has-text("Open it")');
@@ -107,13 +120,13 @@ const check = (name, ok, detail = '') => {
   await page.waitForFunction(
     () =>
       [...document.querySelectorAll('.modal.scanner .field .muted')].some((el) =>
-        el.textContent.includes('did not open it')
+        el.textContent.includes('did not open it'),
       ),
     null,
-    { timeout: 25000 }
+    { timeout: 25000 },
   );
   check('a wrong password is refused, and can be corrected in place', true);
-  check('and still shows nothing', await page.locator('.scan-preview').count() === 0);
+  check('and still shows nothing', (await page.locator('.scan-preview').count()) === 0);
 
   await page.fill('.modal.scanner input[type="password"]', PASSWORD);
   await page.click('.modal.scanner button:has-text("Open it")');
@@ -122,72 +135,114 @@ const check = (name, ok, detail = '') => {
   check('the right password opens it', unlocked.includes('CARREFOUR MALL OF EMIRATES'));
   // pdf.js detaches the buffer it is handed, so a retry that reuses the same
   // array reads as an empty file — which looks exactly like a corrupt PDF.
-  check('and the retry read the whole file, not an emptied buffer',
-    unlocked.includes('OPENING BALANCE') && unlocked.includes('CLOSING BALANCE'));
+  check(
+    'and the retry read the whole file, not an emptied buffer',
+    unlocked.includes('OPENING BALANCE') && unlocked.includes('CLOSING BALANCE'),
+  );
 
   // --- a scanned one ------------------------------------------------------
   await close();
   await open('statement-scanned.pdf');
   await page.waitForSelector('.scan-page img', { timeout: 30000 });
-  check('a scanned statement shows the page instead of dead-ending',
-    await page.locator('.scan-page img').count() === 1);
-  check('and says why, once', (await page.locator('.warn-banner').textContent()).includes('scanned'));
-  check('with no text preview, because there is no text',
-    await page.locator('.scan-preview').count() === 0);
-  check('the summary counts it as a scanned page',
-    (await page.locator('.scan-summary').textContent()).includes('1 scanned page'));
+  check(
+    'a scanned statement shows the page instead of dead-ending',
+    (await page.locator('.scan-page img').count()) === 1,
+  );
+  check(
+    'and says why, once',
+    (await page.locator('.warn-banner').textContent()).includes('scanned'),
+  );
+  check(
+    'with no text preview, because there is no text',
+    (await page.locator('.scan-preview').count()) === 0,
+  );
+  check(
+    'the summary counts it as a scanned page',
+    (await page.locator('.scan-summary').textContent()).includes('1 scanned page'),
+  );
   const box = await page.locator('.scan-page img').boundingBox();
-  check('and the page is really drawn, not a blank element',
+  check(
+    'and the page is really drawn, not a blank element',
     box && box.width > 200 && box.height > 200,
-    box ? `${Math.round(box.width)}x${Math.round(box.height)}` : 'no box');
+    box ? `${Math.round(box.width)}x${Math.round(box.height)}` : 'no box',
+  );
 
   // --- one of each in the same file ---------------------------------------
   await close();
   await open('statement-mixed.pdf');
   await page.waitForSelector('.scan-page img', { timeout: 30000 });
-  check('a mixed statement keeps the text it does have',
-    (await page.locator('.scan-preview').textContent()).includes('Transactions overleaf'));
-  check('and pictures only the page that had none',
-    await page.locator('.scan-page img').count() === 1);
-  check('naming which page it was',
-    (await page.locator('.scan-page figcaption').textContent()).includes('Page 2'));
-  check('and saying some rather than all',
-    (await page.locator('.warn-banner').textContent()).includes('Some pages'));
+  check(
+    'a mixed statement keeps the text it does have',
+    (await page.locator('.scan-preview').textContent()).includes('Transactions overleaf'),
+  );
+  check(
+    'and pictures only the page that had none',
+    (await page.locator('.scan-page img').count()) === 1,
+  );
+  check(
+    'naming which page it was',
+    (await page.locator('.scan-page figcaption').textContent()).includes('Page 2'),
+  );
+  check(
+    'and saying some rather than all',
+    (await page.locator('.warn-banner').textContent()).includes('Some pages'),
+  );
 
   // --- reading it, which is the only part that leaves the machine ---------
   await close();
   await open('statement-plain.pdf');
   await page.waitForSelector('.scan-preview', { timeout: 20000 });
   const readIt = page.locator('.modal.scanner button:has-text("Read the transactions")');
-  check('a statement that has text offers to have it read', await readIt.count() === 1);
+  check('a statement that has text offers to have it read', (await readIt.count()) === 1);
 
   // --- what is taken out before any of it is sent --------------------------
   // The fixture's letterhead carries an account number, which has nothing to do
   // with what was spent and would otherwise ride along with every slice.
   const sanitised = await page.locator('.scan-preview').textContent();
-  check('the account number in the letterhead is gone from the preview',
-    !sanitised.includes('887342'), sanitised.slice(0, 120));
-  check('and the currency beside it is not, because the reading needs it',
-    sanitised.includes('AED'), sanitised.slice(0, 120));
-  check('every merchant reference survives, digits and all',
+  check(
+    'the account number in the letterhead is gone from the preview',
+    !sanitised.includes('887342'),
+    sanitised.slice(0, 120),
+  );
+  check(
+    'and the currency beside it is not, because the reading needs it',
+    sanitised.includes('AED'),
+    sanitised.slice(0, 120),
+  );
+  check(
+    'every merchant reference survives, digits and all',
     ['TAP*DUB4471', 'TLB*ORDER 88213', 'SPOTIFY P39A2B'].every((m) => sanitised.includes(m)),
-    sanitised.slice(0, 200));
-  check('and so does every amount',
-    ['28.00', '412.75', '1,450.00'].every((a) => sanitised.includes(a)), sanitised.slice(0, 200));
+    sanitised.slice(0, 200),
+  );
+  check(
+    'and so does every amount',
+    ['28.00', '412.75', '1,450.00'].every((a) => sanitised.includes(a)),
+    sanitised.slice(0, 200),
+  );
 
   const said = await page.locator('.scan-sanitise').textContent();
-  check('the screen says what it hid, not just that it hid something',
-    said.includes('account number'), said);
-  check('and that the preview is the proof rather than a promise',
-    said.includes('what leaves this browser'), said);
+  check(
+    'the screen says what it hid, not just that it hid something',
+    said.includes('account number'),
+    said,
+  );
+  check(
+    'and that the preview is the proof rather than a promise',
+    said.includes('what leaves this browser'),
+    said,
+  );
 
   // Off is there because no rule that catches an account number can be certain
   // it caught nothing else, and the person holding the statement can see which.
   await page.uncheck('.scan-sanitise input');
-  check('turning it off puts the statement back as printed',
-    (await page.locator('.scan-preview').textContent()).includes('887342'));
-  check('and says so plainly',
-    (await page.locator('.scan-sanitise').textContent()).includes('exactly as it is printed'));
+  check(
+    'turning it off puts the statement back as printed',
+    (await page.locator('.scan-preview').textContent()).includes('887342'),
+  );
+  check(
+    'and says so plainly',
+    (await page.locator('.scan-sanitise').textContent()).includes('exactly as it is printed'),
+  );
   await page.check('.scan-sanitise input');
 
   // --- choosing what reads it ----------------------------------------------
@@ -195,40 +250,50 @@ const check = (name, ok, detail = '') => {
   // empty picker here means /statements/models did not.
   await page.waitForSelector('.scan-model select', { timeout: 10000 });
   const models = page.locator('.scan-model select').first();
-  check('there is a choice of what to read it with',
+  check(
+    'there is a choice of what to read it with',
     (await models.locator('option').count()) >= 2,
-    String(await models.locator('option').count()));
-  check('and each one says what it costs you in plain words',
+    String(await models.locator('option').count()),
+  );
+  check(
+    'and each one says what it costs you in plain words',
     (await page.locator('.scan-model .muted').first().textContent()).length > 10,
-    await page.locator('.scan-model .muted').first().textContent());
+    await page.locator('.scan-model .muted').first().textContent(),
+  );
 
   // Effort is a capability, not a preference: Haiku refuses the field outright,
   // so offering the control beside it would be offering a way to break the scan.
-  check('a model that takes an effort offers one',
+  check(
+    'a model that takes an effort offers one',
     (await page.locator('.scan-model select').count()) === 2,
-    String(await page.locator('.scan-model select').count()));
+    String(await page.locator('.scan-model select').count()),
+  );
   await models.selectOption('claude-haiku-4-5');
   await page
     .waitForFunction(() => document.querySelectorAll('.scan-model select').length === 1, null, {
       timeout: 5000,
     })
     .catch(() => {});
-  check('and one that does not, does not',
+  check(
+    'and one that does not, does not',
     (await page.locator('.scan-model select').count()) === 1,
-    String(await page.locator('.scan-model select').count()));
+    String(await page.locator('.scan-model select').count()),
+  );
 
   // Whoever scans statements scans them the same way every month.
   await close();
   await open('statement-plain.pdf');
   await page.waitForSelector('.scan-model select', { timeout: 20000 });
-  check('the choice is still there next time',
+  check(
+    'the choice is still there next time',
     (await page.locator('.scan-model select').first().inputValue()) === 'claude-haiku-4-5',
-    await page.locator('.scan-model select').first().inputValue());
+    await page.locator('.scan-model select').first().inputValue(),
+  );
   await page.locator('.scan-model select').first().selectOption('claude-opus-5');
   await page.waitForFunction(
     () => document.querySelectorAll('.scan-model select').length === 2,
     null,
-    { timeout: 5000 }
+    { timeout: 5000 },
   );
   await page.locator('.scan-model select').nth(1).selectOption('medium');
 
@@ -236,14 +301,18 @@ const check = (name, ok, detail = '') => {
   // one answers. It should name the cause on screen rather than fail as nothing.
   await readIt.click();
   await page.waitForSelector('.modal.scanner .error-text', { timeout: 20000 });
-  check('with no key set, the screen says which key is missing',
+  check(
+    'with no key set, the screen says which key is missing',
     (await page.locator('.modal.scanner .error-text').textContent()).includes('ANTHROPIC_API_KEY'),
-    await page.locator('.modal.scanner .error-text').textContent());
+    await page.locator('.modal.scanner .error-text').textContent(),
+  );
   // The text is what step one exists to show, and it is what makes the rows
   // checkable afterwards. It was briefly made conditional on having scanned,
   // which hid it exactly when it was most wanted.
-  check('and the statement text is still on screen',
-    (await page.locator('.scan-preview').textContent()).includes('CARREFOUR'));
+  check(
+    'and the statement text is still on screen',
+    (await page.locator('.scan-preview').textContent()).includes('CARREFOUR'),
+  );
 
   // --- an older iPhone -----------------------------------------------------
   // pdf.js reads text by iterating a ReadableStream with `for await`, which
@@ -266,7 +335,7 @@ const check = (name, ok, detail = '') => {
         body: JSON.stringify({ username: u, password: p }),
       });
     },
-    [`old_${stamp}`, 'oldpass123456']
+    [`old_${stamp}`, 'oldpass123456'],
   );
   await oldPage.goto(URL, { waitUntil: 'networkidle' });
   await oldPage.waitForSelector('input[placeholder="Our household"]', { timeout: 15000 });
@@ -278,11 +347,15 @@ const check = (name, ok, detail = '') => {
   await oldPage.waitForTimeout(500);
   await oldPage.click('button:has-text("Scan a statement")');
   await oldPage.waitForSelector('.modal.scanner', { timeout: 10000 });
-  await oldPage.setInputFiles('.modal.scanner input[type="file"]',
-    path.join(FIXTURES, 'statement-plain.pdf'));
+  await oldPage.setInputFiles(
+    '.modal.scanner input[type="file"]',
+    path.join(FIXTURES, 'statement-plain.pdf'),
+  );
   await oldPage.waitForSelector('.scan-preview', { timeout: 25000 });
-  check('a browser without ReadableStream async iteration still reads a statement',
-    (await oldPage.locator('.scan-preview').textContent()).includes('CARREFOUR'));
+  check(
+    'a browser without ReadableStream async iteration still reads a statement',
+    (await oldPage.locator('.scan-preview').textContent()).includes('CARREFOUR'),
+  );
   check('and does so without an error of its own', oldBad.length === 0, oldBad.join(' | '));
   await old.close();
 
@@ -293,19 +366,66 @@ const check = (name, ok, detail = '') => {
   // scanned their statement.
   const stub = (over = {}) => ({
     rows: [
-      { date: '2026-08-03', raw: 'TAP*DUB4471 AE', merchant: 'Tap Coffee', what: 'a coffee shop',
-        amount: 28, direction: 'out', kind: 'purchase', category: 'Eating out', confidence: 'high' },
-      { date: '2026-08-04', raw: 'CARREFOUR MALL', merchant: 'Carrefour', what: 'a supermarket',
-        amount: 412.75, direction: 'out', kind: 'purchase', category: 'Groceries', confidence: 'high' },
-      { date: '2026-08-11', raw: 'ABU DHABI SERVICE', merchant: 'Abu Dhabi Service', what: 'unclear',
-        amount: 1702.96, direction: 'out', kind: 'purchase', category: 'Government', confidence: 'low' },
-      { date: '2026-08-01', raw: 'TRANSFER PAYMENT RECEIVED', merchant: 'Card payment', what: 'paying the card',
-        amount: 10117.51, direction: 'in', kind: 'payment', category: 'Payment', confidence: 'high' },
+      // One row that straddles a month: transaction on 30 July, posted on
+      // 1 August. This is the case the two-date feature exists to keep
+      // honest — landing entirely on the posting date's month would count
+      // the coffee toward a month it wasn't drunk in.
+      {
+        date: '2026-07-30',
+        postDate: '2026-08-01',
+        raw: 'TAP*DUB4471 AE',
+        merchant: 'Tap Coffee',
+        what: 'a coffee shop',
+        amount: 28,
+        direction: 'out',
+        kind: 'purchase',
+        category: 'Eating out',
+        confidence: 'high',
+      },
+      {
+        date: '2026-08-04',
+        postDate: null,
+        raw: 'CARREFOUR MALL',
+        merchant: 'Carrefour',
+        what: 'a supermarket',
+        amount: 412.75,
+        direction: 'out',
+        kind: 'purchase',
+        category: 'Groceries',
+        confidence: 'high',
+      },
+      {
+        date: '2026-08-11',
+        postDate: null,
+        raw: 'ABU DHABI SERVICE',
+        merchant: 'Abu Dhabi Service',
+        what: 'unclear',
+        amount: 1702.96,
+        direction: 'out',
+        kind: 'purchase',
+        category: 'Government',
+        confidence: 'low',
+      },
+      {
+        date: '2026-08-01',
+        postDate: null,
+        raw: 'TRANSFER PAYMENT RECEIVED',
+        merchant: 'Card payment',
+        what: 'paying the card',
+        amount: 10117.51,
+        direction: 'in',
+        kind: 'payment',
+        category: 'Payment',
+        confidence: 'high',
+      },
     ],
     overview: {
-      lines: 4, spent: 2143.71, credited: 10117.51,
+      lines: 4,
+      spent: 2143.71,
+      credited: 10117.51,
       credits: { payments: 10117.51, refunds: 0, cashback: 0, income: 0 },
-      from: '2026-08-01', to: '2026-08-11',
+      from: '2026-08-01',
+      to: '2026-08-11',
     },
     reconciliation: { status: 'ok', opening: 10117.51, closing: 9496.06, reads: 'card' },
     categories: [
@@ -316,8 +436,15 @@ const check = (name, ok, detail = '') => {
     findings: {
       duplicates: [{ date: '2026-08-03', merchant: 'Tap Coffee', amount: 28, times: 2, total: 56 }],
       repeats: [{ merchant: 'Spotify', amount: 39, times: 2, total: 78 }],
-      outliers: [{ date: '2026-08-11', merchant: 'Abu Dhabi Service', category: 'Government',
-        amount: 1702.96, typical: 100 }],
+      outliers: [
+        {
+          date: '2026-08-11',
+          merchant: 'Abu Dhabi Service',
+          category: 'Government',
+          amount: 1702.96,
+          typical: 100,
+        },
+      ],
       frequent: [{ merchant: 'Tap Coffee', times: 7, total: 196, average: 28 }],
     },
     ...over,
@@ -341,7 +468,7 @@ const check = (name, ok, detail = '') => {
           usage: { input: 12000, output: 3000, cacheRead: 9000, cacheWrite: 0 },
           cost: 0.0885,
         }),
-      })
+      }),
     );
     await page.route('**/api/statements/analyse', (r) =>
       r.fulfill({
@@ -353,7 +480,7 @@ const check = (name, ok, detail = '') => {
           categories: body.categories,
           findings: body.findings,
         }),
-      })
+      }),
     );
     await open('statement-plain.pdf');
     await page.waitForSelector('.scan-preview', { timeout: 20000 });
@@ -367,86 +494,158 @@ const check = (name, ok, detail = '') => {
   // dialog opts out — checked here with the app-wide setting still on, which is
   // the state anybody scanning is in by default.
   await showReport(stub());
-  check('the app is still hiding figures everywhere else',
-    (await page.locator('button[aria-label="Show amounts"]').count()) === 1);
-  check('but a statement you just asked to have read is not masked',
+  check(
+    'the app is still hiding figures everywhere else',
+    (await page.locator('button[aria-label="Show amounts"]').count()) === 1,
+  );
+  check(
+    'but a statement you just asked to have read is not masked',
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
-    await page.locator('.scan-head').textContent());
+    await page.locator('.scan-head').textContent(),
+  );
   // The one figure somebody opens a statement to find. It was being used — the
   // reading is checked against it — and never shown.
   const bill = await page.locator('.scan-bill').textContent();
   check('what the statement closes at is on the report', bill.includes('9,496.06'), bill);
   check('named as what it is on a card', bill.includes('Owed'), bill);
-  check('with where it started, so the month has both ends',
-    bill.includes('10,117.51'), bill);
+  check('with where it started, so the month has both ends', bill.includes('10,117.51'), bill);
 
-  check('the report says what was spent',
+  check(
+    'the report says what was spent',
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
-    await page.locator('.scan-head').textContent());
-  check('and that the reading adds up',
-    (await page.locator('.scan-head .reconciled').count()) === 1);
+    await page.locator('.scan-head').textContent(),
+  );
+  check(
+    'and that the reading adds up',
+    (await page.locator('.scan-head .reconciled').count()) === 1,
+  );
   // The bug the real statement found: a card payment is not money received.
-  check('paying the card off is described as that, not as income',
+  check(
+    'paying the card off is described as that, not as income',
     (await page.locator('.scan-credits').textContent()).includes('paid off the card'),
-    await page.locator('.scan-credits').textContent());
+    await page.locator('.scan-credits').textContent(),
+  );
 
-  check('every category is drawn with a bar', (await page.locator('.scan-cat .scan-bar').count()) === 3);
-  check('largest first', (await page.locator('.scan-cat b').first().textContent()) === 'Government');
-  check('with its share', (await page.locator('.scan-cat').first().textContent()).includes('79.4%'));
+  check(
+    'every category is drawn with a bar',
+    (await page.locator('.scan-cat .scan-bar').count()) === 3,
+  );
+  check(
+    'largest first',
+    (await page.locator('.scan-cat b').first().textContent()) === 'Government',
+  );
+  check(
+    'with its share',
+    (await page.locator('.scan-cat').first().textContent()).includes('79.4%'),
+  );
 
   const findingHeads = await page.locator('.scan-findings h3').allTextContents();
-  check('every kind of finding is shown when every kind is found',
-    findingHeads.length === 4, JSON.stringify(findingHeads));
-  check('a charge on a cycle is reported from the statement itself',
-    findingHeads.some((h) => h.includes('regular cycle')), JSON.stringify(findingHeads));
+  check(
+    'every kind of finding is shown when every kind is found',
+    findingHeads.length === 4,
+    JSON.stringify(findingHeads),
+  );
+  check(
+    'a charge on a cycle is reported from the statement itself',
+    findingHeads.some((h) => h.includes('regular cycle')),
+    JSON.stringify(findingHeads),
+  );
   // The scanner used to compare against the household's subscriptions and list
   // what had *not* been charged — things the statement never mentioned, in a
   // report about the statement.
-  check('and nothing is reported that the statement does not contain',
-    !findingHeads.some((h) => h.includes('Budgeted for')), JSON.stringify(findingHeads));
-  check('a duplicate is flagged rather than asserted',
-    (await page.locator('.scan-findings').textContent()).includes('Worth a look'));
+  check(
+    'and nothing is reported that the statement does not contain',
+    !findingHeads.some((h) => h.includes('Budgeted for')),
+    JSON.stringify(findingHeads),
+  );
+  check(
+    'a duplicate is flagged rather than asserted',
+    (await page.locator('.scan-findings').textContent()).includes('Worth a look'),
+  );
 
   // The one part of this app that spends money when a button is pressed.
   // Finding that out from a bill at the end of the month is no way to learn it,
   // so it is on screen the moment the reading finishes.
   const cost = await page.locator('.scan-cost').textContent();
-  check('what the reading cost is shown in money, not only in tokens',
-    cost.includes('$'), cost);
+  check('what the reading cost is shown in money, not only in tokens', cost.includes('$'), cost);
   // 12,000 sent uncached plus 9,000 read back from cache is 21,000 tokens of
   // input. Reporting the 12,000 as the total and then saying 9,000 of it came
   // from cache was a line that could not be true.
-  check('the tokens in are every bucket added up, not one carved out of another',
-    cost.includes('21,000 tokens in'), cost);
+  check(
+    'the tokens in are every bucket added up, not one carved out of another',
+    cost.includes('21,000 tokens in'),
+    cost,
+  );
   check('and it names what actually read the statement', cost.includes('Opus 5'), cost);
-  check('with the tokens kept, because they are what explains the money',
-    cost.includes('tokens in'), cost);
-  check('including what was read back from cache rather than paid for twice',
-    cost.includes('from cache'), cost);
+  check(
+    'with the tokens kept, because they are what explains the money',
+    cost.includes('tokens in'),
+    cost,
+  );
+  check(
+    'including what was read back from cache rather than paid for twice',
+    cost.includes('from cache'),
+    cost,
+  );
   check('and it still says nothing was saved', cost.includes('Nothing has been saved'), cost);
 
-  check('the rows are behind a fold rather than filling the dialog',
-    (await page.locator('.scan-rows-toggle summary').textContent()).includes('4'));
+  check(
+    'the rows are behind a fold rather than filling the dialog',
+    (await page.locator('.scan-rows-toggle summary').textContent()).includes('4'),
+  );
   await page.click('.scan-rows-toggle summary');
-  check('and open to the line as the bank printed it',
-    (await page.locator('.scan-rows .raw').first().textContent()).includes('TAP*DUB4471'));
-  check('with a low-confidence line marked',
-    (await page.locator('.scan-rows tr.unsure').count()) === 1);
+  check(
+    'and open to the line as the bank printed it',
+    (await page.locator('.scan-rows .raw').first().textContent()).includes('TAP*DUB4471'),
+  );
+  check(
+    'with a low-confidence line marked',
+    (await page.locator('.scan-rows tr.unsure').count()) === 1,
+  );
+
+  // Both dates when the statement printed two, and only when they differ —
+  // otherwise the second one is the first fact repeated for no reason.
+  const dateCells = await page.locator('.scan-rows .when').allTextContents();
+  const withPost = dateCells.filter((t) => t.includes('posts '));
+  check(
+    'a row that straddled a month shows both dates',
+    withPost.length === 1 &&
+      withPost[0].includes('2026-07-30') &&
+      withPost[0].includes('posts 2026-08-01'),
+    JSON.stringify(dateCells),
+  );
+  check(
+    'and a row where the two matched shows only one',
+    dateCells.filter((t) => t.includes('posts ')).length === 1,
+    JSON.stringify(dateCells),
+  );
 
   // --- a reading that does not add up --------------------------------------
-  await showReport(stub({
-    reconciliation: { status: 'mismatch', expected: 8969.26, closing: 9496.06, delta: -526.8,
-      countedTwice: null },
-  }));
+  await showReport(
+    stub({
+      reconciliation: {
+        status: 'mismatch',
+        expected: 8969.26,
+        closing: 9496.06,
+        delta: -526.8,
+        countedTwice: null,
+      },
+    }),
+  );
   const banner = await page.locator('.modal.scanner .warn-banner').textContent();
-  check('a reading that does not add up says so before anything else',
-    banner.includes('does not add up'), banner.slice(0, 60));
+  check(
+    'a reading that does not add up says so before anything else',
+    banner.includes('does not add up'),
+    banner.slice(0, 60),
+  );
   check('and names the gap', banner.includes('526.8'), banner.slice(0, 200));
   check('and says not to take the figures as fact', banner.includes('not as fact'));
   check('while still showing them', (await page.locator('.scan-cat').count()) === 3);
   await close();
-  check('and closing it leaves the rest of the app hidden as it was',
-    (await page.locator('button[aria-label="Show amounts"]').count()) === 1);
+  check(
+    'and closing it leaves the rest of the app hidden as it was',
+    (await page.locator('button[aria-label="Show amounts"]').count()) === 1,
+  );
 
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');
@@ -481,9 +680,15 @@ const check = (name, ok, detail = '') => {
       contentType: 'application/json',
       body: JSON.stringify({
         rows: found.map((n) => ({
-          date: '2026-08-01', raw: `MERCHANT NUMBER ${n}`, merchant: `Merchant ${n}`,
-          what: 'a shop', amount: Number(n), direction: 'out', kind: 'purchase',
-          category: 'Shopping', confidence: 'high',
+          date: '2026-08-01',
+          raw: `MERCHANT NUMBER ${n}`,
+          merchant: `Merchant ${n}`,
+          what: 'a shop',
+          amount: Number(n),
+          direction: 'out',
+          kind: 'purchase',
+          category: 'Shopping',
+          confidence: 'high',
         })),
         statement: null,
       }),
@@ -494,13 +699,19 @@ const check = (name, ok, detail = '') => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        overview: { lines: 90, spent: 1, credited: 0,
-          credits: { payments: 0, refunds: 0, cashback: 0, income: 0 }, from: null, to: null },
+        overview: {
+          lines: 90,
+          spent: 1,
+          credited: 0,
+          credits: { payments: 0, refunds: 0, cashback: 0, income: 0 },
+          from: null,
+          to: null,
+        },
         reconciliation: { status: 'unchecked' },
         categories: [{ category: 'Shopping', total: 1, count: 90, average: 1, share: 100 }],
         findings: {},
       }),
-    })
+    }),
   );
 
   await open('statement-long.pdf');
@@ -511,21 +722,34 @@ const check = (name, ok, detail = '') => {
   check('a long statement is read in more than one request', calls > 1, `${calls} requests`);
   // The picker is only worth having if what it picks is what gets sent — on
   // every slice, not just the first.
-  check('the account number is in none of the requests, not merely hidden on screen',
-    sentText.every((t) => !t.includes('887342')), String(sentText.length) + ' requests');
-  check('what was picked is what every slice is read with',
+  check(
+    'the account number is in none of the requests, not merely hidden on screen',
+    sentText.every((t) => !t.includes('887342')),
+    String(sentText.length) + ' requests',
+  );
+  check(
+    'what was picked is what every slice is read with',
     asked.every((a) => a.model === 'claude-opus-5' && a.effort === 'medium'),
-    JSON.stringify(asked[0]));
-  check('and no single request carries the whole thing',
-    Math.max(...seen) <= 60, `largest slice: ${Math.max(...seen)} lines`);
+    JSON.stringify(asked[0]),
+  );
+  check(
+    'and no single request carries the whole thing',
+    Math.max(...seen) <= 60,
+    `largest slice: ${Math.max(...seen)} lines`,
+  );
   await page.click('.scan-rows-toggle summary');
   const firstRow = await page.locator('.scan-rows .raw').first().textContent();
   const lastRow = await page.locator('.scan-rows .raw').last().textContent();
-  check('the rows are assembled in the order they were printed, not the order they returned',
-    firstRow.includes('001') && lastRow.includes('090'), `${firstRow} … ${lastRow}`);
-  check('and every one of them survived the split',
+  check(
+    'the rows are assembled in the order they were printed, not the order they returned',
+    firstRow.includes('001') && lastRow.includes('090'),
+    `${firstRow} … ${lastRow}`,
+  );
+  check(
+    'and every one of them survived the split',
     (await page.locator('.scan-rows tbody tr').count()) === 90,
-    String(await page.locator('.scan-rows tbody tr').count()));
+    String(await page.locator('.scan-rows tbody tr').count()),
+  );
 
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');
@@ -556,9 +780,15 @@ const check = (name, ok, detail = '') => {
       contentType: 'application/json',
       body: JSON.stringify({
         rows: found.map((n) => ({
-          date: '2026-08-01', raw: `MERCHANT NUMBER ${n}`, merchant: `Merchant ${n}`,
-          what: 'a shop', amount: Number(n), direction: 'out', kind: 'purchase',
-          category: 'Shopping', confidence: 'high',
+          date: '2026-08-01',
+          raw: `MERCHANT NUMBER ${n}`,
+          merchant: `Merchant ${n}`,
+          what: 'a shop',
+          amount: Number(n),
+          direction: 'out',
+          kind: 'purchase',
+          category: 'Shopping',
+          confidence: 'high',
         })),
         statement: { openingBalance: 0, closingBalance: -4095, periodStart: null, periodEnd: null },
         model: 'claude-opus-5',
@@ -572,17 +802,27 @@ const check = (name, ok, detail = '') => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        overview: { lines: 60, spent: 1830, credited: 0,
+        overview: {
+          lines: 60,
+          spent: 1830,
+          credited: 0,
           credits: { payments: 0, refunds: 0, cashback: 0, income: 0 },
-          from: '2026-08-01', to: '2026-08-01' },
+          from: '2026-08-01',
+          to: '2026-08-01',
+        },
         // The rows that did arrive cannot add up to the bank's own closing
         // balance, because some of them were never read.
-        reconciliation: { status: 'mismatch', expected: -1830, closing: -4095, delta: 2265,
-          countedTwice: null },
+        reconciliation: {
+          status: 'mismatch',
+          expected: -1830,
+          closing: -4095,
+          delta: 2265,
+          countedTwice: null,
+        },
         categories: [{ category: 'Shopping', total: 1830, count: 60, average: 30, share: 100 }],
         findings: {},
       }),
-    })
+    }),
   );
 
   await open('statement-long.pdf');
@@ -590,32 +830,52 @@ const check = (name, ok, detail = '') => {
   await page.click('.modal.scanner button:has-text("Read the transactions")');
   await page.waitForSelector('.scan-report', { timeout: 40000 });
 
-  check('one slice dying no longer throws away the whole reading',
+  check(
+    'one slice dying no longer throws away the whole reading',
     (await page.locator('.scan-rows-toggle summary').count()) === 1,
-    await page.locator('.modal.scanner .error-text').textContent().catch(() => 'no report'));
+    await page
+      .locator('.modal.scanner .error-text')
+      .textContent()
+      .catch(() => 'no report'),
+  );
   const partial = await page.locator('.modal.scanner .warn-banner').first().textContent();
-  check('and the report says so before anything else',
-    partial.includes('could not be read'), partial.slice(0, 80));
-  check('naming how much of the statement is missing',
-    /\d+ parts? of this statement/.test(partial), partial.slice(0, 80));
+  check(
+    'and the report says so before anything else',
+    partial.includes('could not be read'),
+    partial.slice(0, 80),
+  );
+  check(
+    'naming how much of the statement is missing',
+    /\d+ parts? of this statement/.test(partial),
+    partial.slice(0, 80),
+  );
   check('and what to do about it', partial.includes('lower effort'), partial.slice(0, 200));
 
   // A gap it has already explained is not a second, different accusation. The
   // rows that are missing are missing because they were never read, which the
   // banner above already says.
   const banners = await page.locator('.modal.scanner .warn-banner').allTextContents();
-  check('an incomplete reading is not also called a misreading',
-    !banners.some((b) => b.includes('does not add up')), JSON.stringify(banners.map((b) => b.slice(0, 40))));
+  check(
+    'an incomplete reading is not also called a misreading',
+    !banners.some((b) => b.includes('does not add up')),
+    JSON.stringify(banners.map((b) => b.slice(0, 40))),
+  );
 
   await page.click('.scan-rows-toggle summary');
   const kept = await page.locator('.scan-rows tbody tr').count();
-  check('every line that did come back is kept', kept === 90 - lostRows,
-    `${kept} kept, ${lostRows} lost, of 90`);
+  check(
+    'every line that did come back is kept',
+    kept === 90 - lostRows,
+    `${kept} kept, ${lostRows} lost, of 90`,
+  );
   check('and nothing was invented to fill the gap', kept > 0 && kept < 90, String(kept));
   // Once, then once more. A connection that drops twice will not work on the
   // third attempt, and every attempt is a reading somebody pays for.
-  check('the slice that died was asked for twice — not once, and not forever',
-    attempts === slices.size + 1, `${attempts} requests for ${slices.size} slices`);
+  check(
+    'the slice that died was asked for twice — not once, and not forever',
+    attempts === slices.size + 1,
+    `${attempts} requests for ${slices.size} slices`,
+  );
 
   // --- asking again for only what is missing -------------------------------
   // Re-reading the whole statement to recover one slice means paying for all of
@@ -633,9 +893,15 @@ const check = (name, ok, detail = '') => {
       contentType: 'application/json',
       body: JSON.stringify({
         rows: found.map((n) => ({
-          date: '2026-08-01', raw: `MERCHANT NUMBER ${n}`, merchant: `Merchant ${n}`,
-          what: 'a shop', amount: Number(n), direction: 'out', kind: 'purchase',
-          category: 'Shopping', confidence: 'high',
+          date: '2026-08-01',
+          raw: `MERCHANT NUMBER ${n}`,
+          merchant: `Merchant ${n}`,
+          what: 'a shop',
+          amount: Number(n),
+          direction: 'out',
+          kind: 'purchase',
+          category: 'Shopping',
+          confidence: 'high',
         })),
         statement: null,
         model: 'claude-opus-5',
@@ -651,21 +917,29 @@ const check = (name, ok, detail = '') => {
   await page.waitForFunction(
     () => !document.querySelector('.modal.scanner .warn-banner button.link'),
     null,
-    { timeout: 20000 }
+    { timeout: 20000 },
   );
-  check('and asks only for the part that was missing, not for the statement again',
-    attempts - before === 1, `${attempts - before} requests`);
+  check(
+    'and asks only for the part that was missing, not for the statement again',
+    attempts - before === 1,
+    `${attempts - before} requests`,
+  );
   // Opened rather than clicked: the fold kept its state across the re-render,
   // so a click here would close it again.
   await page.evaluate(() => document.querySelector('.scan-rows-toggle')?.setAttribute('open', ''));
   const whole = await page.locator('.scan-rows tbody tr').count();
   check('which completes the reading', whole === 90, String(whole));
-  check('and the warning about missing parts goes with it',
-    !(await page.locator('.modal.scanner').textContent()).includes('could not be read'));
+  check(
+    'and the warning about missing parts goes with it',
+    !(await page.locator('.modal.scanner').textContent()).includes('could not be read'),
+  );
   const firstAfter = await page.locator('.scan-rows .raw').first().textContent();
   const lastAfter = await page.locator('.scan-rows .raw').last().textContent();
-  check('with the recovered part put back where it was printed, not on the end',
-    firstAfter.includes('001') && lastAfter.includes('090'), `${firstAfter} … ${lastAfter}`);
+  check(
+    'with the recovered part put back where it was printed, not on the end',
+    firstAfter.includes('001') && lastAfter.includes('090'),
+    `${firstAfter} … ${lastAfter}`,
+  );
 
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');

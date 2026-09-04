@@ -14,3 +14,5 @@ export { YAxis } from './y-axis.tsx';
 export { ChartTooltip } from './tooltip/index.ts';
 export { PieChart } from './pie-chart.tsx';
 export { PieSlice } from './pie-slice.tsx';
+export { AreaChart } from './area-chart.tsx';
+export { Area } from './area.tsx';

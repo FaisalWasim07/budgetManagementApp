@@ -99,7 +99,21 @@ const ROW_SCHEMA = {
         properties: {
           date: {
             type: 'string',
-            description: 'The date on the statement line, as YYYY-MM-DD.',
+            description:
+              'The TRANSACTION date on the statement line, as YYYY-MM-DD — the day the ' +
+              'thing actually happened. This is the column marked "Transaction date", ' +
+              '"Trans date" or "Date of transaction". When the statement prints only one ' +
+              'date per line, that one goes here.',
+          },
+          postDate: {
+            type: ['string', 'null'],
+            description:
+              'The POSTING date on the same line, as YYYY-MM-DD — the day the bank ' +
+              'settled or charged it. This is a separate column, often labelled "Posting ' +
+              'date" or "Post date", and it sits a day or two after the transaction date. ' +
+              'It can even land in a different month at the edges of the statement. ' +
+              'Null when the statement prints only one date column, because then the two ' +
+              'are the same fact and this would be a copy of `date`.',
           },
           raw: {
             type: 'string',
@@ -142,7 +156,16 @@ const ROW_SCHEMA = {
           },
         },
         required: [
-          'date', 'raw', 'merchant', 'what', 'amount', 'direction', 'kind', 'category', 'confidence',
+          'date',
+          'postDate',
+          'raw',
+          'merchant',
+          'what',
+          'amount',
+          'direction',
+          'kind',
+          'category',
+          'confidence',
         ],
         additionalProperties: false,
       },
@@ -178,6 +201,12 @@ const SYSTEM = [
   '  column titles, carried-forward lines, and marketing footers are not rows.',
   '- `raw` is the description exactly as printed. It is what makes your reading checkable,',
   '  so it must never be cleaned up, expanded or corrected.',
+  '- Bank statements often print TWO dates per transaction — a transaction date (when the',
+  '  purchase actually happened) and a posting date (when the bank settled it, often a day',
+  '  or two later). `date` is always the transaction date; `postDate` is the posting date,',
+  '  or null when the statement prints only one date column. Do not merge them, and do not',
+  '  put the posting date into `date` because it looks tidier — the transaction date is',
+  '  what a person remembers, and the two can straddle a month boundary.',
   '- `direction` is "out" for money leaving the account and "in" for money arriving.',
   '  A credit, refund, salary or transfer in is "in".',
   '- `what` says what the merchant is, not what the transaction was: "a supermarket",',
@@ -214,11 +243,9 @@ function systemFor({ currency }) {
   return [
     {
       type: 'text',
-      text: [
-        SYSTEM,
-        '',
-        currency ? `Amounts on this statement are in ${currency}.` : '',
-      ].join('\n'),
+      text: [SYSTEM, '', currency ? `Amounts on this statement are in ${currency}.` : ''].join(
+        '\n',
+      ),
       cache_control: { type: 'ephemeral' },
     },
   ];
@@ -240,7 +267,7 @@ function client() {
     throw new StatementScanError(
       'Reading statements needs an Anthropic API key. Set ANTHROPIC_API_KEY and redeploy.',
       'NO_API_KEY',
-      503
+      503,
     );
   }
   return new Anthropic();
@@ -251,17 +278,29 @@ function client() {
 // last place before the screen, so the checking happens here rather than in
 // three components downstream.
 function clean(rows) {
+  // Both dates are strings the model wrote out and could still get wrong (a
+  // year with two digits, a stray time zone). Trimmed to their first ten
+  // characters, which is the YYYY-MM-DD prefix and nothing else. `postDate`
+  // is nulled where the model handed the same value as `date` — the model is
+  // supposed to leave it null when the statement prints one date column, but
+  // sometimes echoes it instead, which is the same fact twice on the screen.
   return rows
-    .map((row) => ({
-      ...row,
-      amount: Math.abs(Number(row.amount)),
-      date: String(row.date).slice(0, 10),
-      raw: String(row.raw),
-      merchant: String(row.merchant).trim() || String(row.raw),
-      what: String(row.what).trim(),
-      kind: row.kind || 'other',
-      category: String(row.category).trim() || 'Uncategorised',
-    }))
+    .map((row) => {
+      const date = String(row.date).slice(0, 10);
+      const postRaw = row.postDate == null ? null : String(row.postDate).slice(0, 10);
+      const postDate = postRaw && postRaw !== date ? postRaw : null;
+      return {
+        ...row,
+        amount: Math.abs(Number(row.amount)),
+        date,
+        postDate,
+        raw: String(row.raw),
+        merchant: String(row.merchant).trim() || String(row.raw),
+        what: String(row.what).trim(),
+        kind: row.kind || 'other',
+        category: String(row.category).trim() || 'Uncategorised',
+      };
+    })
     .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
 }
 
@@ -292,7 +331,11 @@ async function scan({ text, currency = null, model: asked, effort: askedEffort }
       throw new StatementScanError('That Anthropic API key was refused.', 'BAD_API_KEY', 503);
     }
     if (err instanceof Anthropic.RateLimitError) {
-      throw new StatementScanError('Too many requests just now. Try again shortly.', 'RATE_LIMITED', 429);
+      throw new StatementScanError(
+        'Too many requests just now. Try again shortly.',
+        'RATE_LIMITED',
+        429,
+      );
     }
     throw new StatementScanError(`Reading the statement failed: ${err.message}`, 'SCAN_FAILED');
   }

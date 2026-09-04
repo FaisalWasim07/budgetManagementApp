@@ -45,7 +45,18 @@ export default function CategoryChart({ categories, currency, month }) {
       ) : (
         <div className="donut-wrap">
           <div className="donut">
-            <PieChart data={pieData} size={148} innerRadius={44}>
+            {/* Explicit 0 → 2π: bklit's default is startAngle=−π/2 with a
+                comment claiming "top", but d3-shape's arc convention treats
+                0 as 12 o'clock, so its default puts the first slice at 9
+                o'clock and the whole donut reads as tilted a quarter-turn.
+                Starting at 12 is what every pie chart in the world does. */}
+            <PieChart
+              data={pieData}
+              size={148}
+              innerRadius={44}
+              startAngle={0}
+              endAngle={2 * Math.PI}
+            >
               {pieData.map((item, i) => (
                 <PieSlice index={i} key={item.label} />
               ))}
