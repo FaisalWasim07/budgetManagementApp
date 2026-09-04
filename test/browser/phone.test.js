@@ -225,6 +225,65 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await page.locator('.txn', { hasText: 'Netflix' }).count()) === 0
   );
 
+  // --- the charts fit the phone they are drawn on -------------------------
+  // bklit's PieChart takes a pixel size rather than a CSS width, so the
+  // stylesheet's narrower `.donut` at this breakpoint and the number handed to
+  // the chart are two separate places the diameter is decided. When they drift
+  // apart nothing errors: the ring simply hangs out of its box to the right,
+  // and the centre label — which centres on the CSS box, not on the drawn
+  // circle — slides out of the hole it belongs in. That shipped.
+  await page.locator('.tabbar button', { hasText: /^Stats$/ }).click();
+  await page.waitForTimeout(1800);
+  await addMoney(page, { amount: '120', kind: 'Spent', category: 'Groceries' });
+  await page.locator('.tabbar button', { hasText: /^Stats$/ }).click();
+  await page.waitForTimeout(1800);
+
+  const donut = await page.evaluate(() => {
+    const el = document.querySelector('.donut');
+    if (!el) return null;
+    const svg = el.querySelector('svg');
+    const box = el.getBoundingClientRect();
+    const drawn = svg && svg.getBoundingClientRect();
+    const centre = el.querySelector('.donut-centre');
+    const label = centre && centre.getBoundingClientRect();
+    return {
+      box: { w: box.width, h: box.height, mid: box.x + box.width / 2 },
+      drawn: drawn && { w: drawn.width, mid: drawn.x + drawn.width / 2 },
+      labelMid: label && label.x + label.width / 2,
+    };
+  });
+
+  check('the stats page draws a donut on a phone at all', donut && donut.drawn, JSON.stringify(donut));
+  if (donut && donut.drawn) {
+    check(
+      'the ring is drawn at the width the stylesheet gave it, not a wider one',
+      Math.abs(donut.drawn.w - donut.box.w) <= 1,
+      `drawn ${donut.drawn.w} in a box of ${donut.box.w}`
+    );
+    // A box that is 132 wide and 148 tall is the same bug seen side-on, and it
+    // is what pushes the label off centre.
+    check(
+      'and its box is square, so the label sits in the hole',
+      Math.abs(donut.box.w - donut.box.h) <= 1,
+      `${donut.box.w} x ${donut.box.h}`
+    );
+    check(
+      'the amount in the middle is in the middle',
+      Math.abs(donut.labelMid - donut.drawn.mid) <= 1,
+      `label at ${donut.labelMid}, ring at ${donut.drawn.mid}`
+    );
+  }
+  check(
+    'and the card it sits in does not overflow sideways',
+    await page.evaluate(() => {
+      const card = document.querySelector('.donut-wrap').closest('.chart');
+      return card.scrollWidth <= card.clientWidth + 1;
+    })
+  );
+  check('the stats page scrolls no further sideways than the rest', !(await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1
+  )));
+
   // --- the bar fits, and refresh lives in the menu -------------------------
   // At this width there is no room for a refresh button of its own; putting
   // one there pushed the menu — and with it sign-out — off the right edge.

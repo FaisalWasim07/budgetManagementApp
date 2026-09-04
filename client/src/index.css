@@ -4026,9 +4026,15 @@ hr.rule {
     height: 28px;
   }
   /* The legend was competing with the ring for width and losing. Full width
-     under it, and quieter, so the names stop truncating. */
+     under it, and quieter, so the names stop truncating.
+
+     Which leaves the ring alone on its own line, so it goes in the middle of
+     it: left-aligned it sat against the card's edge with a hand's width of
+     nothing beside it, which reads as something failing to load rather than
+     as a decision. */
   .donut-wrap {
     gap: 14px;
+    justify-content: center;
   }
   .donut-legend {
     min-width: 100%;
@@ -4041,8 +4047,10 @@ hr.rule {
   .donut-centre {
     font-size: 0.86rem;
   }
+  /* Read by CategoryChart, which hands the number to the chart: this is the
+     one place the diameter is decided. */
   .donut {
-    width: 124px;
+    width: 132px;
   }
   .card {
     padding: 16px;

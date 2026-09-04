@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from 'react';
 import { PieChart, PieSlice } from '../../vendor/bklit/charts/index.js';
 import { Money } from '../../utils/display';
 import { categoricalColors } from '../../utils/palette';
@@ -16,7 +17,61 @@ import { formatMonth } from '../../utils/month';
 const MAX_SLICES = 6;
 const REST = 'var(--ink-3)';
 
+// bklit's PieChart takes a pixel size, not a CSS width: given `size` it draws
+// a box of exactly that many pixels and ignores whatever the stylesheet has
+// done to its container. Hard-coding 148 here meant the phone breakpoint's
+// 124px `.donut` had a 148px ring hanging out of it — the ring overflowed to
+// the right and the centre label, which centres on the CSS box rather than on
+// the drawn circle, sat a dozen pixels left of the hole it belongs in.
+//
+// So the stylesheet stays the one place the size is decided and the chart is
+// told what that came out as. `.donut` has an explicit width, so measuring it
+// cannot feed back into its own layout.
+const FALLBACK_SIZE = 148;
+// Ring thickness as a share of the box, so the donut stays a donut at every
+// width instead of thinning to a hoop as the outer radius shrinks and the
+// inner one does not.
+const INNER = 0.3;
+// Both the padding that keeps a hovered slice from being clipped and the
+// distance it moves. Ten cost twenty pixels of diameter at every size for an
+// effect no phone can trigger.
+const HOVER_OFFSET = 6;
+
+// A callback ref, not a ref object read from an effect. The donut is not
+// rendered at all until there is something to draw, so on a month that opens
+// empty the element arrives several renders after the component mounts — and
+// an effect whose only dependency is a ref object runs once, on mount, when
+// there is nothing there yet to measure, and never runs again. The chart then
+// keeps the fallback size for as long as the page is open. A callback ref is
+// called by React when the element itself attaches, which is the moment there
+// is something to measure.
+function useBoxSize() {
+  const [size, setSize] = useState(FALLBACK_SIZE);
+  const watching = useRef(null);
+
+  const ref = useCallback((el) => {
+    if (watching.current) {
+      watching.current.disconnect();
+      watching.current = null;
+    }
+    if (!el) return;
+    const measure = () => {
+      const width = el.getBoundingClientRect().width;
+      if (width > 0) setSize(Math.round(width));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    // Keeps up with the breakpoint being crossed, a phone being turned, and
+    // the sidebar opening — all of which change the box without remounting it.
+    watching.current = new ResizeObserver(measure);
+    watching.current.observe(el);
+  }, []);
+
+  return [ref, size];
+}
+
 export default function CategoryChart({ categories, currency, month }) {
+  const [box, size] = useBoxSize();
   const colors = categoricalColors();
   const named = categories.slice(0, MAX_SLICES);
   const rest = categories.slice(MAX_SLICES).reduce((sum, c) => sum + c.amount, 0);
@@ -44,7 +99,7 @@ export default function CategoryChart({ categories, currency, month }) {
         </p>
       ) : (
         <div className="donut-wrap">
-          <div className="donut">
+          <div className="donut" ref={box}>
             {/* Explicit 0 → 2π: bklit's default is startAngle=−π/2 with a
                 comment claiming "top", but d3-shape's arc convention treats
                 0 as 12 o'clock, so its default puts the first slice at 9
@@ -52,8 +107,9 @@ export default function CategoryChart({ categories, currency, month }) {
                 Starting at 12 is what every pie chart in the world does. */}
             <PieChart
               data={pieData}
-              size={148}
-              innerRadius={44}
+              size={size}
+              innerRadius={size * INNER}
+              hoverOffset={HOVER_OFFSET}
               startAngle={0}
               endAngle={2 * Math.PI}
             >
