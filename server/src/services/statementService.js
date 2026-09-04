@@ -20,14 +20,14 @@ const Anthropic = require('@anthropic-ai/sdk');
 const MODELS = {
   'claude-opus-5': {
     label: 'Opus 5',
-    note: 'The most careful reader, and the dearest.',
+    note: 'The most careful reader, and the dearest. Worth trying on a statement that came back wrong.',
     input: 5,
     output: 25,
     effort: true,
   },
   'claude-sonnet-5': {
     label: 'Sonnet 5',
-    note: 'Less than half the price, and quick.',
+    note: 'The usual choice. On a real statement it read exactly the figures Opus did, for about a quarter of the price.',
     input: 2,
     output: 10,
     effort: true,
@@ -41,7 +41,13 @@ const MODELS = {
   },
 };
 
-const DEFAULT_MODEL = 'claude-opus-5';
+// Sonnet, not Opus, and on evidence rather than on price alone: read against
+// the same August statement, at low effort, Sonnet produced figures identical
+// to Opus 5's — every row, every date, the same closing balance — at roughly a
+// quarter of the cost. Paying four times as much for the same answer is not
+// carefulness. Opus is still on the list, one click away, for the statement
+// that comes back looking wrong.
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // Anything above high is for problems with something to reason about, which
 // reading a printed list of transactions is not.
@@ -396,8 +402,151 @@ function priceOf({ model, usage }) {
   return dollars;
 }
 
+// --- the written summary --------------------------------------------------
+
+// The second thing a model is asked for, and a much smaller thing than the
+// first. Reading is transcription over a whole statement; this is a paragraph
+// over the figures that reading produced — a few hundred tokens in, a few
+// hundred out, which is why it costs a cent or two rather than a dollar.
+//
+// It is behind a button rather than automatic for exactly that reason: most
+// scans are opened to check one line, and charging for prose nobody asked to
+// read is how a feature that costs money loses its welcome.
+const SUMMARY_MAX_TOKENS = 700;
+
+// The model is handed figures, never rows, and never anything it could add up
+// differently from the app. Same division of labour as the reading: it is
+// allowed to be wrong about what a month *means*, which is visible and
+// arguable, and is given no opportunity to be wrong about what it *cost*.
+//
+// And the same seclusion: everything below comes out of the one statement in
+// front of it. No subscriptions, no categories the household uses, no history.
+const SUMMARY_SYSTEM = [
+  'You are given the figures already worked out from one bank statement, and you write the',
+  'short paragraph that explains them to the person who owns it. Three to five sentences.',
+  '',
+  'Rules that matter more than being helpful:',
+  '',
+  '- Every number you write must be one you were given, copied exactly. Do not add,',
+  '  subtract, average, convert or round anything. A figure that is not in the digest below',
+  '  does not belong in the paragraph.',
+  '- Say what the month actually looks like: where the money went, what is unusual in it,',
+  '  and what the findings mean in practice. Be specific — name the merchants and the',
+  '  categories you were given.',
+  '- No advice. Do not suggest budgeting, cutting back, cancelling anything or watching a',
+  '  category. You were asked what this statement says, not what to do about it.',
+  '- If the reading did not add up, that is the first sentence, and everything after it is',
+  '  described as a reading rather than as fact.',
+  '- Plain prose in the second person. No headings, no bullets, no markdown, no sign-off,',
+  '  and no closing sentence that summarises the paragraph you just wrote.',
+].join('\n');
+
+// What the model sees. Compact on purpose — this is the whole input, and every
+// line of it was computed in code from the rows.
+function digestFor({ analysis, currency }) {
+  const unit = currency ? `${currency} ` : '';
+  const amount = (n) => `${unit}${Number(n).toFixed(2)}`;
+  const { overview, categories = [], findings = {}, reconciliation = {} } = analysis;
+  const lines = [];
+
+  lines.push(`Currency: ${currency || 'unstated'}`);
+  if (overview.from) lines.push(`Period covered: ${overview.from} to ${overview.to}`);
+  lines.push(`Lines read: ${overview.lines}`);
+  lines.push(`Total spent: ${amount(overview.spent)}`);
+
+  const credits = Object.entries(overview.credits || {}).filter(([, v]) => v > 0);
+  if (credits.length) {
+    const words = { payments: 'paid off the card', refunds: 'refunded', cashback: 'cashback', income: 'came in' };
+    lines.push(`Money in: ${credits.map(([k, v]) => `${amount(v)} ${words[k] ?? k}`).join(', ')}`);
+  }
+
+  if (reconciliation.status === 'ok') {
+    lines.push(`The rows add up to the printed closing balance of ${amount(reconciliation.closing)}.`);
+  } else if (reconciliation.status === 'mismatch') {
+    lines.push(
+      `THE READING DOES NOT ADD UP: following the rows lands on ${amount(reconciliation.expected)} ` +
+        `where the statement closes at ${amount(reconciliation.closing)}, a gap of ` +
+        `${amount(Math.abs(reconciliation.delta))}. A line was probably missed or misread.`,
+    );
+  }
+
+  if (categories.length) {
+    lines.push('');
+    lines.push('Where it went, largest first:');
+    for (const c of categories) {
+      lines.push(`- ${c.category}: ${amount(c.total)} over ${c.count} lines, ${c.share}% of what went out`);
+    }
+  }
+
+  const say = {
+    duplicates: (d) => `- the same ${amount(d.amount)} at ${d.merchant} ${d.times} times on ${d.date}`,
+    repeats: (r) => `- ${r.merchant} charging ${amount(r.amount)} on a roughly monthly cycle, ${r.times} times, ${amount(r.total)} in total`,
+    outliers: (o) => `- ${o.merchant} at ${amount(o.amount)}, against a typical ${amount(o.typical)} in ${o.category}`,
+    frequent: (f) => `- ${f.merchant} ${f.times} times, ${amount(f.total)} in total`,
+  };
+  const found = Object.entries(say).flatMap(([key, write]) => (findings[key] ?? []).map(write));
+  if (found.length) {
+    lines.push('');
+    lines.push('What stood out:');
+    lines.push(...found);
+  }
+
+  return lines.join('\n');
+}
+
+// Written from the figures, not from the statement: the text of the statement
+// is not sent again, so this costs a fraction of what reading it did.
+async function summarise({ analysis, currency = null, model: asked, effort: askedEffort }) {
+  const anthropic = client();
+  const model = modelFor(asked);
+  const spec = MODELS[model];
+  const effort = EFFORTS.includes(askedEffort) ? askedEffort : DEFAULT_EFFORT;
+
+  let message;
+  try {
+    message = await anthropic.messages.create({
+      model,
+      max_tokens: SUMMARY_MAX_TOKENS,
+      system: [{ type: 'text', text: SUMMARY_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: digestFor({ analysis, currency }) }],
+      ...(spec.effort ? { output_config: { effort } } : {}),
+    });
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) {
+      throw new StatementScanError('That Anthropic API key was refused.', 'BAD_API_KEY', 503);
+    }
+    if (err instanceof Anthropic.RateLimitError) {
+      throw new StatementScanError('Too many requests just now. Try again shortly.', 'RATE_LIMITED', 429);
+    }
+    throw new StatementScanError(`Writing the summary failed: ${err.message}`, 'SUMMARY_FAILED');
+  }
+
+  if (message.stop_reason === 'refusal') {
+    throw new StatementScanError('That reading was declined as a statement.', 'DECLINED', 422);
+  }
+
+  const summary = message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n')
+    .trim();
+  if (!summary) throw new StatementScanError('Nothing came back to read.', 'EMPTY', 502);
+
+  return {
+    summary,
+    usage: {
+      input: message.usage?.input_tokens ?? 0,
+      output: message.usage?.output_tokens ?? 0,
+      cacheRead: message.usage?.cache_read_input_tokens ?? 0,
+      cacheWrite: message.usage?.cache_creation_input_tokens ?? 0,
+    },
+  };
+}
+
 module.exports = {
   scan,
+  summarise,
+  digestFor,
   choices,
   modelFor,
   priceOf,

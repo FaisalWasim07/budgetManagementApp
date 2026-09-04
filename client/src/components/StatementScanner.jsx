@@ -1,10 +1,17 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from './Modal';
-import { scanStatement, analyseStatement, getScanChoices } from '../api/statements';
+import {
+  scanStatement,
+  analyseStatement,
+  getScanChoices,
+  summariseStatement,
+} from '../api/statements';
 import { chunkStatement, inBatches, linesFor, AT_ONCE } from '../utils/statementChunks';
 import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 import { redact } from '../utils/statementRedact';
+import { rank } from '../utils/statementRanking';
+import { toCsv, csvName } from '../utils/statementCsv';
 
 // Reading a statement, and nothing more than reading it. Nothing here is saved:
 // no row, no file, no table. Close the dialog and the statement is gone, which
@@ -14,75 +21,181 @@ import { redact } from '../utils/statementRedact';
 // The file is opened in this browser rather than posted anywhere, so a
 // password-protected statement never has to hand over its password to be read.
 
-// Only what was found. A section with nothing in it is not shown at all —
-// a list of empty headings reads as the feature having failed.
+// Everything the arithmetic found, in one list, worst first — see
+// ../utils/statementRanking.js for what "worst" is measured in. The kind is a
+// label on the row rather than a heading over it, because the order that
+// matters is by consequence and not by category: a doubled seventeen-hundred
+// dirham charge belongs above two subscriptions of forty, whatever they are
+// each called.
+//
+// Each row says the same three things: what sort of finding it is, what the
+// statement actually shows, and the money at stake in it — the last named,
+// because "1,702.96" beside an unusually large charge could be the charge, the
+// typical, or the difference, and only one of those is why it is first.
+function sentenceFor(finding, currency) {
+  switch (finding.kind) {
+    case 'duplicates':
+      return (
+        <>
+          <b>{finding.merchant}</b> — <Money amount={finding.amount} currency={currency} />,{' '}
+          {finding.times} times on {finding.date}. Worth a look.
+        </>
+      );
+    case 'repeats':
+      return (
+        <>
+          <b>{finding.merchant}</b> — <Money amount={finding.amount} currency={currency} />,{' '}
+          {finding.times} times
+        </>
+      );
+    case 'outliers':
+      return (
+        <>
+          <b>{finding.merchant}</b> — <Money amount={finding.amount} currency={currency} /> against a
+          typical <Money amount={finding.typical} currency={currency} /> in {finding.category}
+        </>
+      );
+    default:
+      return (
+        <>
+          <b>{finding.merchant}</b> — {finding.times} times
+        </>
+      );
+  }
+}
+
+const STAKE_WORDS = {
+  duplicates: 'possibly charged twice',
+  repeats: 'over this statement',
+  outliers: 'above what is typical',
+  frequent: 'in total',
+};
+
 function Findings({ findings, currency }) {
-  if (!findings) return null;
-  const { duplicates = [], repeats = [], outliers = [], frequent = [] } = findings;
-
-  const sections = [
-    // Everything here is about this statement and only this statement. It used
-    // to compare against the household's subscriptions — which ones were
-    // already budgeted for, and which budgeted ones had not been charged — and
-    // that section listed things the statement had never mentioned, in a report
-    // about the statement.
-    repeats.length && {
-      key: 'repeats',
-      title: 'Charging on a regular cycle',
-      items: repeats.map((r) => (
-        <>
-          <b>{r.merchant}</b> — <Money amount={r.amount} currency={currency} />, {r.times} times
-        </>
-      )),
-    },
-    duplicates.length && {
-      key: 'dupes',
-      title: 'The same charge twice on one day',
-      // Flagged, not accused: a repeat on one day is often perfectly real.
-      items: duplicates.map((d) => (
-        <>
-          <b>{d.merchant}</b> — <Money amount={d.amount} currency={currency} />, {d.times} times on{' '}
-          {d.date}. Worth a look.
-        </>
-      )),
-    },
-    outliers.length && {
-      key: 'outliers',
-      title: 'Larger than usual for their category',
-      items: outliers.map((o) => (
-        <>
-          <b>{o.merchant}</b> — <Money amount={o.amount} currency={currency} /> against a typical{' '}
-          <Money amount={o.typical} currency={currency} /> in {o.category}
-        </>
-      )),
-    },
-    frequent.length && {
-      key: 'frequent',
-      title: 'Small, and often',
-      items: frequent.map((f) => (
-        <>
-          <b>{f.merchant}</b> — {f.times} times, <Money amount={f.total} currency={currency} /> in
-          total
-        </>
-      )),
-    },
-  ].filter(Boolean);
-
-  if (sections.length === 0) return null;
+  const ranked = useMemo(() => rank(findings), [findings]);
+  if (!ranked.length) return null;
 
   return (
-    <div className="scan-findings">
-      {sections.map((section) => (
-        <div key={section.key}>
-          <h3>{section.title}</h3>
-          <ul>
-            {section.items.map((item, i) => (
-              <li key={i}>{item}</li>
+    <section className="scan-findings">
+      <h3>What stands out</h3>
+      <ol>
+        {ranked.map((finding) => (
+          <li key={finding.id} className={`scan-finding ${finding.kind}`}>
+            <span className="scan-finding-kind">{finding.label}</span>
+            <span className="scan-finding-what">{sentenceFor(finding, currency)}</span>
+            <span className="scan-finding-stake">
+              <b>
+                <Money amount={finding.atStake} currency={currency} />
+              </b>
+              <small>{STAKE_WORDS[finding.kind]}</small>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+// The rows, sortable.
+//
+// "As printed" is the order the statement is in and the order it opens in:
+// a bank prints a month in the order it happened, and losing that by default
+// would be losing information the document carries. Every other order is one
+// click away and one click back — sorting is for answering a question ("what
+// was the largest thing this month"), not for living in.
+const SORTS = {
+  date: (a, b) => String(a.date).localeCompare(String(b.date)),
+  merchant: (a, b) => String(a.merchant).localeCompare(String(b.merchant)),
+  category: (a, b) => String(a.category).localeCompare(String(b.category)),
+  // Signed, so money coming in sorts below money going out rather than
+  // interleaving with it by size alone.
+  amount: (a, b) =>
+    (a.direction === 'in' ? a.amount : -a.amount) - (b.direction === 'in' ? b.amount : -b.amount),
+};
+
+const COLUMNS = [
+  ['date', 'Date'],
+  ['merchant', 'What'],
+  ['category', 'Category'],
+  ['amount', 'Amount'],
+];
+
+function RowsTable({ rows, currency }) {
+  const [sort, setSort] = useState(null);
+
+  const sorted = useMemo(() => {
+    if (!sort) return rows;
+    // Copied before sorting: `rows` is the reading itself, and the order it
+    // arrived in is the order the statement was printed in.
+    return [...rows].sort((a, b) => SORTS[sort.by](a, b) * sort.dir);
+  }, [rows, sort]);
+
+  const clickHeader = (by) =>
+    setSort((held) => (held?.by === by ? { by, dir: held.dir * -1 } : { by, dir: 1 }));
+
+  return (
+    <section className="scan-rows-section">
+      <div className="scan-rows-head">
+        <h3>Every line ({rows.length})</h3>
+        {sort && (
+          <button className="link" onClick={() => setSort(null)}>
+            Back to the order it was printed in
+          </button>
+        )}
+      </div>
+      <div className="tablewrap">
+        <table className="scan-rows">
+          <thead>
+            <tr>
+              {COLUMNS.map(([by, label]) => (
+                <th
+                  key={by}
+                  className={`${by === 'amount' ? 'num ' : ''}${sort?.by === by ? 'sorted' : ''}`}
+                  aria-sort={
+                    sort?.by === by ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'
+                  }
+                >
+                  <button className="scan-sort" onClick={() => clickHeader(by)}>
+                    {label}
+                    <span aria-hidden="true">
+                      {sort?.by === by ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}
+                    </span>
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((row, i) => (
+              <tr key={i} className={row.confidence === 'low' ? 'unsure' : undefined}>
+                <td className="when">
+                  {row.date}
+                  {/* The posting date, when the statement printed two columns
+                    and they differ. Shown small and quieter than the
+                    transaction date it sits under, because it is a bank fact
+                    rather than a spending fact — useful for lining a row up
+                    against a bank feed, but not what somebody asks "when did
+                    that coffee happen". */}
+                  {row.postDate && <small className="post-date">posts {row.postDate}</small>}
+                </td>
+                <td>
+                  <b>{row.merchant}</b>
+                  <small>{row.what}</small>
+                  {/* The line as the bank printed it, so the tidier version
+                    above can be checked rather than trusted. */}
+                  <small className="raw">{row.raw}</small>
+                </td>
+                <td>{row.category}</td>
+                <td className={`num ${row.direction === 'in' ? 'in' : ''}`}>
+                  {row.direction === 'in' ? '+' : ''}
+                  <Money amount={row.amount} currency={currency} />
+                </td>
+              </tr>
             ))}
-          </ul>
-        </div>
-      ))}
-    </div>
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -171,6 +284,12 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // How far through the slices it is. Shown rather than kept, because the wait
   // is long enough that a spinner alone reads as the app having died.
   const [progress, setProgress] = useState(null);
+  // The written paragraph, and only ever after it has been asked for. Held
+  // apart from the report because the report is free once the reading is paid
+  // for, and this is a second thing that costs money.
+  const [summary, setSummary] = useState(null);
+  const [writing, setWriting] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
   const passwordRef = useRef(null);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0] ?? null;
@@ -213,6 +332,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const modelLabel =
     choices?.models.find((m) => m.id === (report?.model ?? model))?.label ?? 'the model';
 
+  // The paragraph and the reading can be written by different models — the
+  // reply says which wrote this one, so the credit is not borrowed from above.
+  const summaryLabel =
+    choices?.models.find((m) => m.id === summary?.model)?.label ?? modelLabel;
+
   // Written down as it is picked, not when the scan starts: the choice is worth
   // keeping even if the file turns out to be the wrong one and the dialog is
   // closed again.
@@ -248,6 +372,8 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setResult(null);
     setReport(null);
     setSlices(null);
+    setSummary(null);
+    setSummaryError(null);
   }
 
   async function read(chosen, raw, tryPassword) {
@@ -420,9 +546,66 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setProgress(null);
   }
 
+  // Asked for, not automatic. It is a cent or two a press — small, but not
+  // nothing, and a scan opened to check one line should not be charged for
+  // prose nobody wanted. Always at low effort: this is writing over figures
+  // that are already worked out, not a problem to reason about, and thinking
+  // bills as writing.
+  async function writeSummary() {
+    if (!report) return;
+    setWriting(true);
+    setSummaryError(null);
+    try {
+      setSummary(
+        await summariseStatement(
+          report.rows,
+          report.statement,
+          account?.id ?? null,
+          report.model ?? model,
+          'low',
+        ),
+      );
+    } catch (err) {
+      setSummaryError(err.message || 'The summary could not be written.');
+    }
+    setWriting(false);
+  }
+
+  // The one thing a scan lets out of this browser, and it never goes near a
+  // server: the file is built here from the rows already on screen and handed
+  // to the browser's own download. The promise above the dialog still holds —
+  // nothing was uploaded and nothing was stored — but this is a copy that
+  // outlives the dialog, so it is a button somebody presses rather than
+  // something that happens.
+  function downloadCsv() {
+    if (!report) return;
+    const blob = new Blob([toCsv(report.rows, currency)], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = csvName(report.overview);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Released on the next turn rather than immediately: revoking it in the
+    // same tick cancels the download in some browsers before it has started.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   return (
     <DisplayContext.Provider value={shown}>
-      <Modal title="Scan a statement" onClose={onClose} className="scanner">
+      <Modal
+        title="Scan a statement"
+        onClose={onClose}
+        /* Once there is something to read, the dialog stops being a dialog.
+           The report is a page of its own — findings, categories, a table of
+           every line — and reading it through a 760px slot with the setup
+           controls still stacked above was the single thing most wrong with
+           it. */
+        className={`scanner${report ? ' room' : ''}`}
+      >
         <div className="stack-sm">
           <span className="muted" style={{ fontSize: '0.85rem' }}>
             Read here in your browser. The file is not uploaded and nothing is saved — close this
@@ -430,10 +613,15 @@ export default function StatementScanner({ onClose, accounts = [] }) {
           </span>
         </div>
 
-        <label className="field">
-          Statement
-          <input type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={pick} />
-        </label>
+        {/* Gone once there is a report: in the room the picker is the one
+          control with nothing left to do, and "scan another" says the same
+          thing without a file box sitting above the findings. */}
+        {!report && (
+          <label className="field">
+            Statement
+            <input type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={pick} />
+          </label>
+        )}
 
         {locked && (
           <form className="stack-sm" onSubmit={unlock}>
@@ -685,6 +873,10 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
                 {report.categories?.length > 0 && (
                   <div className="scan-cats">
+                    {/* Headed, like everything else in the room. In the dialog
+                      the bars followed the total closely enough to read as
+                      part of it; with a page around them they are a section. */}
+                    <h3>Where it went</h3>
                     {report.categories.map((cat) => (
                       <div className="scan-cat" key={cat.category}>
                         <div className="row-tight" style={{ justifyContent: 'space-between' }}>
@@ -707,52 +899,49 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
                 <Findings findings={report.findings} currency={currency} />
 
-                <details className="scan-rows-toggle">
-                  <summary>Every line ({report.rows.length})</summary>
-                  <div className="tablewrap">
-                    <table className="scan-rows">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>What</th>
-                          <th>Category</th>
-                          <th className="num">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.rows.map((row, i) => (
-                          <tr key={i} className={row.confidence === 'low' ? 'unsure' : undefined}>
-                            <td className="when">
-                              {row.date}
-                              {/* The posting date, when the statement printed
-                                two columns and they differ. Shown small and
-                                quieter than the transaction date it sits
-                                under, because it is a bank fact rather than a
-                                spending fact — useful for lining a row up
-                                against a bank feed, but not what somebody
-                                asks "when did that coffee happen". */}
-                              {row.postDate && (
-                                <small className="post-date">posts {row.postDate}</small>
-                              )}
-                            </td>
-                            <td>
-                              <b>{row.merchant}</b>
-                              <small>{row.what}</small>
-                              {/* The line as the bank printed it, so the tidier
-                                version above can be checked rather than trusted. */}
-                              <small className="raw">{row.raw}</small>
-                            </td>
-                            <td>{row.category}</td>
-                            <td className={`num ${row.direction === 'in' ? 'in' : ''}`}>
-                              {row.direction === 'in' ? '+' : ''}
-                              <Money amount={row.amount} currency={currency} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </details>
+                {/* Why it looks like this, in prose — the one part of the
+                  report a person reads rather than checks, and the second time
+                  a scan spends money. So it is a button: most scans are opened
+                  to look at one line, and charging a cent for a paragraph
+                  nobody asked to read is how a feature that costs money stops
+                  being welcome. */}
+                <section className="scan-why">
+                  <h3>Why it looks like this</h3>
+                  {summary ? (
+                    <>
+                      <p>{summary.summary}</p>
+                      <span className="muted">
+                        Written by {summaryLabel}
+                        {costPhrase(summary.cost)}. Still nothing saved.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <button className="secondary" onClick={writeSummary} disabled={writing}>
+                        {writing ? 'Writing…' : 'Write it out'}
+                      </button>
+                      <span className="muted">
+                        A short paragraph over the figures above — what the month looks like and
+                        what the findings mean. A cent or two, and only when you ask.
+                      </span>
+                    </>
+                  )}
+                  {summaryError && <div className="error-text">{summaryError}</div>}
+                </section>
+
+                <RowsTable rows={report.rows} currency={currency} />
+
+                {/* The first thing a scan lets out of the browser, which is
+                  why it is worded as what it is rather than as an icon. */}
+                <div className="scan-export">
+                  <button className="secondary" onClick={downloadCsv}>
+                    Download these lines as a CSV
+                  </button>
+                  <span className="muted">
+                    Built here, from what is on screen. It is not uploaded anywhere — but it is a
+                    copy that outlives this dialog, which nothing else here is.
+                  </span>
+                </div>
 
                 <span className="muted scan-cost" style={{ fontSize: '0.8rem' }}>
                   Nothing has been saved. This is gone when you close it.
@@ -779,10 +968,33 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                         : '.')
                     : ''}
                 </span>
+
+                <button className="link scan-again" onClick={reset}>
+                  Scan another statement
+                </button>
               </div>
             )}
 
-            {result.hasText && (
+            {/* Before there is a report this is the screen: what will be sent,
+              and the proof of it. Afterwards it is the appendix — still here,
+              still checkable, but folded away so the report is the page. */}
+            {report && result.hasText && (
+              <details className="scan-source">
+                <summary>What was sent to be read</summary>
+                <div className="scan-source-body">
+                  <div className="scan-sanitise">
+                    <span className="muted">
+                      {sanitise
+                        ? `${hiddenPhrase(outgoing)} This is what left this browser — the file and any password did not.`
+                        : 'This went exactly as it is printed, account numbers and all.'}
+                    </span>
+                  </div>
+                  <pre className="scan-preview">{outgoing.text}</pre>
+                </div>
+              </details>
+            )}
+
+            {!report && result.hasText && (
               <div className="scan-sanitise">
                 <label>
                   <input
@@ -804,7 +1016,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
-            {result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
+            {!report && result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
 
             {result.pages
               ?.filter((page) => page.image)

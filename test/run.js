@@ -27,6 +27,8 @@ const SUITES = [
   'api/scanning.test.js',
   'api/redact.test.js',
   'api/findings.test.js',
+  'api/ranking.test.js',
+  'api/csv.test.js',
   'api/notify.test.js',
   'api/whois.test.js',
   'api/identity.test.js',

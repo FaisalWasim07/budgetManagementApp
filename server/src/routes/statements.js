@@ -108,32 +108,105 @@ router.post(
   })
 );
 
+// Only the fields the arithmetic uses, and coerced here rather than trusted:
+// these arrive from a browser, which is to say from anywhere. Shared by the two
+// routes below so the summary is written from exactly the figures the report
+// shows, worked out the same way.
+function cleanRows(rows) {
+  return rows
+    .map((row) => ({
+      date: String(row.date ?? '').slice(0, 10),
+      merchant: String(row.merchant ?? ''),
+      amount: Math.abs(Number(row.amount)),
+      direction: row.direction === 'in' ? 'in' : 'out',
+      kind: String(row.kind ?? 'other'),
+      category: String(row.category ?? '') || 'Uncategorised',
+    }))
+    .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
+}
+
+// Rows arrive from the browser, so they are checked before either route works
+// from them. Returns the cleaned rows, or answers and returns null.
+function rowsFrom(req, res) {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+  if (!rows) {
+    res.status(400).json({ error: 'There were no rows to work through.' });
+    return null;
+  }
+  if (rows.length > MAX_ROWS) {
+    res.status(413).json({ error: 'That is more lines than this can work through at once.' });
+    return null;
+  }
+  return cleanRows(rows);
+}
+
 // The arithmetic, over every slice at once. No model, so it answers in
 // milliseconds — and it has to be separate from reading, because findings over
 // a third of a statement are not findings, they are a third of the truth.
 router.post(
   '/analyse',
   h(async (req, res) => {
-    const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
-    if (!rows) return res.status(400).json({ error: 'There were no rows to work through.' });
-    if (rows.length > MAX_ROWS) {
-      return res.status(413).json({ error: 'That is more lines than this can work through at once.' });
+    const rows = rowsFrom(req, res);
+    if (!rows) return undefined;
+    return res.json(statementFindings.analyse(rows, req.body.statement ?? null));
+  })
+);
+
+// The written half of the report: what this month looks like, in prose, over
+// the figures the arithmetic above already produced.
+//
+// Asked for, never automatic. It is the second time a scan spends money, and
+// the first time it does so for something to read rather than something to
+// check — so it happens when a button is pressed and the price of pressing it
+// comes back in the answer.
+//
+// The rows are sent again rather than the report: the figures the model is
+// given are worked out here, from the rows, by the same code that produced what
+// is on screen. A browser cannot hand this route a total and have it described.
+router.post(
+  '/summary',
+  h(async (req, res) => {
+    const rows = rowsFrom(req, res);
+    if (!rows) return undefined;
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'There were no rows to work through.' });
     }
 
-    // Only the fields the arithmetic uses, and coerced here rather than
-    // trusted: these arrive from a browser, which is to say from anywhere.
-    const clean = rows
-      .map((row) => ({
-        date: String(row.date ?? '').slice(0, 10),
-        merchant: String(row.merchant ?? ''),
-        amount: Math.abs(Number(row.amount)),
-        direction: row.direction === 'in' ? 'in' : 'out',
-        kind: String(row.kind ?? 'other'),
-        category: String(row.category ?? '') || 'Uncategorised',
-      }))
-      .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
+    // The account is read for its currency and nothing else, exactly as the
+    // scan route reads it. A statement is described in the money it is printed
+    // in; nothing else about the household goes into this.
+    let currency = null;
+    if (req.body.account_id) {
+      const account = await db.get(
+        'SELECT currency FROM accounts WHERE id = ? AND household_id = ?',
+        [req.body.account_id, req.household.id]
+      );
+      currency = account?.currency ?? null;
+    }
 
-    res.json(statementFindings.analyse(clean, req.body.statement ?? null));
+    const analysis = statementFindings.analyse(rows, req.body.statement ?? null);
+
+    try {
+      const model = statementService.modelFor(req.body.model);
+      const { summary, usage } = await statementService.summarise({
+        analysis,
+        currency,
+        model,
+        effort: req.body.effort,
+      });
+      return res.json({
+        summary,
+        usage,
+        model,
+        cost: statementService.priceOf({ model, usage }),
+      });
+    } catch (err) {
+      if (err instanceof statementService.StatementScanError) {
+        console.error('Statement summary failed:', err.code, err.message);
+        return res.status(err.status).json({ error: err.message, code: err.code });
+      }
+      throw err;
+    }
   })
 );
 

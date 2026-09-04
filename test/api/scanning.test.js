@@ -79,6 +79,23 @@ messages.stream = function stub(body) {
   return { finalMessage: async () => answer };
 };
 
+// The written summary does not stream — it is a paragraph, not a hundred rows —
+// so it goes through `create` and needs its own stub.
+const prose = {
+  stop_reason: 'end_turn',
+  content: [{ type: 'text', text: 'August was mostly groceries and one large government charge.' }],
+  usage: {
+    input_tokens: 600,
+    output_tokens: 250,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+  },
+};
+messages.create = async function stubCreate(body) {
+  sent.push(body);
+  return prose;
+};
+
 const lastSent = () => sent[sent.length - 1];
 
 (async () => {
@@ -102,7 +119,7 @@ const lastSent = () => sent[sent.length - 1];
   await service.scan({ text: 'a line', model: 'claude-opus-9-ultra' });
   check(
     'a model nobody offered falls back rather than being forwarded',
-    lastSent().model === 'claude-opus-5',
+    lastSent().model === service.DEFAULT_MODEL,
     lastSent().model,
   );
   check(
@@ -225,7 +242,9 @@ const lastSent = () => sent[sent.length - 1];
   );
   check(
     'an unknown model is priced as the default rather than as free',
-    service.priceOf({ model: 'nonsense', usage }) === opus,
+    service.priceOf({ model: 'nonsense', usage }) ===
+      service.priceOf({ model: service.DEFAULT_MODEL, usage }),
+    String(service.priceOf({ model: 'nonsense', usage })),
   );
 
   // The three input buckets are separate: `input` is what was sent uncached,
@@ -293,6 +312,86 @@ const lastSent = () => sent[sent.length - 1];
     'and the default effort is one that is offered',
     choices.efforts.includes(choices.defaultEffort),
     choices.defaultEffort,
+  );
+
+  // --- what a statement is read with unless somebody says otherwise -------
+  // Sonnet rather than Opus, and on evidence: read against the same August
+  // statement at low effort it produced identical figures — every row, every
+  // date, the same closing balance — for about a quarter of the price. The
+  // constant is checked here because it is a decision, not a detail.
+  check(
+    'a statement is read with Sonnet by default',
+    service.DEFAULT_MODEL === 'claude-sonnet-5',
+    service.DEFAULT_MODEL,
+  );
+  check(
+    'and read at low effort, because transcription has nothing to reason about',
+    service.DEFAULT_EFFORT === 'low',
+    service.DEFAULT_EFFORT,
+  );
+
+  // --- the written summary -------------------------------------------------
+  // The model is handed figures, never rows, and never anything it could add up
+  // differently from the app — the same division of labour as the reading. What
+  // is checked here is what actually goes into that request.
+  const findings = require('../../server/src/services/statementFindings');
+  const rows = [
+    { date: '2026-08-02', merchant: 'Carrefour', amount: 300, direction: 'out', kind: 'purchase', category: 'Groceries' },
+    { date: '2026-08-11', merchant: 'Abu Dhabi Service', amount: 1700, direction: 'out', kind: 'purchase', category: 'Government' },
+    { date: '2026-08-11', merchant: 'Abu Dhabi Service', amount: 1700, direction: 'out', kind: 'purchase', category: 'Government' },
+  ];
+  const analysis = findings.analyse(rows, {
+    openingBalance: 0,
+    closingBalance: 3700,
+    periodStart: '2026-08-01',
+    periodEnd: '2026-08-31',
+  });
+
+  const digest = service.digestFor({ analysis, currency: 'AED' });
+  check('the digest is written in the account currency', digest.includes('AED 300.00'), digest.slice(0, 120));
+  check(
+    'and carries the totals the app worked out, not the rows it worked them out from',
+    digest.includes('Total spent: AED 3700.00') && !digest.includes('purchase'),
+    digest.slice(0, 200),
+  );
+  check('with the categories, largest first',
+    digest.indexOf('Government') < digest.indexOf('Groceries'), digest);
+  check('and the findings it will be asked to explain',
+    digest.includes('Abu Dhabi Service') && digest.includes('2 times'), digest);
+  // The seclusion the whole scanner is built on. Nothing from the household —
+  // no subscriptions, no ledger categories, no history — has any way in here,
+  // and the digest is the last place to check that before it leaves.
+  check(
+    'and nothing at all about the household that owns the statement',
+    !/subscription|household|budget/i.test(digest),
+    digest,
+  );
+
+  const mismatched = service.digestFor({
+    analysis: findings.analyse(rows, { openingBalance: 0, closingBalance: 9999, periodStart: null, periodEnd: null }),
+    currency: 'AED',
+  });
+  check(
+    'a reading that does not add up says so in the digest, not only on screen',
+    mismatched.includes('DOES NOT ADD UP'),
+    mismatched,
+  );
+
+  const paragraph = await service.summarise({ analysis, currency: 'AED', model: 'claude-sonnet-5', effort: 'low' });
+  check('the summary comes back as prose', paragraph.summary.startsWith('August was'), paragraph.summary);
+  check('the digest is the whole of what is sent',
+    lastSent().messages.length === 1 && lastSent().messages[0].content === digest,
+    JSON.stringify(lastSent().messages).slice(0, 120));
+  check('written at the effort it was asked for', lastSent().output_config.effort === 'low',
+    JSON.stringify(lastSent().output_config));
+  check('and capped well below what a paragraph could ever need',
+    lastSent().max_tokens <= 1000, String(lastSent().max_tokens));
+  // A cent or two was the promise made on the button.
+  const summaryCost = service.priceOf({ model: 'claude-sonnet-5', usage: paragraph.usage });
+  check(
+    'a summary costs a cent or two, which is what the button says it does',
+    summaryCost > 0 && summaryCost < 0.05,
+    `$${summaryCost.toFixed(4)}`,
   );
 
   const { failed } = report('Statement scanning: model, effort and cost');

@@ -25,3 +25,16 @@ export const scanStatement = (text, accountId, model, effort) =>
 // third of one are a third of the truth.
 export const analyseStatement = (rows, statement) =>
   post('/statements/analyse', { rows, statement: statement ?? null });
+
+// The written half of the report, and the second time a scan spends money — so
+// it goes out when the button is pressed and not before. The rows go rather
+// than the report: the figures the paragraph is written from are worked out on
+// the server, from these, by the code that produced what is already on screen.
+export const summariseStatement = (rows, statement, accountId, model, effort) =>
+  post('/statements/summary', {
+    rows,
+    statement: statement ?? null,
+    account_id: accountId ?? null,
+    model: model ?? null,
+    effort: effort ?? null,
+  });

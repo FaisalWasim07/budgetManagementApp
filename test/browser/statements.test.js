@@ -539,28 +539,50 @@ const check = (name, ok, detail = '') => {
     (await page.locator('.scan-cat').first().textContent()).includes('79.4%'),
   );
 
-  const findingHeads = await page.locator('.scan-findings h3').allTextContents();
+  // The findings used to be four headed sections in the order the code happened
+  // to compute them. They are one ranked list now: the kind is a label on the
+  // row, and the order is what is at stake in each — so a duplicated 1,702.96
+  // charge is read before a 56 subscription, whatever they are each called.
+  const findingRows = await page.locator('.scan-finding').count();
+  check('every finding is shown when every kind is found', findingRows === 4, String(findingRows));
+  const findingKinds = await page.locator('.scan-finding-kind').allTextContents();
   check(
-    'every kind of finding is shown when every kind is found',
-    findingHeads.length === 4,
-    JSON.stringify(findingHeads),
+    'each says what sort of finding it is',
+    findingKinds.length === 4 && findingKinds.every((k) => k.trim().length > 0),
+    JSON.stringify(findingKinds),
   );
   check(
-    'a charge on a cycle is reported from the statement itself',
-    findingHeads.some((h) => h.includes('regular cycle')),
-    JSON.stringify(findingHeads),
+    'a charge on a cycle is still reported, from the statement itself',
+    findingKinds.some((k) => k.includes('cycle')),
+    JSON.stringify(findingKinds),
   );
   // The scanner used to compare against the household's subscriptions and list
   // what had *not* been charged — things the statement never mentioned, in a
   // report about the statement.
   check(
     'and nothing is reported that the statement does not contain',
-    !findingHeads.some((h) => h.includes('Budgeted for')),
-    JSON.stringify(findingHeads),
+    !(await page.locator('.scan-findings').textContent()).includes('Budgeted for'),
   );
   check(
     'a duplicate is flagged rather than asserted',
     (await page.locator('.scan-findings').textContent()).includes('Worth a look'),
+  );
+  // In the stub, the largest thing at stake is the 1,702.96 government charge
+  // sitting sixteen times above what is typical for its category. Ordering by
+  // kind put a cycle of 39 above it. Ordering by consequence does not, which is
+  // the whole point of the change.
+  const firstFinding = await page.locator('.scan-finding').first().textContent();
+  check(
+    'and the one with the most money behind it is read first',
+    firstFinding.includes('1,702.96'),
+    firstFinding,
+  );
+  // The figure that decided the order is named, because an amount beside an
+  // unusually large charge could be the charge, the typical or the difference.
+  check(
+    'with the figure that put it there said in words',
+    (await page.locator('.scan-finding-stake small').first().textContent()).length > 0,
+    await page.locator('.scan-finding-stake').first().textContent(),
   );
 
   // The one part of this app that spends money when a button is pressed.
@@ -589,11 +611,18 @@ const check = (name, ok, detail = '') => {
   );
   check('and it still says nothing was saved', cost.includes('Nothing has been saved'), cost);
 
+  // The rows used to be folded away, because the report was a 760px dialog and
+  // a table of every line filled it. The report is a room now, so they are the
+  // table they always wanted to be — open, and sortable.
   check(
-    'the rows are behind a fold rather than filling the dialog',
-    (await page.locator('.scan-rows-toggle summary').textContent()).includes('4'),
+    'the report opens as a room rather than a dialog',
+    (await page.locator('.modal.scanner.room').count()) === 1,
   );
-  await page.click('.scan-rows-toggle summary');
+  check(
+    'every line is on it, without a fold to open first',
+    (await page.locator('.scan-rows tbody tr').count()) === 4,
+    String(await page.locator('.scan-rows tbody tr').count()),
+  );
   check(
     'and open to the line as the bank printed it',
     (await page.locator('.scan-rows .raw').first().textContent()).includes('TAP*DUB4471'),
@@ -618,6 +647,98 @@ const check = (name, ok, detail = '') => {
     'and a row where the two matched shows only one',
     dateCells.filter((t) => t.includes('posts ')).length === 1,
     JSON.stringify(dateCells),
+  );
+
+  // --- sorting ------------------------------------------------------------
+  // A bank prints a month in the order it happened, and that order carries
+  // information the table must not lose by default. So it opens as printed,
+  // and every other order is one click away and one click back.
+  const rawOrder = async () => (await page.locator('.scan-rows .raw').allTextContents()).join(' | ');
+  const printed = await rawOrder();
+  check('the table opens in the order the statement was printed in',
+    printed.startsWith('TAP*DUB4471'), printed);
+
+  await page.click('.scan-rows th:has-text("Amount") button');
+  const bySize = await rawOrder();
+  check(
+    'sorting by amount puts the largest thing that left the account first',
+    bySize.startsWith('ABU DHABI SERVICE'),
+    bySize,
+  );
+  await page.click('.scan-rows th:has-text("Amount") button');
+  const flipped = await rawOrder();
+  check(
+    'and clicking the same column again turns it round',
+    flipped.startsWith('TRANSFER PAYMENT RECEIVED'),
+    flipped,
+  );
+  check(
+    'the sorted column says which way it is sorted, for a screen reader too',
+    (await page.locator('.scan-rows th[aria-sort="descending"]').count()) === 1,
+  );
+  await page.click('.scan-rows-head button:has-text("printed")');
+  check('and the order the bank printed is one click back', (await rawOrder()) === printed, await rawOrder());
+
+  // --- the file -----------------------------------------------------------
+  // The first thing a scan lets out of the browser. It is built here, from what
+  // is on screen, and never goes near a server.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('button:has-text("Download these lines as a CSV")'),
+  ]);
+  check(
+    'the file is named after the period it covers',
+    download.suggestedFilename() === 'statement-2026-08-01-to-2026-08-11.csv',
+    download.suggestedFilename(),
+  );
+  const csv = require('fs').readFileSync(await download.path(), 'utf8');
+  check('with a heading row and every line under it',
+    csv.trim().split('\r\n').length === 5, String(csv.trim().split('\r\n').length));
+  check('the line as the bank printed it goes into the file too',
+    csv.includes('ABU DHABI SERVICE'), csv.split('\r\n')[3]);
+  check('money leaving the account is negative in it',
+    csv.includes(',-1702.96,'), csv.split('\r\n')[3]);
+  check('and money arriving is not', csv.includes(',10117.51,'), csv.split('\r\n')[4]);
+
+  // --- the paragraph, which costs money and so is asked for ---------------
+  let summaryAsked = 0;
+  await page.route('**/api/statements/summary', (r) => {
+    summaryAsked += 1;
+    return r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        summary: 'Almost four fifths of what went out was one government charge.',
+        model: 'claude-sonnet-5',
+        usage: { input: 600, output: 250, cacheRead: 0, cacheWrite: 0 },
+        cost: 0.0037,
+      }),
+    });
+  });
+  check('the summary is not written unless it is asked for', summaryAsked === 0, String(summaryAsked));
+  check(
+    'and the offer says what pressing it costs',
+    (await page.locator('.scan-why').textContent()).includes('cent'),
+    await page.locator('.scan-why').textContent(),
+  );
+  await page.click('.scan-why button:has-text("Write it out")');
+  await page.waitForSelector('.scan-why p', { timeout: 15000 });
+  check('pressing it writes one', summaryAsked === 1, String(summaryAsked));
+  check(
+    'and the paragraph is on the report',
+    (await page.locator('.scan-why p').textContent()).includes('government charge'),
+    await page.locator('.scan-why p').textContent(),
+  );
+  check(
+    'with what it cost, and the promise that nothing was kept',
+    (await page.locator('.scan-why .muted').textContent()).includes('nothing saved'),
+    await page.locator('.scan-why .muted').textContent(),
+  );
+
+  // Still checkable after the answer arrives — folded away, not thrown away.
+  check(
+    'what was sent is still on the report, behind a fold',
+    (await page.locator('.scan-source summary').count()) === 1,
   );
 
   // --- a reading that does not add up --------------------------------------
@@ -737,7 +858,6 @@ const check = (name, ok, detail = '') => {
     Math.max(...seen) <= 60,
     `largest slice: ${Math.max(...seen)} lines`,
   );
-  await page.click('.scan-rows-toggle summary');
   const firstRow = await page.locator('.scan-rows .raw').first().textContent();
   const lastRow = await page.locator('.scan-rows .raw').last().textContent();
   check(
@@ -832,7 +952,7 @@ const check = (name, ok, detail = '') => {
 
   check(
     'one slice dying no longer throws away the whole reading',
-    (await page.locator('.scan-rows-toggle summary').count()) === 1,
+    (await page.locator('.scan-rows tbody tr').count()) > 0,
     await page
       .locator('.modal.scanner .error-text')
       .textContent()
@@ -861,7 +981,6 @@ const check = (name, ok, detail = '') => {
     JSON.stringify(banners.map((b) => b.slice(0, 40))),
   );
 
-  await page.click('.scan-rows-toggle summary');
   const kept = await page.locator('.scan-rows tbody tr').count();
   check(
     'every line that did come back is kept',
@@ -924,9 +1043,6 @@ const check = (name, ok, detail = '') => {
     attempts - before === 1,
     `${attempts - before} requests`,
   );
-  // Opened rather than clicked: the fold kept its state across the re-render,
-  // so a click here would close it again.
-  await page.evaluate(() => document.querySelector('.scan-rows-toggle')?.setAttribute('open', ''));
   const whole = await page.locator('.scan-rows tbody tr').count();
   check('which completes the reading', whole === 90, String(whole));
   check(

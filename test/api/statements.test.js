@@ -110,6 +110,33 @@ const u = unique();
   const noRows = await me.post('/api/statements/analyse', {});
   check('nothing to work through is refused', noRows.status === 400, String(noRows.status));
 
+  // --- the written half, which is asked for rather than automatic ----------
+  // The paragraph is the second time a scan spends money, so it is its own
+  // route behind its own button. What is checked here is everything around the
+  // model: that it refuses the same nonsense the arithmetic does, and that it
+  // is honest about a missing key rather than failing as something else.
+  const noSummaryRows = await me.post('/api/statements/summary', {});
+  check('a summary of nothing is refused', noSummaryRows.status === 400, String(noSummaryRows.status));
+
+  const emptySummary = await me.post('/api/statements/summary', { rows: [] });
+  check(
+    'and so is a summary of no rows at all',
+    emptySummary.status === 400,
+    String(emptySummary.status),
+  );
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const noKey = await me.post('/api/statements/summary', {
+      rows: [
+        { date: '2026-08-03', merchant: 'Tap Coffee', amount: 28, direction: 'out',
+          kind: 'purchase', category: 'Eating out' },
+      ],
+    });
+    check('with no key set, the summary says exactly that too',
+      noKey.status === 503 && noKey.data.code === 'NO_API_KEY',
+      `${noKey.status} ${JSON.stringify(noKey.data)}`);
+  }
+
   // Amounts arrive from a browser, which is to say from anywhere.
   const nonsense = await me.post('/api/statements/analyse', {
     rows: [{ date: 'x', merchant: 'y', amount: 'not a number', direction: 'sideways' }],
