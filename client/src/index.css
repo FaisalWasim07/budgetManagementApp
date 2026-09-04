@@ -3086,7 +3086,8 @@ th.num {
   color: var(--ink-3);
   margin: 2px 0 14px;
 }
-/* Recharts measures its own container; without this it can only ever grow. */
+/* The names under a chart, wrapping rather than scrolling: at four or five
+   categories this is two lines on a phone and one on a laptop. */
 .chart-legend {
   display: flex;
   gap: 15px;
@@ -3124,9 +3125,6 @@ th.num {
   display: block;
   width: 100%;
   height: auto;
-}
-.donut circle {
-  transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
 .donut-centre {
   position: absolute;

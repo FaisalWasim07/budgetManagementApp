@@ -32,6 +32,23 @@ which Bayt has no business adopting when it already has `.card` and can draw a
 badge in six lines of its own CSS. `components/charts/StatCard.jsx` is where
 that adaptation lives.
 
+Only the files Bayt actually reaches are kept. The first copy took everything
+`registryDependencies` resolved to, which was thirteen files more than the
+charts here import: the three `*-chart-loading` shells, `bar-squares` and the
+`pattern-preset`/`visx-pattern` pair beneath it, `bar-y-axis`,
+`line-series-terminal-marker`, `projection-line` with its end marker, and
+`pie-center` with its shell and `chart-center-typography`. They were deleted
+rather than kept as ballast — nothing imported them, they shipped in no bundle,
+and a directory of ninety files where seventy-nine are live invites the reader
+to work out which is which. `@visx/gradient` and `@visx/pattern` went from
+`client/package.json` with them: those two were only ever reached through the
+deleted files.
+
+Getting any of them back is the same operation as any other update — check out
+`c57f66b` and copy the file across, adding its npm dependency if it has one.
+`node` over the barrels will tell you what is reachable; anything that is not
+should not be here.
+
 Update by re-copying files from a fresh checkout of the upstream repo, the same
 way they got here — never hand-edit generated-looking internals; if a real
 customization is needed, do it the way `chart-formatters.ts` was: once, with a
