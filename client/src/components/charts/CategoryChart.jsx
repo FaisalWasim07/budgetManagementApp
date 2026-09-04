@@ -72,6 +72,14 @@ function useBoxSize() {
 
 export default function CategoryChart({ categories, currency, month }) {
   const [box, size] = useBoxSize();
+  // Which slice the cursor is on, held here rather than inside the chart.
+  // bklit's PieChart keeps this itself and offers it as a controlled pair, and
+  // the pair is what the centre needs: hovering a slice should answer "how much
+  // was that one" without moving the eye off the ring.
+  //
+  // It doubles as the link between the ring and its legend — hovering either
+  // lights the other, so a thin slice can still be found by its name.
+  const [hovered, setHovered] = useState(null);
   const colors = categoricalColors();
   const named = categories.slice(0, MAX_SLICES);
   const rest = categories.slice(MAX_SLICES).reduce((sum, c) => sum + c.amount, 0);
@@ -110,6 +118,8 @@ export default function CategoryChart({ categories, currency, month }) {
               size={size}
               innerRadius={size * INNER}
               hoverOffset={HOVER_OFFSET}
+              hoveredIndex={hovered}
+              onHoverChange={setHovered}
               startAngle={0}
               endAngle={2 * Math.PI}
             >
@@ -125,15 +135,27 @@ export default function CategoryChart({ categories, currency, month }) {
                 span is exactly what sat over the hand-drawn donut before;
                 <Money> already knows how to become dots when the eye is
                 clicked, which is the property that matters here. */}
+            {/* What the ring is being asked about. Resting, that is the month;
+                hovering, it is the slice under the cursor — which is the whole
+                point of a donut having a hole in it. */}
             <span className="donut-centre">
-              <small>went out</small>
-              <Money amount={total} currency={currency} compact />
+              <small>{hovered == null ? 'went out' : data[hovered]?.category}</small>
+              <Money
+                amount={hovered == null ? total : data[hovered]?.amount}
+                currency={currency}
+                compact
+              />
             </span>
           </div>
 
           <ul className="donut-legend">
-            {data.map((slice) => (
-              <li key={slice.category}>
+            {data.map((slice, i) => (
+              <li
+                key={slice.category}
+                className={hovered === i ? 'on' : hovered == null ? '' : 'off'}
+                onMouseEnter={() => setHovered(i)}
+                onMouseLeave={() => setHovered(null)}
+              >
                 <i style={{ background: slice.color }} />
                 <span className="n">{slice.category}</span>
                 <span className="p">

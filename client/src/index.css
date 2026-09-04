@@ -3160,6 +3160,20 @@ th.num {
   gap: 9px;
   padding: 5px 0;
   font-size: 0.82rem;
+  cursor: default;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+/* The ring and its names are one control. Hovering either lights the other,
+   which is how a slice too thin to aim at is still reachable — by its name.
+   The unhovered rows dim rather than the hovered one brightening: a legend
+   where one row is louder reads as a warning, and this is not one. */
+.donut-legend li.on {
+  color: var(--ink);
+}
+.donut-legend li.off {
+  opacity: 0.45;
 }
 .donut-legend i {
   width: 9px;
