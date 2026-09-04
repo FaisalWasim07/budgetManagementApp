@@ -328,6 +328,7 @@ async function useRecoveryCode(userId, code) {
 module.exports = {
   rpID,
   rpOrigin,
+  toTransports,
   listCredentials,
   countCredentials,
   hasPasskeys,

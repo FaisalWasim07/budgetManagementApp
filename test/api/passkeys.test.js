@@ -76,6 +76,18 @@ const RP_ID = process.env.RP_ID || 'localhost';
     JSON.stringify(excluded),
   );
 
+  // The list says where each passkey can be reached from. The label cannot: it
+  // is guessed from the user agent that enrolled it, so one saved onto a phone
+  // from a Windows laptop is called "Windows PC" and looks identical on screen
+  // to one in that laptop's hardware — right up until signing in with the
+  // laptop fails for a passkey that is sitting in the list looking correct.
+  const shown = await me.get('/api/auth/passkeys');
+  check(
+    'the list says how each passkey can be reached, not just what it is called',
+    Array.isArray(shown.data.passkeys[0].transports),
+    JSON.stringify(shown.data.passkeys[0]),
+  );
+
   // --- signing in now takes two steps -------------------------------------
   const second = client();
   const step1 = await second.post('/api/auth/login', { username, password });

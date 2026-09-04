@@ -381,9 +381,19 @@ router.get(
   h(async (req, res) => {
     const credentials = await webauthnService.listCredentials(req.user.id);
     res.json({
+      // `transports` goes with them. It is what the authenticator said about
+      // how it can be reached when it registered, and it is the only thing
+      // that distinguishes a passkey sitting in this machine from one that
+      // answers by scanning a code with a phone. The label cannot: it is
+      // guessed from the user agent of whatever browser did the enrolling, so
+      // a passkey saved to a phone from a Windows laptop is called "Windows
+      // PC" and looks, on this screen, exactly like one in the laptop's own
+      // hardware. That difference is the whole reason a passkey can register
+      // happily and then never sign anybody in.
       passkeys: credentials.map((c) => ({
         id: c.id,
         label: c.label,
+        transports: webauthnService.toTransports(c.transports) ?? [],
         created_at: c.created_at,
         last_used_at: c.last_used_at,
       })),

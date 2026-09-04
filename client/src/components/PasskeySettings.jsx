@@ -18,6 +18,32 @@ const when = (value) => {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Where a passkey can actually be reached from, said in words.
+//
+// This is not decoration. The label beside it is guessed from the user agent of
+// whatever browser did the enrolling, so a passkey saved onto a phone from a
+// Windows laptop is called "Windows PC" and reads, on this screen, exactly like
+// one held in that laptop's own hardware. Then signing in with the laptop's own
+// authenticator fails every time, for a passkey that is sitting right there in
+// the list looking correct, and there is nothing on screen to say why.
+//
+// `transports` is what the authenticator itself reported at registration, so it
+// is the honest answer to "where is this". It is a reach rather than a vault —
+// it says how the credential can be got at, not which password manager holds
+// it — so the wording stays on that side of the line rather than naming a
+// keychain it cannot actually see.
+function whereItLives(transports) {
+  if (!transports?.length) return null;
+  const has = (t) => transports.includes(t);
+  const inDevice = has('internal');
+  const byPhone = has('hybrid');
+  if (inDevice && byPhone) return 'in the device that made it, or by scanning a code with a phone';
+  if (inDevice) return 'in the device that made it';
+  if (byPhone) return 'by scanning a code with a phone';
+  if (has('usb') || has('nfc') || has('ble')) return 'on a security key';
+  return null;
+}
+
 // A sensible default label, so nobody has to name their own phone before they
 // can use it. It is only a hint from the browser, and it is editable after.
 function guessDeviceName() {
@@ -224,6 +250,12 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
                     .filter(Boolean)
                     .join(' · ')}
                 </small>
+                {/* Only when the authenticator said something. A passkey that
+                  reported no transports at all is not described by inventing
+                  one. */}
+                {whereItLives(key.transports) && (
+                  <small className="passkey-where">{whereItLives(key.transports)}</small>
+                )}
               </span>
               <button
                 className="icon-button small danger"

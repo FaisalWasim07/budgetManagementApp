@@ -3227,6 +3227,14 @@ th.num {
 
 /* ── Auth screens ────────────────────────────────────────────────── */
 /* ── Passkeys ────────────────────────────────────────────────────────── */
+/* Where a passkey can be reached from, under the dates. Quieter than either,
+   because it is the line you only read when something is wrong — and when
+   something is wrong it is usually the whole answer. */
+.passkey-where {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
 .passkey-rows {
   border: 1px solid var(--line);
   border-radius: 14px;
