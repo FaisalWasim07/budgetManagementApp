@@ -58,17 +58,20 @@ export async function createPasskey(options) {
   };
 }
 
+// An empty list of credentials is left off the request rather than sent as an
+// empty array, and the difference is the whole point of it: naming credentials
+// tells the browser which ones are acceptable, and it then picks a route to one
+// of them on your behalf. Sending none asks it to show you every passkey it
+// actually holds for this site and let you choose. That is the way out when the
+// browser keeps choosing a door the passkey is not behind.
 export async function usePasskey(options) {
-  const credential = await navigator.credentials.get({
-    publicKey: {
-      ...options,
-      challenge: fromB64url(options.challenge),
-      allowCredentials: (options.allowCredentials ?? []).map((c) => ({
-        ...c,
-        id: fromB64url(c.id),
-      })),
-    },
-  });
+  const { allowCredentials, ...rest } = options;
+  const publicKey = { ...rest, challenge: fromB64url(options.challenge) };
+  if (allowCredentials?.length) {
+    publicKey.allowCredentials = allowCredentials.map((c) => ({ ...c, id: fromB64url(c.id) }));
+  }
+
+  const credential = await navigator.credentials.get({ publicKey });
 
   return {
     id: credential.id,

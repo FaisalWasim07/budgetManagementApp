@@ -12,10 +12,10 @@ import { passkeysSupported, usePasskey, wasCancelled } from '../utils/passkey';
 // called out because Windows Hello puts up its own "Something went wrong",
 // which says nothing about which of these it was.
 const describeFailure = () =>
-  'Nothing was confirmed. If your passkey is on your phone rather than this ' +
-  'computer, choose “Use a phone or tablet” in the prompt and scan the code. ' +
-  'Otherwise the computer needs a PIN or fingerprint set up — or use a ' +
-  'recovery code below.';
+  'Nothing was confirmed. Your device may have offered the wrong passkey — ' +
+  '“Show every passkey” below asks it for all of them instead, which is worth ' +
+  'trying before anything else. Otherwise this computer needs a PIN or ' +
+  'fingerprint set up, or you can use a recovery code.';
 
 // One form for two jobs: before anyone has signed up it creates the first
 // login, and after that it signs you in. Both end with a session cookie set,
@@ -39,6 +39,8 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
   // necessarily anything wrong, so it reads as guidance rather than a fault.
   const [hint, setHint] = useState(null);
   const [recovering, setRecovering] = useState(false);
+  // Whether to offer the second, wider attempt. Set only by a failed first one.
+  const [broadenable, setBroadenable] = useState(false);
   const [code, setCode] = useState('');
   // The device prompt is fired automatically the first time the second step
   // appears, but only once: re-firing it after a cancel would trap someone who
@@ -73,12 +75,25 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
     }
   }
 
-  async function confirmWithDevice() {
+  // `anyDevice` drops the list of acceptable credentials from the request. The
+  // challenge is the same one — it is what gets signed, and it is already tied
+  // to this user — so nothing has to be reissued to ask the question a second
+  // way. What changes is who decides: with a list, the browser picks a route to
+  // one of the named credentials on your behalf, and if it picks a store the
+  // passkey is not in, it fails with an error that cannot say so. Without one,
+  // it shows you every passkey it holds for this site and you choose.
+  //
+  // Safe to offer because the server does not take the browser's word for it:
+  // a returned credential is looked up against this challenge's own user, so
+  // somebody else's passkey signs nobody in.
+  async function confirmWithDevice(anyDevice = false) {
     setBusy(true);
     setError(null);
     setHint(null);
     try {
-      const response = await usePasskey(challenge.options);
+      const response = await usePasskey(
+        anyDevice ? { ...challenge.options, allowCredentials: [] } : challenge.options,
+      );
       const result = await loginWithPasskey(challenge.challengeId, response);
       onSignedIn(result.user);
     } catch (err) {
@@ -86,8 +101,14 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
       // help in exactly the same way, on purpose — telling them apart would
       // tell a stranger which passkeys you hold. So this cannot say which
       // happened, and says what to do about either instead.
-      if (wasCancelled(err)) setHint(describeFailure());
-      else setError(`${err.message}${err.name ? ` (${err.name})` : ''}`);
+      if (wasCancelled(err)) {
+        setHint(describeFailure());
+        // Offered only once the narrow attempt has actually failed. Leading
+        // with it would make every sign-in a question.
+        if (!anyDevice) setBroadenable(true);
+      } else {
+        setError(`${err.message}${err.name ? ` (${err.name})` : ''}`);
+      }
       setBusy(false);
     }
   }
@@ -166,6 +187,7 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
                 setBusy(false);
                 setError(null);
                 setHint(null);
+                setBroadenable(false);
               }}
             >
               Use my device instead
@@ -184,13 +206,26 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
 
           {passkeysSupported() ? (
             <>
-              <button className="primary" onClick={confirmWithDevice} disabled={busy}>
+              {/* Wrapped rather than passed directly: onClick hands the click
+                event to its first argument, which would arrive as a truthy
+                `anyDevice` and widen every first attempt. */}
+              <button className="primary" onClick={() => confirmWithDevice()} disabled={busy}>
                 <Shield size={15} /> {busy ? 'Waiting for your device…' : 'Confirm with your device'}
               </button>
               {hint && (
                 <span className="muted" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
                   {hint}
                 </span>
+              )}
+              {broadenable && (
+                <button
+                  type="button"
+                  className="subtle"
+                  onClick={() => confirmWithDevice(true)}
+                  disabled={busy}
+                >
+                  Show every passkey on this device
+                </button>
               )}
               {error && <div className="error-text">{error}</div>}
             </>
@@ -210,6 +245,7 @@ export default function Login({ needsSetup, signupNeedsCode, onSignedIn }) {
               setBusy(false);
               setError(null);
               setHint(null);
+              setBroadenable(false);
             }}
           >
             Use a recovery code
