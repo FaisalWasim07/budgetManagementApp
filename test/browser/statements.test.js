@@ -253,6 +253,82 @@ const check = (name, ok, detail = '') => {
   );
   await page.check('.scan-sanitise input');
 
+  // --- leaving pages out ---------------------------------------------------
+  // A bank sends more than one thing in an envelope. Terms, an insert, two
+  // pages of small print — all of it text, all of it cut into slices and paid
+  // for, none of it a transaction. This is the only control in the flow that
+  // makes a reading cheaper and better at the same time.
+  await close();
+  await open('statement-long.pdf');
+  await page.waitForSelector('.scan-hidden', { timeout: 25000 });
+  const chips = page.locator('.scan-page-chip');
+  check(
+    'a statement of several pages offers them one by one',
+    (await chips.count()) === 3,
+    String(await chips.count()),
+  );
+  check(
+    'every page is on to begin with, because a file nobody has thought about is all of it',
+    (await page.locator('.scan-page-chip.on').count()) === 3,
+  );
+  check(
+    'and each says how much is on it, so the ones that are not the statement are obvious',
+    /\d+ lines/.test(await chips.first().textContent()),
+    await chips.first().textContent(),
+  );
+
+  const everyPage = (await page.locator('.scan-preview').textContent()).length;
+  const allLines = await page.locator('.scan-proof summary').textContent();
+  await chips.nth(2).click();
+  await page.waitForTimeout(200);
+  check(
+    'turning one off says so',
+    (await page.locator('.scan-pages-head').textContent()).includes('2 of 3'),
+    await page.locator('.scan-pages-head').textContent(),
+  );
+  const trimmed = (await page.locator('.scan-preview').textContent()).length;
+  check(
+    'and the text that would be sent actually shrinks',
+    trimmed < everyPage && trimmed > 0,
+    `${everyPage} → ${trimmed} characters`,
+  );
+  check(
+    'the proof counts what is left, not what the file had',
+    (await page.locator('.scan-proof summary').textContent()) !== allLines,
+    `${allLines} → ${await page.locator('.scan-proof summary').textContent()}`,
+  );
+  // The estimate is built from the slices about to go, so dropping a page has
+  // to move it. A price that does not follow the thing it is pricing is worse
+  // than no price at all.
+  const cheaper = await page.locator('.scan-estimate').textContent();
+  check('and the price follows what is left', cheaper.length > 0, cheaper);
+
+  await chips.nth(0).click();
+  await chips.nth(1).click();
+  await page.waitForTimeout(200);
+  check(
+    'with nothing selected there is nothing to read, and the button says no',
+    await page.locator('.modal.scanner button:has-text("Read the transactions")').isDisabled(),
+  );
+  check(
+    'and it says why rather than just refusing',
+    (await page.locator('.scan-pages').textContent()).includes('nothing to read'),
+    await page.locator('.scan-pages').textContent().then((t) => t.slice(-90)),
+  );
+  await chips.nth(0).click();
+  await page.waitForTimeout(200);
+  check(
+    'putting one back is enough to go on with',
+    !(await page.locator('.modal.scanner button:has-text("Read the transactions")').isDisabled()),
+  );
+  await close();
+  await open('statement-plain.pdf');
+  await page.waitForSelector('.scan-hidden', { timeout: 20000 });
+  check(
+    'a statement of one page is not asked about, because there is nothing to choose',
+    (await page.locator('.scan-pages').count()) === 0,
+  );
+
   // --- choosing what reads it ----------------------------------------------
   // The list comes from the server, so this also checks the route answers: an
   // empty picker here means /statements/models did not.

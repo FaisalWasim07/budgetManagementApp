@@ -2854,6 +2854,77 @@ th.num {
   border: 1px solid var(--line);
 }
 
+/* Which pages are the statement. A bank sends more than one thing in an
+   envelope, and the pages that are not the statement cost money to read and
+   contribute nothing — so this is the one control in the flow that makes a
+   reading cheaper and better at once. */
+.scan-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+.scan-pages-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.scan-pages-head b {
+  font-size: 0.86rem;
+}
+.scan-page-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* On by default, and the off state is the loud one: a page left out is a
+   decision somebody made, and it should be obvious at a glance which ones. */
+.scan-page-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  font: inherit;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.scan-page-chip b {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.scan-page-chip small {
+  font-size: 0.68rem;
+}
+.scan-page-chip.on {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
+  color: var(--ink);
+}
+.scan-page-chip:not(.on) b {
+  text-decoration: line-through;
+}
+/* A page with no words on it sends nothing either way, so it is drawn as the
+   non-choice it is rather than as a page somebody forgot to pick. */
+.scan-page-chip.empty {
+  border-style: dashed;
+}
+.scan-page-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* What was taken out, readable in two seconds, with the thousand-line proof
    folded behind it rather than in front of it. */
 .scan-hidden {

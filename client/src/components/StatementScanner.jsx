@@ -302,6 +302,16 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [summary, setSummary] = useState(null);
   const [writing, setWriting] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  // Pages left out of the reading. A statement is often not only a statement:
+  // terms and conditions, a marketing insert, a page of small print about
+  // interest rates. Every one of those is text, so every one of them is cut
+  // into slices and paid for — and none of it is a transaction.
+  //
+  // Held as the pages NOT to send rather than the ones to send, so a file whose
+  // pages have not been thought about is the same as one where all of them are
+  // wanted: empty means everything, which is the sensible default and needs no
+  // setting up when the file opens.
+  const [skipped, setSkipped] = useState(() => new Set());
   // Dragging a file over the drop zone, and the flag that ends a reading early.
   const [dragging, setDragging] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -354,10 +364,42 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // the text as it came out of the file — the slicer, the preview and the
   // request — so there is no path by which the screen shows one thing and
   // another leaves.
+  // What the chosen pages come to. A file with no pages of its own — a CSV —
+  // is its own text and has nothing to choose between.
+  const chosenText = useMemo(() => {
+    if (!result) return '';
+    if (!result.pages?.length) return result.text;
+    return result.pages
+      .filter((page) => !skipped.has(page.n))
+      .map((page) => page.text)
+      .filter(Boolean)
+      .join('\n\n')
+      .trim();
+  }, [result, skipped]);
+
+  // Never null while the file has words in it, even when every page has been
+  // turned off. Leaving with nothing selected used to take the pickers and the
+  // button off the screen along with the text — so the only way back was to
+  // start the file again, and nothing said why.
   const outgoing = useMemo(() => {
     if (!result?.hasText) return null;
-    return sanitise ? redact(result.text) : { text: result.text, found: [], dropped: 0, count: 0 };
-  }, [result, sanitise]);
+    if (!chosenText) return { text: '', found: [], dropped: 0, count: 0 };
+    return sanitise ? redact(chosenText) : { text: chosenText, found: [], dropped: 0, count: 0 };
+  }, [result, chosenText, sanitise]);
+
+  // Pages worth offering a choice about: only where there is more than one, and
+  // only the ones that have words on them — a page that is a photograph sends
+  // nothing either way, so leaving it in or out changes nothing to decide.
+  const pages = result?.pages ?? [];
+  const choosable = pages.length > 1;
+  const kept = pages.filter((page) => !skipped.has(page.n));
+  const togglePage = (n) =>
+    setSkipped((held) => {
+      const next = new Set(held);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
 
   const chosen = choices?.models.find((m) => m.id === model) ?? null;
 
@@ -430,6 +472,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setSlices(null);
     setSummary(null);
     setSummaryError(null);
+    setSkipped(new Set());
   }
 
   async function read(chosen, raw, tryPassword) {
@@ -865,6 +908,50 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
+            {/* Which pages are the statement. A bank sends more than one thing
+              in an envelope: terms and conditions, an insert about a new card,
+              two pages of small print on interest rates. All of it is text, so
+              all of it gets cut into slices and paid for, and none of it is a
+              transaction. Turning a page off here is the only place in the flow
+              where somebody can make the reading both cheaper and better at the
+              same time. */}
+            {choosable && (
+              <div className="scan-pages">
+                <div className="scan-pages-head">
+                  <b>Pages to read</b>
+                  <span className="muted">
+                    {kept.length === pages.length
+                      ? `all ${pages.length}`
+                      : `${kept.length} of ${pages.length}`}
+                  </span>
+                </div>
+                <div className="scan-page-chips">
+                  {pages.map((page) => {
+                    const lines = page.text ? page.text.split('\n').length : 0;
+                    const on = !skipped.has(page.n);
+                    return (
+                      <button
+                        key={page.n}
+                        type="button"
+                        className={`scan-page-chip${on ? ' on' : ''}${lines ? '' : ' empty'}`}
+                        onClick={() => togglePage(page.n)}
+                        aria-pressed={on}
+                        disabled={reading}
+                      >
+                        <b>Page {page.n}</b>
+                        <small>{lines ? `${lines} lines` : 'no text'}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="muted">
+                  {kept.length === 0
+                    ? 'Nothing is selected, so there is nothing to read.'
+                    : 'Leave out anything that is not the statement — terms, inserts, small print. What is left off is never sent and never paid for.'}
+                </span>
+              </div>
+            )}
+
             {result.hasText && (
               <>
             {/* What was taken out, as something readable in two seconds. It
@@ -899,13 +986,16 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               )}
 
               <span className="muted">
-                {!sanitise
-                  ? 'The text goes exactly as it is printed, account numbers and all.'
-                  : outgoing.found.length || outgoing.dropped
-                    ? 'Your name, address and card number have nothing to do with what you spent, and the letterhead rides along with every part.'
-                    : 'Nothing in this statement needed hiding.'}
+                {!outgoing.text
+                  ? 'No pages are selected, so nothing would be sent.'
+                  : !sanitise
+                    ? 'The text goes exactly as it is printed, account numbers and all.'
+                    : outgoing.found.length || outgoing.dropped
+                      ? 'Your name, address and card number have nothing to do with what you spent, and the letterhead rides along with every part.'
+                      : 'Nothing in this statement needed hiding.'}
               </span>
 
+              {outgoing.text ? (
               <details className="scan-proof">
                 <summary>
                   See exactly what is sent{' '}
@@ -919,6 +1009,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                 </span>
                 <pre className="scan-preview">{outgoing.text}</pre>
               </details>
+              ) : null}
             </div>
 
             {/* Two rows of the same shape: which account this is read against,
@@ -990,7 +1081,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
-            <button className="primary" onClick={readTransactions} disabled={reading}>
+            <button
+              className="primary"
+              onClick={readTransactions}
+              disabled={reading || !outgoing?.text}
+            >
               Read the transactions
             </button>
             <span className="muted" style={{ fontSize: '0.8rem' }}>
@@ -1000,7 +1095,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             )}
 
             {result.pages
-              ?.filter((page) => page.image)
+              ?.filter((page) => page.image && !skipped.has(page.n))
               .map((page) => (
                 <figure className="scan-page" key={page.n}>
                   <img src={page.image} alt={`Page ${page.n} of the statement`} />
