@@ -10,8 +10,8 @@ import { chunkStatement, inBatches, linesFor, AT_ONCE } from '../utils/statement
 import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 import { redact } from '../utils/statementRedact';
-import { rank } from '../utils/statementRanking';
 import { toCsv, csvName } from '../utils/statementCsv';
+import StatementReport from './StatementReport';
 
 // Reading a statement, and nothing more than reading it. Nothing here is saved:
 // no row, no file, no table. Close the dialog and the statement is gone, which
@@ -594,6 +594,58 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
+  // Once there is a report, that is the whole screen. It is a document with
+  // its own header, its own nav and its own scroller — see StatementReport.jsx
+  // — so the dialog goes bare and hands it the box, rather than stacking it
+  // under a file picker and a title bar with nothing left to do.
+  if (report) {
+    return (
+      <DisplayContext.Provider value={shown}>
+        <Modal title="Scan a statement" onClose={onClose} className="scanner room" bare>
+          <StatementReport
+            report={report}
+            currency={currency}
+            account={account}
+            fileName={file?.name}
+            modelLabel={modelLabel}
+            costPhrase={costPhrase}
+            summary={summary}
+            summaryLabel={summaryLabel}
+            writing={writing}
+            summaryError={summaryError}
+            onWriteSummary={writeSummary}
+            onDownloadCsv={downloadCsv}
+            onScanAnother={reset}
+            onClose={onClose}
+            reading={reading}
+            progress={progress}
+            onReadMissing={readMissing}
+            /* What was sent, kept and folded. The preview is the proof of what
+               left this browser, and that does not stop being true once the
+               answer arrives — it just stops being the thing on screen. */
+            source={
+              result?.hasText ? (
+                <details className="scan-source">
+                  <summary>What was sent to be read</summary>
+                  <div className="scan-source-body">
+                    <div className="scan-sanitise">
+                      <span className="muted">
+                        {sanitise
+                          ? `${hiddenPhrase(outgoing)} This is what left this browser — the file and any password did not.`
+                          : 'This went exactly as it is printed, account numbers and all.'}
+                      </span>
+                    </div>
+                    <pre className="scan-preview">{outgoing.text}</pre>
+                  </div>
+                </details>
+              ) : null
+            }
+          />
+        </Modal>
+      </DisplayContext.Provider>
+    );
+  }
+
   return (
     <DisplayContext.Provider value={shown}>
       <Modal
@@ -604,7 +656,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
            every line — and reading it through a 760px slot with the setup
            controls still stacked above was the single thing most wrong with
            it. */
-        className={`scanner${report ? ' room' : ''}`}
+        className="scanner"
       >
         <div className="stack-sm">
           <span className="muted" style={{ fontSize: '0.85rem' }}>
@@ -613,15 +665,10 @@ export default function StatementScanner({ onClose, accounts = [] }) {
           </span>
         </div>
 
-        {/* Gone once there is a report: in the room the picker is the one
-          control with nothing left to do, and "scan another" says the same
-          thing without a file box sitting above the findings. */}
-        {!report && (
-          <label className="field">
-            Statement
-            <input type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={pick} />
-          </label>
-        )}
+        <label className="field">
+          Statement
+          <input type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={pick} />
+        </label>
 
         {locked && (
           <form className="stack-sm" onSubmit={unlock}>
@@ -680,7 +727,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
             {result.hasText && (
               <>
-                {accounts.length > 1 && !report && (
+                {accounts.length > 1 && (
                   <label className="field">
                     Which account is this from?
                     <select value={accountId ?? ''} onChange={(e) => setAccountId(e.target.value)}>
@@ -693,7 +740,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   </label>
                 )}
 
-                {choices && !report && (
+                {choices && (
                   <div className="scan-model">
                     <label className="field">
                       Read it with
@@ -740,7 +787,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   </div>
                 )}
 
-                {!report && (
+                {(
                   <>
                     <button className="primary" onClick={readTransactions} disabled={reading}>
                       {!reading
@@ -757,251 +804,15 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </>
             )}
 
-            {report && (
-              <div className="stack-sm scan-report">
-                {/* Some of the statement never came back. Said first, and in
-                  the strongest terms the dialog has, because every figure below
-                  is worked out from what did arrive: the total is not the
-                  statement's total, and a category missing its largest charge
-                  looks exactly like a category that never had one. */}
-                {report.missing > 0 && (
-                  <div className="warn-banner">
-                    <b>
-                      {report.missing} part{report.missing === 1 ? '' : 's'} of this statement could
-                      not be read
-                    </b>
-                    , so what follows is {report.parts} part
-                    {report.parts === 1 ? '' : 's'} of it and nothing below is a complete total.{' '}
-                    <button className="link" onClick={readMissing} disabled={reading}>
-                      {reading
-                        ? progress?.total
-                          ? `Reading… ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
-                          : 'Reading…'
-                        : `Read the missing part${report.missing === 1 ? '' : 's'}`}
-                    </button>{' '}
-                    — only those, so the rest is not paid for twice. A lower effort makes each part
-                    quicker and less likely to be dropped.
-                  </div>
-                )}
 
-                {/* Whether to believe any of the rest of it. The bank prints what
-                  the account started and ended at, so the reading can be checked
-                  against arithmetic rather than trusted — and when it does not
-                  add up, that is said before anything else, not after.
-                  Held back when parts are missing: rows we know were never read
-                  cannot fail to add up, and saying "this does not add up" there
-                  blames the reading for something already admitted above. */}
-                {!report.missing && report.reconciliation?.status === 'mismatch' && (
-                  <div className="warn-banner">
-                    This does not add up. Following the rows from the opening balance lands on{' '}
-                    <b>
-                      <Money amount={report.reconciliation.expected} currency={currency} />
-                    </b>
-                    , where the statement closes at{' '}
-                    <b>
-                      <Money amount={report.reconciliation.closing} currency={currency} />
-                    </b>{' '}
-                    — a gap of{' '}
-                    <b>
-                      <Money amount={Math.abs(report.reconciliation.delta)} currency={currency} />
-                    </b>
-                    .
-                    {report.reconciliation.countedTwice
-                      ? ` That is the size of the ${report.reconciliation.countedTwice.merchant} line, which may have been counted twice.`
-                      : ' A line was probably missed or misread.'}{' '}
-                    Take the figures below as a reading, not as fact.
-                  </div>
-                )}
-
-                {/* What the statement closes at — on a card, the bill. It was
-                  being used and not shown: the reading was checked against it,
-                  the screen said it added up, and the one figure a person opens
-                  a statement to find was nowhere on the report. */}
-                {report.reconciliation?.closing != null && (
-                  <div className="scan-bill">
-                    <span className="scan-bill-what">
-                      {report.reconciliation.reads === 'card'
-                        ? 'Owed at the end of this statement'
-                        : 'Balance at the end of this statement'}
-                    </span>
-                    <b>
-                      <Money amount={report.reconciliation.closing} currency={currency} />
-                    </b>
-                    {report.reconciliation.opening != null && (
-                      <span className="muted">
-                        opened at{' '}
-                        <Money amount={report.reconciliation.opening} currency={currency} />
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <div className="scan-head">
-                  <span>
-                    <b>
-                      <Money amount={report.overview.spent} currency={currency} />
-                    </b>{' '}
-                    spent
-                    {report.overview.lines ? ` over ${report.overview.lines} lines` : ''}
-                    {report.overview.from
-                      ? `, ${report.overview.from} to ${report.overview.to}`
-                      : ''}
-                  </span>
-                  {report.reconciliation?.status === 'ok' && (
-                    <span className="reconciled">adds up to the closing balance</span>
-                  )}
-                </div>
-
-                {/* Credits are not one thing. Paying a card off is a credit for the
-                  whole balance and is not money anybody received. */}
-                {report.overview.credits && (
-                  <div className="scan-credits">
-                    {[
-                      ['paid off the card', report.overview.credits.payments],
-                      ['came in', report.overview.credits.income],
-                      ['refunded', report.overview.credits.refunds],
-                      ['cashback', report.overview.credits.cashback],
-                    ]
-                      .filter(([, amount]) => amount > 0)
-                      .map(([label, amount]) => (
-                        <span key={label}>
-                          <Money amount={amount} currency={currency} /> {label}
-                        </span>
-                      ))}
-                  </div>
-                )}
-
-                {report.categories?.length > 0 && (
-                  <div className="scan-cats">
-                    {/* Headed, like everything else in the room. In the dialog
-                      the bars followed the total closely enough to read as
-                      part of it; with a page around them they are a section. */}
-                    <h3>Where it went</h3>
-                    {report.categories.map((cat) => (
-                      <div className="scan-cat" key={cat.category}>
-                        <div className="row-tight" style={{ justifyContent: 'space-between' }}>
-                          <b>{cat.category}</b>
-                          <span>
-                            <Money amount={cat.total} currency={currency} /> · {cat.share}%
-                          </span>
-                        </div>
-                        <div className="scan-bar">
-                          <i style={{ width: `${cat.share}%` }} />
-                        </div>
-                        <small>
-                          {cat.count} line{cat.count === 1 ? '' : 's'}, averaging{' '}
-                          <Money amount={cat.average} currency={currency} />
-                        </small>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Findings findings={report.findings} currency={currency} />
-
-                {/* Why it looks like this, in prose — the one part of the
-                  report a person reads rather than checks, and the second time
-                  a scan spends money. So it is a button: most scans are opened
-                  to look at one line, and charging a cent for a paragraph
-                  nobody asked to read is how a feature that costs money stops
-                  being welcome. */}
-                <section className="scan-why">
-                  <h3>Why it looks like this</h3>
-                  {summary ? (
-                    <>
-                      <p>{summary.summary}</p>
-                      <span className="muted">
-                        Written by {summaryLabel}
-                        {costPhrase(summary.cost)}. Still nothing saved.
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <button className="secondary" onClick={writeSummary} disabled={writing}>
-                        {writing ? 'Writing…' : 'Write it out'}
-                      </button>
-                      <span className="muted">
-                        A short paragraph over the figures above — what the month looks like and
-                        what the findings mean. A cent or two, and only when you ask.
-                      </span>
-                    </>
-                  )}
-                  {summaryError && <div className="error-text">{summaryError}</div>}
-                </section>
-
-                <RowsTable rows={report.rows} currency={currency} />
-
-                {/* The first thing a scan lets out of the browser, which is
-                  why it is worded as what it is rather than as an icon. */}
-                <div className="scan-export">
-                  <button className="secondary" onClick={downloadCsv}>
-                    Download these lines as a CSV
-                  </button>
-                  <span className="muted">
-                    Built here, from what is on screen. It is not uploaded anywhere — but it is a
-                    copy that outlives this dialog, which nothing else here is.
-                  </span>
-                </div>
-
-                <span className="muted scan-cost" style={{ fontSize: '0.8rem' }}>
-                  Nothing has been saved. This is gone when you close it.
-                  {report.usage?.output
-                    ? ` Read by ${modelLabel} in ${report.parts} part${
-                        report.parts === 1 ? '' : 's'
-                      }` +
-                      // Money first, because that is the question. Tokens are
-                      // kept because they are what explains the money — a scan
-                      // that costs twice as much as the last one did so for a
-                      // reason that is visible here.
-                      `${costPhrase(report.usage.cost)}: ` +
-                      `${(
-                        report.usage.input +
-                        report.usage.cached +
-                        report.usage.written
-                      ).toLocaleString()} tokens in and ` +
-                      `${report.usage.output.toLocaleString()} out` +
-                      // Cached tokens are charged at about a tenth, so this is
-                      // the difference between the bill and what it would have
-                      // been. Nothing to show when nothing cached.
-                      (report.usage.cached
-                        ? `, of which ${report.usage.cached.toLocaleString()} were read back from cache rather than sent again.`
-                        : '.')
-                    : ''}
-                </span>
-
-                <button className="link scan-again" onClick={reset}>
-                  Scan another statement
-                </button>
-              </div>
-            )}
-
-            {/* Before there is a report this is the screen: what will be sent,
-              and the proof of it. Afterwards it is the appendix — still here,
-              still checkable, but folded away so the report is the page. */}
-            {report && result.hasText && (
-              <details className="scan-source">
-                <summary>What was sent to be read</summary>
-                <div className="scan-source-body">
-                  <div className="scan-sanitise">
-                    <span className="muted">
-                      {sanitise
-                        ? `${hiddenPhrase(outgoing)} This is what left this browser — the file and any password did not.`
-                        : 'This went exactly as it is printed, account numbers and all.'}
-                    </span>
-                  </div>
-                  <pre className="scan-preview">{outgoing.text}</pre>
-                </div>
-              </details>
-            )}
-
-            {!report && result.hasText && (
+            {result.hasText && (
               <div className="scan-sanitise">
                 <label>
                   <input
                     type="checkbox"
                     checked={sanitise}
                     onChange={(e) => setSanitise(e.target.checked)}
-                    disabled={reading || !!report}
+                    disabled={reading}
                   />
                   Hide account numbers and contact details
                 </label>
@@ -1016,7 +827,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
-            {!report && result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
+            {result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
 
             {result.pages
               ?.filter((page) => page.image)

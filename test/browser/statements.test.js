@@ -515,14 +515,18 @@ const check = (name, ok, detail = '') => {
     (await page.locator('.scan-head').textContent()).includes('2,143.71'),
     await page.locator('.scan-head').textContent(),
   );
+  // The verdict is a word beside the figure it is about now, rather than a
+  // note on the end of the spent line — and "not checked" is its own state,
+  // because a statement that prints no balances has nothing to check against.
   check(
     'and that the reading adds up',
-    (await page.locator('.scan-head .reconciled').count()) === 1,
+    (await page.locator('.scan-bill .scan-verdict.ok').count()) === 1,
+    await page.locator('.scan-bill').textContent(),
   );
   // The bug the real statement found: a card payment is not money received.
   check(
     'paying the card off is described as that, not as income',
-    (await page.locator('.scan-credits').textContent()).includes('paid off the card'),
+    (await page.locator('.scan-credits').textContent()).includes('Paid off the card'),
     await page.locator('.scan-credits').textContent(),
   );
 
@@ -565,7 +569,7 @@ const check = (name, ok, detail = '') => {
   );
   check(
     'a duplicate is flagged rather than asserted',
-    (await page.locator('.scan-findings').textContent()).includes('Worth a look'),
+    (await page.locator('.scan-findings').textContent()).includes('worth a look'),
   );
   // In the stub, the largest thing at stake is the 1,702.96 government charge
   // sitting sixteen times above what is typical for its category. Ordering by
@@ -609,7 +613,7 @@ const check = (name, ok, detail = '') => {
     cost.includes('from cache'),
     cost,
   );
-  check('and it still says nothing was saved', cost.includes('Nothing has been saved'), cost);
+  check('and it still says nothing was saved', cost.includes('Nothing is saved'), cost);
 
   // The rows used to be folded away, because the report was a 760px dialog and
   // a table of every line filled it. The report is a room now, so they are the
@@ -617,6 +621,24 @@ const check = (name, ok, detail = '') => {
   check(
     'the report opens as a room rather than a dialog',
     (await page.locator('.modal.scanner.room').count()) === 1,
+  );
+  // A document says what document it is. The dialog's title bar is gone: the
+  // filename, the account it was read against, and the two things you can do
+  // with it are the header now.
+  const docHead = await page.locator('.scan-doc-head').textContent();
+  check('and names the file it read', docHead.includes('statement-plain.pdf'), docHead);
+  check('with the account it was read against', docHead.includes('AED'), docHead);
+  check(
+    'the four questions are a table of contents, with how much of each',
+    (await page.locator('.scan-doc-link').count()) === 4,
+    (await page.locator('.scan-doc-link').allTextContents()).join(' | '),
+  );
+  // The claim the whole report rests on, shown rather than asserted.
+  const arith = await page.locator('.scan-arith').textContent();
+  check(
+    'and the reconciliation is spelled out as the sum it actually is',
+    arith.includes('10,117.51') && arith.includes('=') && arith.includes('9,496.06'),
+    arith,
   );
   check(
     'every line is on it, without a fold to open first',
@@ -639,7 +661,7 @@ const check = (name, ok, detail = '') => {
   check(
     'a row that straddled a month shows both dates',
     withPost.length === 1 &&
-      withPost[0].includes('2026-07-30') &&
+      withPost[0].includes('30 Jul') &&
       withPost[0].includes('posts 2026-08-01'),
     JSON.stringify(dateCells),
   );
@@ -676,15 +698,37 @@ const check = (name, ok, detail = '') => {
     'the sorted column says which way it is sorted, for a screen reader too',
     (await page.locator('.scan-rows th[aria-sort="descending"]').count()) === 1,
   );
+  // Filters and a search, because a hundred and fifteen lines is not a list
+  // you read — it is one you look things up in.
+  await page.click('#lines .scan-chip:has-text("In")');
+  await page.waitForTimeout(150);
+  check(
+    'filtering to money coming in leaves only that',
+    (await page.locator('.scan-rows tbody tr').count()) === 1,
+    String(await page.locator('.scan-rows tbody tr').count()),
+  );
+  await page.click('#lines .scan-chip:has-text("All")');
+  await page.fill('.scan-search', 'carrefour');
+  await page.waitForTimeout(150);
+  check(
+    'and searching finds a line by what the bank printed',
+    (await page.locator('.scan-rows tbody tr').count()) === 1 &&
+      (await page.locator('.scan-showing').textContent()).includes('1 of 4'),
+    await page.locator('.scan-showing').textContent(),
+  );
+  await page.fill('.scan-search', '');
+  await page.waitForTimeout(150);
+
   await page.click('.scan-rows-head button:has-text("printed")');
   check('and the order the bank printed is one click back', (await rawOrder()) === printed, await rawOrder());
 
   // --- the file -----------------------------------------------------------
   // The first thing a scan lets out of the browser. It is built here, from what
-  // is on screen, and never goes near a server.
+  // is on screen, and never goes near a server — and it sits in the document's
+  // header, beside the file it came from, rather than under the table.
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.click('button:has-text("Download these lines as a CSV")'),
+    page.click('.scan-doc-csv'),
   ]);
   check(
     'the file is named after the period it covers',

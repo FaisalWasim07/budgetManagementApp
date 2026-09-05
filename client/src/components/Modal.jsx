@@ -11,7 +11,19 @@ import { useScrollLock } from '../utils/scrollLock';
 //
 // `tabs` is [key, label, render] triples. Give none and the children render as
 // they always did.
-export default function Modal({ title, onClose, tabs, initialTab, className = '', children }) {
+// `bare` drops the title row entirely, for a dialog whose content is a page in
+// its own right and brings its own header — a document has a filename and its
+// own actions across the top, not a dialog title with an ✕ parked beside it.
+// Escape still closes, and the child is expected to offer a way out of its own.
+export default function Modal({
+  title,
+  onClose,
+  tabs,
+  initialTab,
+  className = '',
+  bare = false,
+  children,
+}) {
   // Whichever tab the opener asked for, so something that exists to send you to
   // one particular setting lands on it rather than on the first.
   const [active, setActive] = useState(
@@ -90,12 +102,14 @@ export default function Modal({ title, onClose, tabs, initialTab, className = ''
            it, without ever becoming a Tab stop of its own. */
         tabIndex={-1}
       >
-        <div className="spread">
-          <h2>{title}</h2>
-          <button className="subtle" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
+        {!bare && (
+          <div className="spread">
+            <h2>{title}</h2>
+            <button className="subtle" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
+          </div>
+        )}
 
         {tabs && (
           <div className="modal-tabs" role="tablist">
