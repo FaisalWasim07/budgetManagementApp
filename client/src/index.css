@@ -2708,6 +2708,68 @@ th.num {
   }
 }
 
+/* The price and the button that spends it. On a wide screen it is the last
+   step of a form; on a phone it is a bar pinned to the bottom of the screen,
+   because everything above it is checking and this is the doing. */
+.scan-go {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.scan-go-said {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+.scan-go-note {
+  font-size: 0.8rem;
+}
+
+/* On a phone the desk is the screen rather than a card floating on one: the
+   report already does this at 720px, and the two halves of the same flow
+   looking different at the same width is worse than either choice. */
+@media (max-width: 620px) {
+  .backdrop:has(.modal.scanner) {
+    padding: 0;
+  }
+  .modal.scanner {
+    max-width: 100vw;
+    min-height: 100vh;
+    border-radius: 0;
+    border: none;
+    margin: 0;
+  }
+  /* The action leaves the flow and sits on the bottom edge, over whatever is
+     scrolling under it. It is the only control on this screen that spends
+     money, so it is the only one that gets to stay in view. */
+  .modal.scanner .scan-go {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -16px -16px;
+    padding: 10px 16px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.05);
+  }
+  .modal.scanner .scan-go button.primary {
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+  /* Three to a row rather than a wrapping run of chips: at this width a chip
+     that is only as wide as its label is a target the size of a word. */
+  .scan-page-chips {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .scan-page-chip {
+    min-height: 46px;
+    justify-content: center;
+  }
+}
+
 /* The same button the warning banners use, and scoped the same way: part of
    the sentence it sits in rather than a control parked beside it. */
 .modal.scanner button.link {
@@ -3177,25 +3239,6 @@ th.num {
 .scan-report {
   gap: 14px;
 }
-.scan-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
-}
-.scan-head .reconciled {
-  font-size: 0.74rem;
-  color: var(--ink-2);
-}
-.scan-credits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: 0.8rem;
-  color: var(--ink-2);
-}
 
 /* Rows against each other with a rule between them, not cards with air
    between them: seventeen of these is a list to read down. */
@@ -3397,6 +3440,86 @@ th.num {
   display: block;
   height: 100%;
   background: var(--brand-deep);
+}
+
+/* ── A statement read in parts, some of which never arrived ──────────
+   The rule the whole treatment follows: a figure summed from the rows is a
+   floor — the real one is that much or more — and a figure the bank printed is
+   not, because it arrives in the header of every part and is complete the
+   moment one lands. So this is never a grey wash over the report: the bill card
+   is untouched, and only what was added up is marked. */
+.scan-floor {
+  color: var(--warn);
+  font-weight: 550;
+  font-size: 0.86em;
+}
+/* A share has the missing rows in its denominator, so unlike a total it is not
+   a floor: it can move either way, and there is no honest mark for that. */
+.scan-withheld {
+  color: var(--ink-3);
+}
+.scan-q-sub .scan-withheld {
+  color: var(--warn);
+}
+
+/* One torn edge along the bottom of anything still filling up, rather than a
+   dashed box, which reads as an error. The bottom corners square off so the
+   card reads as unfinished rather than as a different shape. */
+.scan-tile.short,
+.scan-short-tail {
+  border-bottom: 1px dashed color-mix(in srgb, var(--warn) 45%, var(--line));
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+.scan-bar.withheld {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--warn) 30%, var(--surface-2)) 0 3px,
+    var(--surface-2) 3px 7px
+  );
+}
+
+/* The banner is two things — what is short, and what finishing it costs — so it
+   is two rows rather than one paragraph with a link buried in it. */
+.warn-banner.scan-short {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.scan-short-do {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.scan-short-do small {
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+/* Said again at the end of the table, because that is where somebody goes to
+   check a figure they did not believe. */
+.scan-short-tail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--line);
+}
+.scan-short-tail b {
+  font-size: 0.82rem;
+  color: var(--warn);
+}
+.scan-short-tail span {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+.scan-short-tail button.link {
+  font-size: 0.82rem;
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* The findings, ranked into one list. Four headed sections became rows with a
@@ -3611,6 +3734,126 @@ th.num {
    can see which ones to look at. */
 .scan-rows tr.unsure td {
   background: var(--surface-2);
+}
+
+/* On a phone the table stops being a table.
+   Four columns in 390px is a sideways scroll, and the column that falls off the
+   right edge is the amount — the one thing every row is read for. The same
+   markup lays out as a card instead: what it was on the left, what it cost on
+   the right, the rest underneath. The headings stay, because they are the sort
+   controls, and a list you cannot sort is worse than a table you must scroll. */
+@media (max-width: 620px) {
+  .scan-rows {
+    min-width: 0;
+  }
+  .scan-rows,
+  .scan-rows thead,
+  .scan-rows tbody,
+  .scan-rows tr,
+  .scan-rows td,
+  .scan-rows th {
+    display: block;
+  }
+  /* Without the table under them, four bare column names read as a stray row
+     of labels rather than as the controls they are. */
+  .scan-rows thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .scan-rows thead tr::before {
+    content: 'Sort by';
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .scan-rows th {
+    padding: 4px 0;
+    border-bottom: none;
+  }
+  .scan-rows tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1px 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line-soft, var(--line));
+  }
+  .scan-rows td {
+    padding: 0;
+    border-bottom: none;
+  }
+  /* Merchant and amount share the first line, because that pairing is the
+     row. The date and the category go under them. */
+  .scan-rows tbody td:nth-child(2) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .scan-rows tbody td:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 0.92rem;
+  }
+  .scan-rows tbody td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 0.74rem;
+    color: var(--ink-3);
+  }
+  .scan-rows tbody td:nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.74rem;
+    color: var(--ink-3);
+    text-align: right;
+  }
+  .scan-rows tbody td:nth-child(2) b {
+    font-size: 0.88rem;
+    font-weight: 550;
+  }
+  .scan-rows tr.unsure td {
+    background: none;
+  }
+  .scan-rows tr.unsure {
+    background: var(--surface-2);
+    padding-left: 9px;
+    padding-right: 9px;
+    border-radius: 10px;
+  }
+  /* A row that matched nothing is one cell, not a card. */
+  .scan-rows tbody tr:has(td[colspan]) {
+    display: block;
+  }
+
+  /* The bill stacks: the label and the verdict on one line, the figure under
+     them at full size. Wrapped as a baseline row it broke after the currency. */
+  .scan-bill {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 3px 10px;
+  }
+  .scan-bill b {
+    grid-column: 1 / -1;
+    font-size: 1.35rem;
+  }
+  .scan-bill .scan-verdict {
+    margin-left: 0;
+  }
+  .scan-bill .muted,
+  .scan-bill .scan-bill-verdict {
+    grid-column: 1 / -1;
+  }
+
+  /* The count in the header is what the header is for at this width. */
+  .scan-wide-only {
+    display: none;
+  }
+  .scan-doc-head {
+    padding: 11px 14px;
+  }
 }
 
 .modal-tabs {

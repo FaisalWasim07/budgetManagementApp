@@ -425,6 +425,16 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     return up ? { label: up.label, cost: estimateScan({ chunks, prices: up }) } : null;
   }, [chunks, choices, chosen]);
 
+  // What the parts that never arrived would cost to fetch — priced over those
+  // slices alone, because the ones in hand are never re-sent and never
+  // re-billed. It is the whole of what pressing the button on the report
+  // spends, so it is the figure that goes on it.
+  const missingCost = useMemo(() => {
+    if (!slices || !chosen) return null;
+    const left = slices.chunks.filter((_, i) => !slices.held[i]);
+    return left.length ? estimateScan({ chunks: left, prices: chosen }) : null;
+  }, [slices, chosen]);
+
   // Named in the report from what actually read it, which is not necessarily
   // what was picked — the server has the last word on the model.
   const modelLabel =
@@ -703,7 +713,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = csvName(report.overview);
+    link.download = csvName(report.overview, report.parts, report.missing);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -738,6 +748,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             reading={reading}
             progress={progress}
             onReadMissing={readMissing}
+            missingCost={missingCost}
             /* What was sent, kept and folded. The preview is the proof of what
                left this browser, and that does not stop being true once the
                answer arrives — it just stops being the thing on screen. */
@@ -1056,11 +1067,6 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                       ))}
                     </select>
                   )}
-                  {/* The price, before the button rather than after it. This is
-                    the one part of the app that spends money when something is
-                    pressed, and finding that out afterwards is no way to learn
-                    it. */}
-                  {estimate != null && <b className="scan-estimate">{describeCost(estimate)}</b>}
                 </div>
                 <span className="muted">
                   {chosen?.note}{' '}
@@ -1081,16 +1087,31 @@ export default function StatementScanner({ onClose, accounts = [] }) {
               </div>
             )}
 
-            <button
-              className="primary"
-              onClick={readTransactions}
-              disabled={reading || !outgoing?.text}
-            >
-              Read the transactions
-            </button>
-            <span className="muted" style={{ fontSize: '0.8rem' }}>
-              Nothing is saved. This is gone when you close it.
-            </span>
+            {/* The price and the one action, together. This is the part of the
+              app that spends money when a button is pressed, so the figure sits
+              on the button's own step rather than up among the settings — and on
+              a phone the pair sticks to the bottom, where a thumb already is. */}
+            <div className="scan-go">
+              <div className="scan-go-said">
+                <span className="muted">
+                  {choosable ? `${kept.length} page${kept.length === 1 ? '' : 's'} · ` : ''}
+                  {/* Exact, not "about": the slices are already cut, and this
+                    is how many of them there are. */}
+                  {slicesTotal ? `${slicesTotal} part${slicesTotal === 1 ? '' : 's'} to read` : ''}
+                </span>
+                {estimate != null && <b className="scan-estimate">{describeCost(estimate)}</b>}
+              </div>
+              <button
+                className="primary"
+                onClick={readTransactions}
+                disabled={reading || !outgoing?.text}
+              >
+                Read the transactions
+              </button>
+              <span className="muted scan-go-note">
+                Nothing is saved. This is gone when you close it.
+              </span>
+            </div>
               </>
             )}
 

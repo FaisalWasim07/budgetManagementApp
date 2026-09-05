@@ -584,8 +584,8 @@ const check = (name, ok, detail = '') => {
   );
   check(
     'but a statement you just asked to have read is not masked',
-    (await page.locator('.scan-head').textContent()).includes('2,143.71'),
-    await page.locator('.scan-head').textContent(),
+    (await page.locator('.scan-tiles').textContent()).includes('2,143.71'),
+    await page.locator('.scan-tiles').textContent(),
   );
   // The one figure somebody opens a statement to find. It was being used — the
   // reading is checked against it — and never shown.
@@ -596,8 +596,8 @@ const check = (name, ok, detail = '') => {
 
   check(
     'the report says what was spent',
-    (await page.locator('.scan-head').textContent()).includes('2,143.71'),
-    await page.locator('.scan-head').textContent(),
+    (await page.locator('.scan-tiles').textContent()).includes('2,143.71'),
+    await page.locator('.scan-tiles').textContent(),
   );
   // The verdict is a word beside the figure it is about now, rather than a
   // note on the end of the spent line — and "not checked" is its own state,
@@ -610,8 +610,8 @@ const check = (name, ok, detail = '') => {
   // The bug the real statement found: a card payment is not money received.
   check(
     'paying the card off is described as that, not as income',
-    (await page.locator('.scan-credits').textContent()).includes('Paid off the card'),
-    await page.locator('.scan-credits').textContent(),
+    (await page.locator('.scan-tiles').textContent()).includes('Paid off the card'),
+    await page.locator('.scan-tiles').textContent(),
   );
 
   check(
@@ -1328,6 +1328,74 @@ const check = (name, ok, detail = '') => {
     JSON.stringify(banners.map((b) => b.slice(0, 40))),
   );
 
+  // --- what a report short of a few parts is allowed to claim ---------------
+  // The rule underneath all of this: a figure summed from the rows is a floor,
+  // and a figure the bank printed is not. Everything below checks that the
+  // report marks the first kind and leaves the second alone.
+  check(
+    'and offers to fetch only what is missing, at what that costs',
+    /Read the missing \d+ · /.test(await page.locator('.warn-banner.scan-short button').textContent()),
+    await page.locator('.warn-banner.scan-short button').textContent(),
+  );
+  const spentTile = await page.locator('.scan-tile').first().textContent();
+  check(
+    'every total summed from the rows is a floor, and says so',
+    spentTile.includes('at least'),
+    spentTile,
+  );
+  check(
+    'and is drawn as one, rather than left looking finished',
+    (await page.locator('.scan-tile.short').count()) > 0,
+  );
+  // The one figure somebody opened the statement to find is printed by the
+  // bank, not added up here, so the missing parts do not touch it.
+  const billText = await page.locator('.scan-bill').textContent();
+  check(
+    'but the balance the bank printed is not marked, because it is not a sum',
+    !billText.includes('at least'),
+    billText.slice(0, 120),
+  );
+  check(
+    'and says why it stands while everything else is short',
+    billText.includes('bank printed this one'),
+    billText.slice(-160),
+  );
+  // A share has the missing rows in its denominator: unlike a total it is not a
+  // floor, it is unknown, and it can move either way.
+  const catRow = await page.locator('.scan-cat').first().textContent();
+  check('a share of a statement only partly read is withheld', catRow.includes('—%'), catRow.slice(0, 90));
+  check(
+    'and the bar keeps its slot, so nothing reflows when the parts land',
+    (await page.locator('.scan-bar.withheld').count()) > 0,
+  );
+  check(
+    'the counts in the margin carry the same floor',
+    (await page.locator('.scan-doc-link:has-text("The lines") .scan-doc-count').textContent()).includes('+'),
+    await page.locator('.scan-doc-link:has-text("The lines") .scan-doc-count').textContent(),
+  );
+  // The check cannot run over part of a statement, and saying that is worth as
+  // much as running it.
+  check(
+    'the arithmetic says it is withheld rather than showing a sum that cannot land',
+    (await page.locator('.scan-arith').textContent()).includes('withheld'),
+    (await page.locator('.scan-arith').textContent()).slice(0, 90),
+  );
+  // A paragraph about a month is a claim about all of it.
+  check(
+    'and the written summary is not offered over part of a statement',
+    (await page.locator('.scan-why button:has-text("Write it out")').count()) === 0,
+    await page.locator('.scan-why').textContent(),
+  );
+  check(
+    'saying so, rather than leaving a button that quietly lies',
+    (await page.locator('.scan-why .muted').textContent()).includes('Not while parts are missing'),
+    await page.locator('.scan-why .muted').textContent(),
+  );
+  // The table is where somebody goes to check a figure they did not believe.
+  const tail = await page.locator('.scan-short-tail').textContent();
+  check('the table says the same thing where its rows run out', tail.includes('not in this list'), tail);
+  check('and names the CSV, which outlives the screen', tail.includes('CSV'), tail);
+
   const kept = await page.locator('.scan-rows tbody tr').count();
   check(
     'every line that did come back is kept',
@@ -1377,11 +1445,11 @@ const check = (name, ok, detail = '') => {
     });
   });
 
-  const readMissing = page.locator('.warn-banner button.link');
+  const readMissing = page.locator('.warn-banner.scan-short button.primary');
   check('the report offers to fetch what it could not read', (await readMissing.count()) === 1);
   await readMissing.click();
   await page.waitForFunction(
-    () => !document.querySelector('.modal.scanner .warn-banner button.link'),
+    () => !document.querySelector('.modal.scanner .warn-banner.scan-short'),
     null,
     { timeout: 20000 },
   );
@@ -1396,6 +1464,28 @@ const check = (name, ok, detail = '') => {
     'and the warning about missing parts goes with it',
     !(await page.locator('.modal.scanner').textContent()).includes('could not be read'),
   );
+  // Every mark the shortfall put on the report comes off with it, by itself:
+  // there is no second state to dismiss, because the marks were only ever the
+  // shortfall being true.
+  const finished = await page.locator('.scan-doc-pane').textContent();
+  check(
+    'and so does every "at least" it put on the figures',
+    !finished.includes('at least'),
+    finished.slice(0, 200),
+  );
+  check('the shares come back', !finished.includes('—%') && (await page.locator('.scan-bar.withheld').count()) === 0);
+  check(
+    'the check is no longer withheld — this statement prints no opening balance to check against, which the bill card says on its own',
+    !finished.includes('withheld until the statement is whole'),
+  );
+  check(
+    'and the paragraph is on offer again',
+    (await page.locator('.scan-why button:has-text("Write it out")').count()) === 1,
+  );
+  check(
+    'with nothing left at the end of the table to fetch',
+    (await page.locator('.scan-short-tail').count()) === 0,
+  );
   const firstAfter = await page.locator('.scan-rows .raw').first().textContent();
   const lastAfter = await page.locator('.scan-rows .raw').last().textContent();
   check(
@@ -1403,6 +1493,87 @@ const check = (name, ok, detail = '') => {
     firstAfter.includes('001') && lastAfter.includes('090'),
     `${firstAfter} … ${lastAfter}`,
   );
+
+  // --- on a phone ----------------------------------------------------------
+  // Every check so far ran at 1280px. The report is a takeover of the whole
+  // window, so at 390 it is the whole phone — and the part that breaks there is
+  // the table: four columns in that width scroll sideways, and the column that
+  // falls off the right edge is the amount, which is the one thing every row is
+  // read for.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+
+  const sideways = await page.evaluate(() => {
+    const wrap = document.querySelector('.tablewrap');
+    const pane = document.querySelector('.scan-doc-pane');
+    return {
+      table: wrap.scrollWidth - wrap.clientWidth,
+      pane: pane.scrollWidth - pane.clientWidth,
+    };
+  });
+  check(
+    'the table does not scroll sideways on a phone',
+    sideways.table <= 1,
+    `${sideways.table}px over`,
+  );
+  check('and neither does the document', sideways.pane <= 1, `${sideways.pane}px over`);
+
+  const amount = await page.locator('.scan-rows tbody tr').first().locator('td.num').boundingBox();
+  check(
+    'so the amount is on the screen rather than off the right edge of it',
+    amount && amount.x + amount.width <= 390,
+    JSON.stringify(amount),
+  );
+  const merchant = await page
+    .locator('.scan-rows tbody tr')
+    .first()
+    .locator('td')
+    .nth(1)
+    .boundingBox();
+  check(
+    'beside what it was spent on, which is the pairing a row is read for',
+    amount && merchant && Math.abs(amount.y - merchant.y) < 24,
+    `amount y ${Math.round(amount.y)} · merchant y ${Math.round(merchant.y)}`,
+  );
+  // The headings are the sort controls. A list you cannot sort is worse than a
+  // table you have to scroll, so they stay — laid out as a row of their own.
+  check(
+    'and the columns are still there to sort by',
+    (await page.locator('.scan-rows th button').count()) === 4,
+  );
+
+  // The desk is the other half of the same flow, and the two looking different
+  // at the same width is worse than either choice.
+  await close();
+  await open('statement-long.pdf');
+  await page.waitForSelector('.scan-hidden', { timeout: 30000 });
+  const go = await page.locator('.scan-go').boundingBox();
+  const readButton = await page
+    .locator('.modal.scanner button:has-text("Read the transactions")')
+    .boundingBox();
+  check(
+    'the desk keeps the price and the button in reach on a phone',
+    go && go.y + go.height <= 844 + 1,
+    JSON.stringify(go),
+  );
+  check(
+    'and the button is a thumb-sized target rather than a line of text',
+    readButton && readButton.height >= 44,
+    `${Math.round(readButton?.height ?? 0)}px tall`,
+  );
+  check(
+    'with the price on the same step as the button that spends it',
+    (await page.locator('.scan-go .scan-estimate').count()) === 1,
+    await page.locator('.scan-go').textContent(),
+  );
+  const chipBox = await page.locator('.scan-page-chip').first().boundingBox();
+  check(
+    'and a page is a target rather than a word',
+    chipBox && chipBox.height >= 44,
+    `${Math.round(chipBox?.height ?? 0)}px tall`,
+  );
+  await close();
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');

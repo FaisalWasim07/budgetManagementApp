@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Money } from '../utils/display';
 import { rank } from '../utils/statementRanking';
 import { groupCategories, groupKey, unplacedNote } from '../utils/statementCategories';
+import { describeCost } from '../utils/statementCost';
 import { formatMonth } from '../utils/month';
 
 // The report a scan produces, as a document rather than as a dialog.
@@ -106,6 +107,18 @@ function whyFor(finding, currency) {
   }
 }
 
+// While parts of a statement are missing, a figure summed from its rows is a
+// floor: the real one is that much or more. A figure the bank printed is not —
+// the closing balance arrives in the header of every part and is complete the
+// moment one of them lands. That single distinction decides every mark on this
+// screen, and it is why the treatment is not a grey wash over everything: the
+// one number somebody opened the statement to find is unaffected, and dimming
+// it would be a lie in the other direction.
+function Floor({ on }) {
+  if (!on) return null;
+  return <span className="scan-floor">at least </span>;
+}
+
 // A short date for the table. The year is on the period line above, and
 // repeating it on a hundred and fifteen rows says nothing.
 function shortDate(date) {
@@ -132,6 +145,10 @@ export default function StatementReport({
   reading,
   progress,
   onReadMissing,
+  // What it would cost to fetch only the parts that never arrived, priced over
+  // those slices alone. The parts in hand are never re-sent and never re-billed,
+  // so the figure on the button is the whole of what pressing it spends.
+  missingCost,
   source,
 }) {
   const [active, setActive] = useState('bill');
@@ -148,6 +165,11 @@ export default function StatementReport({
   const ranked = useMemo(() => rank(report.findings), [report.findings]);
   const rows = report.rows;
   const { overview, reconciliation = {} } = report;
+
+  // Parts of the statement never arrived, so everything below is short by
+  // however much was printed on them. See <Floor> above for what that changes
+  // and what it deliberately does not.
+  const partial = report.missing > 0;
 
   // Grouped here rather than read off the server's own grouping, because the
   // screen needs two things that one does not have: the rows behind each
@@ -291,7 +313,7 @@ export default function StatementReport({
           </small>
         </span>
         <button className="secondary scan-doc-csv" onClick={onDownloadCsv}>
-          Download CSV
+          <span className="scan-wide-only">Download </span>CSV
         </button>
         <button className="subtle" onClick={onClose} aria-label="Close">
           ✕
@@ -314,7 +336,13 @@ export default function StatementReport({
                     <Money amount={reconciliation.closing} currency={currency} compact />
                   ) : null
                 ) : (
-                  counts[id]
+                  <>
+                    {counts[id]}
+                    {/* Said in the space a count has: "at least 74" does not
+                      fit a 40px margin, and a bare 74 beside a statement this
+                      app has two thirds of is wrong. */}
+                    {partial ? '+' : ''}
+                  </>
                 )}
               </span>
             </button>
@@ -349,24 +377,34 @@ export default function StatementReport({
         <main className="scan-doc-pane" ref={paneRef}>
           {/* Said first and loudest: while any part is missing, every figure
             below is short of the truth. */}
-          {report.missing > 0 && (
-            <div className="warn-banner">
-              <b>
-                {report.missing} part{report.missing === 1 ? '' : 's'} of this statement could not
-                be read
-              </b>
-              , so what follows covers {report.parts} part{report.parts === 1 ? '' : 's'} and
-              nothing below is a complete total. The {report.parts} that did arrive{' '}
-              {report.parts === 1 ? 'is' : 'are'} kept — and already paid for — so only the missing{' '}
-              {report.missing} {report.missing === 1 ? 'is' : 'are'} fetched again.{' '}
-              <button className="link" onClick={onReadMissing} disabled={reading}>
-                {reading
-                  ? progress?.total
-                    ? `Reading… ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
-                    : 'Reading…'
-                  : `Read the missing part${report.missing === 1 ? '' : 's'}`}
-              </button>{' '}
-              — a lower effort makes each part quicker and less likely to be dropped.
+          {partial && (
+            <div className="warn-banner scan-short">
+              <span>
+                <b>
+                  {report.missing} of {report.parts + report.missing} parts of this statement could
+                  not be read
+                </b>
+                , so every total below is a floor rather than a figure — the real one is that much or
+                more. The {report.parts} that arrived {report.parts === 1 ? 'is' : 'are'} kept and
+                already paid for.
+              </span>
+              {/* The price rides on the button the way it does on the desk's own
+                button, and it is the price of the missing slices alone. */}
+              <span className="scan-short-do">
+                <button className="primary" onClick={onReadMissing} disabled={reading}>
+                  {reading
+                    ? progress?.total
+                      ? `Reading… ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
+                      : 'Reading…'
+                    : `Read the missing ${report.missing}${
+                        missingCost ? ` · ${describeCost(missingCost)}` : ''
+                      }`}
+                </button>
+                <small>
+                  only the {report.missing} {report.missing === 1 ? 'is' : 'are'} fetched again · a
+                  lower effort makes each part quicker and less likely to be dropped
+                </small>
+              </span>
             </div>
           )}
 
@@ -468,8 +506,8 @@ export default function StatementReport({
                   <span className="scan-verdict bad">Does not add up</span>
                 )}
                 <span className="scan-bill-verdict reconciled">
-                  {report.missing > 0
-                    ? 'Parts of this statement are missing, so there is nothing complete to check.'
+                  {partial
+                    ? 'The bank printed this one. It is not a total of the rows, so the missing parts do not change it — and it is why the reading below can be checked at all once they are in.'
                     : reconciliation.status === 'ok'
                       ? 'Every line adds up to the bank’s own closing balance.'
                       : reconciliation.status === 'mismatch'
@@ -483,20 +521,24 @@ export default function StatementReport({
               money in are the same shape here on purpose — a card statement's
               largest credit is usually you settling the bill, and reading it as
               a windfall is the mistake this row exists to prevent. */}
-            <div className="scan-tiles scan-head scan-credits">
-              <div className="scan-tile">
+            <div className="scan-tiles">
+              <div className={`scan-tile${partial ? ' short' : ''}`}>
                 <small>Spent</small>
                 <b>
+                  <Floor on={partial} />
                   <Money amount={overview.spent} currency={currency} />
                 </b>
                 <span>
-                  {overview.lines ? `over ${overview.lines} lines` : 'over this statement'}
+                  {overview.lines
+                    ? `over ${overview.lines} lines${partial ? ' read so far' : ''}`
+                    : 'over this statement'}
                 </span>
               </div>
               {credits.map(([label, amount, note]) => (
-                <div className="scan-tile" key={label}>
+                <div className={`scan-tile${partial ? ' short' : ''}`} key={label}>
                   <small>{label}</small>
                   <b>
+                    <Floor on={partial} />
                     <Money amount={amount} currency={currency} />
                   </b>
                   <span>{note}</span>
@@ -508,7 +550,26 @@ export default function StatementReport({
               The model transcribed the lines; this sum, computed in code from
               those lines, is what says none was dropped, doubled or read
               backwards. */}
-            {reconciliation.opening != null && (
+            {/* The check cannot run over part of a statement, and saying so is
+              worth as much as running it: a reading missing lines cannot fail
+              to add up, so a mismatch reported now blames the reading for
+              something already admitted at the top of the page. */}
+            {/* Only where the bank printed something to check against: a
+              statement with no balances on it has nothing withheld, it simply
+              has nothing to check, which the bill card above already says. */}
+            {partial && reconciliation.closing != null && (
+              <div className="scan-arith">
+                <b>The check is withheld until the statement is whole</b>
+                <span>
+                  Every total here is computed in code and checked against the bank’s printed opening
+                  and closing balances. Rows nobody read cannot fail to add up, so running that check
+                  now would report a mismatch you did not cause. Read the missing {report.missing} and
+                  it runs by itself.
+                </span>
+              </div>
+            )}
+
+            {!partial && reconciliation.opening != null && (
               <div className="scan-arith">
                 <b>The arithmetic is the app’s, not the model’s</b>
                 <span>
@@ -527,11 +588,9 @@ export default function StatementReport({
                     />
                   </span>
                   {'. '}
-                  {report.missing > 0
-                    ? 'A reading that is missing lines cannot fail to add up, so the check is withheld rather than reported as a mismatch you did not cause.'
-                    : reconciliation.status === 'ok'
-                      ? 'It lands exactly, so no line was dropped, doubled or read backwards.'
-                      : 'It does not land on the printed closing balance, so take everything here as a reading rather than as fact.'}
+                  {reconciliation.status === 'ok'
+                    ? 'It lands exactly, so no line was dropped, doubled or read backwards.'
+                    : 'It does not land on the printed closing balance, so take everything here as a reading rather than as fact.'}
                 </span>
               </div>
             )}
@@ -548,8 +607,21 @@ export default function StatementReport({
             <span className="scan-q-eyebrow">{QUESTIONS[1][2]}</span>
             <h3 className="scan-q-title">{QUESTIONS[1][3]}</h3>
             <p className="scan-q-sub">
+              <Floor on={partial} />
               <Money amount={overview.spent} currency={currency} /> across {categories.length}{' '}
               {categories.length === 1 ? 'category' : 'categories'}
+              {partial && (
+                <>
+                  {' so far · '}
+                  {/* Withheld rather than shown: a share has the missing rows in
+                    its denominator, so unlike a total it is not a floor. It can
+                    move either way, and there is no honest arrow to draw on it. */}
+                  <span className="scan-withheld">
+                    shares are withheld — a share of a statement this app has only part of is not a
+                    share of anything
+                  </span>
+                </>
+              )}
             </p>
 
             {/* What the reading could not place, said as that rather than left
@@ -561,10 +633,12 @@ export default function StatementReport({
                 <b>
                   {unplaced.leads ? 'The largest category is not a category.' : 'A large slice was not placed.'}
                 </b>{' '}
-                <Money amount={unplaced.total} currency={currency} /> — {unplaced.share}% of what
-                went out — is in <b>{unplaced.category}</b>, which is the reading saying it could
-                not tell what those {unplaced.count} line{unplaced.count === 1 ? '' : 's'} were.
-                Open it to see them.
+                <Floor on={partial} />
+                <Money amount={unplaced.total} currency={currency} />
+                {partial ? ' of what has been read' : ` — ${unplaced.share}% of what went out —`} is
+                in <b>{unplaced.category}</b>, which is the reading saying it could not tell what
+                those {unplaced.count} line{unplaced.count === 1 ? '' : 's'} were. Open it to see
+                them.
               </p>
             )}
 
@@ -583,14 +657,20 @@ export default function StatementReport({
                         summary itself takes it away. */}
                       <span className="scan-cat-head">
                         <b className="scan-cat-name">{cat.category}</b>
-                        <span className="scan-bar">
-                          <i style={{ width: `${cat.share}%` }} />
+                        {/* The bar keeps its slot while its share is withheld,
+                          drawn as a hatch, so the row does not reflow when the
+                          missing parts land. */}
+                        <span className={`scan-bar${partial ? ' withheld' : ''}`}>
+                          {!partial && <i style={{ width: `${cat.share}%` }} />}
                         </span>
                         <span className="scan-cat-sum">
-                          <Money amount={cat.total} currency={currency} /> · {cat.share}%
+                          <Floor on={partial} />
+                          <Money amount={cat.total} currency={currency} /> ·{' '}
+                          {partial ? <span className="scan-withheld">—%</span> : `${cat.share}%`}
                         </span>
                         <small className="scan-cat-count">
                           {cat.count} line{cat.count === 1 ? '' : 's'}
+                          {partial ? ' so far' : ''}
                         </small>
                       </span>
                     </summary>
@@ -611,9 +691,16 @@ export default function StatementReport({
                       <div className="scan-cat-foot">
                         <small>
                           {cat.count > MOST_LINES_SHOWN
-                            ? `the ${MOST_LINES_SHOWN} largest of ${cat.count}, averaging `
-                            : 'averaging '}
-                          <Money amount={cat.average} currency={currency} /> a line
+                            ? `the ${MOST_LINES_SHOWN} largest of ${cat.count}`
+                            : `${cat.count} line${cat.count === 1 ? '' : 's'}`}
+                          {partial ? (
+                            ' read so far'
+                          ) : (
+                            <>
+                              {', averaging '}
+                              <Money amount={cat.average} currency={currency} /> a line
+                            </>
+                          )}
                         </small>
                         <button className="link" onClick={() => showCategory(cat.category)}>
                           {cat.count > MOST_LINES_SHOWN
@@ -631,7 +718,7 @@ export default function StatementReport({
               <div className="scan-callouts">
                 {biggest && (
                   <div className="scan-callout">
-                    <small>Largest single line</small>
+                    <small>Largest single line{partial ? ' so far' : ''}</small>
                     <b>
                       <button className="scan-jump" onClick={() => showMerchant(biggest.merchant)}>
                         {biggest.merchant}
@@ -647,7 +734,7 @@ export default function StatementReport({
                 )}
                 {busiest && (
                   <div className="scan-callout">
-                    <small>Most lines</small>
+                    <small>Most lines{partial ? ' so far' : ''}</small>
                     <b>
                       <button className="scan-jump" onClick={() => showCategory(busiest.category)}>
                         {busiest.category}
@@ -655,7 +742,13 @@ export default function StatementReport({
                       — {busiest.count} line{busiest.count === 1 ? '' : 's'}
                     </b>
                     <span>
-                      averaging <Money amount={busiest.average} currency={currency} /> a time
+                      {partial ? (
+                        'in the parts that arrived'
+                      ) : (
+                        <>
+                          averaging <Money amount={busiest.average} currency={currency} /> a time
+                        </>
+                      )}
                     </span>
                   </div>
                 )}
@@ -686,6 +779,15 @@ export default function StatementReport({
                     {costPhrase(summary.cost)}. Still nothing saved.
                   </span>
                 </>
+              ) : partial ? (
+                // Not offered while parts are missing: a paragraph about a
+                // month is a claim about all of it, and selling one written
+                // over two thirds of a statement is the wrong sale.
+                <span className="muted">
+                  Not while parts are missing. A paragraph about a month is a claim about the whole
+                  of it, and this reading is {report.missing} part
+                  {report.missing === 1 ? '' : 's'} short. Read them and the offer comes back.
+                </span>
               ) : (
                 <>
                   <button className="secondary" onClick={onWriteSummary} disabled={writing}>
@@ -735,6 +837,16 @@ export default function StatementReport({
                   ))}
                 </ol>
               </div>
+            ) : partial ? (
+              // "Nothing stands out" is the one finding that cannot be made
+              // from part of a statement: the line that would have stood out
+              // may be on a part that never arrived.
+              <p className="scan-ordinary">
+                Nothing in the {report.parts} part{report.parts === 1 ? '' : 's'} that arrived sits
+                outside its own normal range. Whether that is true of the statement is not something
+                this can say while {report.missing} part{report.missing === 1 ? ' is' : 's are'}{' '}
+                missing.
+              </p>
             ) : (
               // A month with nothing unusual in it says so, in as many words.
               // Anything that always finds something is a horoscope.
@@ -871,6 +983,29 @@ export default function StatementReport({
                 </tbody>
               </table>
             </div>
+
+            {/* The list is short by the same parts every figure above is short
+              by, and the table is where somebody goes to check a figure they
+              did not believe. Said at the end of it, where the rows run out. */}
+            {partial && (
+              <div className="scan-short-tail">
+                <b>
+                  {report.missing} part{report.missing === 1 ? '' : 's'} of this statement
+                  {report.missing === 1 ? ' is' : ' are'} not in this list
+                </b>
+                <span>
+                  Whatever was printed on {report.missing === 1 ? 'it' : 'them'} is missing from
+                  every figure above, and from the CSV.
+                </span>
+                <button className="link" onClick={onReadMissing} disabled={reading}>
+                  {reading
+                    ? 'Reading…'
+                    : `Read the missing ${report.missing}${
+                        missingCost ? ` · ${describeCost(missingCost)}` : ''
+                      }`}
+                </button>
+              </div>
+            )}
           </section>
 
           {source}

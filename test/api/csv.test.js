@@ -87,6 +87,27 @@ const ROW = {
   check('and a statement with no dates on it still gets a name',
     csvName(null) === 'statement.csv', csvName(null));
 
+  // A file made from an incomplete reading says so where it will still be read
+  // a month later. Everything else that said it — the banner, the "at least" on
+  // every total — was on a screen this file outlives.
+  check(
+    'a file made from part of a statement carries that in its name',
+    csvName({ from: '2026-08-01', to: '2026-08-31' }, 6, 3) ===
+      'statement-2026-08-01-to-2026-08-31-part-6-of-9.csv',
+    csvName({ from: '2026-08-01', to: '2026-08-31' }, 6, 3),
+  );
+  check(
+    'and a complete one says nothing, because there is nothing to say',
+    csvName({ from: '2026-08-01', to: '2026-08-31' }, 9, 0) ===
+      'statement-2026-08-01-to-2026-08-31.csv',
+    csvName({ from: '2026-08-01', to: '2026-08-31' }, 9, 0),
+  );
+  check(
+    'even with no dates to name it after',
+    csvName(null, 2, 1) === 'statement-part-2-of-3.csv',
+    csvName(null, 2, 1),
+  );
+
   const { failed } = report('The rows as a file');
   process.exit(failed ? 1 : 0);
 })();

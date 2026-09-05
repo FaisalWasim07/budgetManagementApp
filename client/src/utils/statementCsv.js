@@ -54,10 +54,16 @@ export function toCsv(rows, currency) {
 }
 
 // Named after what it is, so a folder of these can be told apart a month later.
-export function csvName(overview) {
+//
+// A file made from an incomplete reading says so in its name. Everything else
+// that said it — the banner, the "at least" on every total, the note under the
+// table — was on a screen the file outlives, and the name is the only part of a
+// CSV that travels with it.
+export function csvName(overview, parts, missing) {
   const from = overview?.from;
   const to = overview?.to;
-  if (from && to && from !== to) return `statement-${from}-to-${to}.csv`;
-  if (from) return `statement-${from}.csv`;
-  return 'statement.csv';
+  const short = missing > 0 ? `-part-${parts}-of-${parts + missing}` : '';
+  if (from && to && from !== to) return `statement-${from}-to-${to}${short}.csv`;
+  if (from) return `statement-${from}${short}.csv`;
+  return `statement${short}.csv`;
 }
