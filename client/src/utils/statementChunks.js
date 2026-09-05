@@ -107,7 +107,12 @@ const hopeless = (err) => HOPELESS.some((code) => String(err?.message).includes(
 // and already been charged for — were dropped on the floor because the
 // eighteenth timed out. Failures are collected and handed back instead, for the
 // caller to be honest about.
-export async function inBatches(items, limit, run, onProgress) {
+// `shouldStop` is asked before each slice is started, never during one. A
+// request already in the air is already paid for, so it is allowed to finish
+// and its answer is kept — stopping costs nothing that has been bought. What
+// comes back is a partial reading, which is a shape the report already knows
+// how to be honest about and offers to complete.
+export async function inBatches(items, limit, run, onProgress, shouldStop) {
   const results = new Array(items.length);
   const failures = [];
   let next = 0;
@@ -139,17 +144,19 @@ export async function inBatches(items, limit, run, onProgress) {
     await attempt(0);
     next = 1;
     done = 1;
-    onProgress?.(done, items.length);
+    onProgress?.(done, items.length, results);
   }
 
   const worker = async () => {
     for (;;) {
       const index = next;
       next += 1;
-      if (index >= items.length || stop) return;
+      if (index >= items.length || stop || shouldStop?.()) return;
       await attempt(index);
       done += 1;
-      onProgress?.(done, items.length);
+      // The slices settled so far ride along, so a caller watching the reading
+      // can add up what it has actually cost rather than estimating it.
+      onProgress?.(done, items.length, results);
     }
   };
 

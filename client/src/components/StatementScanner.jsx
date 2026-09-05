@@ -11,6 +11,7 @@ import { DisplayContext, Money } from '../utils/display';
 import { readPdf, PdfPasswordError, WRONG_PASSWORD } from '../utils/pdfText';
 import { redact } from '../utils/statementRedact';
 import { toCsv, csvName } from '../utils/statementCsv';
+import { estimateScan, describeCost, spentSoFar } from '../utils/statementCost';
 import StatementReport from './StatementReport';
 
 // Reading a statement, and nothing more than reading it. Nothing here is saved:
@@ -201,6 +202,14 @@ function RowsTable({ rows, currency }) {
 
 const isPdf = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 
+// The size of the thing being asked about, so the locked card names a document
+// rather than describing one.
+function fileSize(file) {
+  if (!file?.size) return null;
+  const mb = file.size / 1024 / 1024;
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+}
+
 // Whoever scans statements scans them the same way every month, so the choice
 // is remembered. It is only ever a preference: the server checks it against its
 // own list, so a stale name left here from a model that has since gone falls
@@ -283,6 +292,9 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [effort, setEffort] = useState(() => recall(`${REMEMBERED}.effort`) ?? '');
   // How far through the slices it is. Shown rather than kept, because the wait
   // is long enough that a spinner alone reads as the app having died.
+  // How far through the slices it is, what they have cost, and which of them
+  // are in the air — shown rather than kept, because the wait is long enough
+  // that a spinner alone reads as the app having died.
   const [progress, setProgress] = useState(null);
   // The written paragraph, and only ever after it has been asked for. Held
   // apart from the report because the report is free once the reading is paid
@@ -290,10 +302,22 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [summary, setSummary] = useState(null);
   const [writing, setWriting] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  // Dragging a file over the drop zone, and the flag that ends a reading early.
+  const [dragging, setDragging] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const stopped = useRef(false);
   const passwordRef = useRef(null);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0] ?? null;
   const currency = account?.currency ?? '';
+
+  // The bill so far, added up from what each slice actually reported rather
+  // than from the estimate the button made.
+  const spent = spentSoFar(progress?.parts);
+  // Slices already read, plus the ones in the air behind them. AT_ONCE is the
+  // concurrency, so that is how many are in flight at any moment until the end
+  // of the queue is reached.
+  const inFlightTo = Math.min(progress?.total ?? 0, (progress?.done ?? 0) + AT_ONCE);
 
   // Asked for once, when the dialog opens, rather than on every file: it is a
   // fixed list and the answer does not change between statements. A failure
@@ -326,6 +350,28 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   }, [result, sanitise]);
 
   const chosen = choices?.models.find((m) => m.id === model) ?? null;
+
+  // The slices as they will actually be sent, worked out once so the estimate,
+  // the part count and the reading itself all describe the same thing.
+  const chunks = useMemo(
+    () => (outgoing?.text ? chunkStatement(outgoing.text, linesFor(effort)) : null),
+    [outgoing, effort],
+  );
+  const slicesTotal = chunks?.length ?? 0;
+  const estimate = useMemo(
+    () => (chunks && chosen ? estimateScan({ chunks, prices: chosen }) : null),
+    [chunks, chosen],
+  );
+  // What the next model up would cost for the same statement. Naming a price
+  // without something to weigh it against is not a choice anybody can make —
+  // "about 25¢" only means something beside "about $1.00".
+  const dearer = useMemo(() => {
+    if (!chunks || !choices || !chosen) return null;
+    const up = choices.models
+      .filter((m) => m.input > chosen.input)
+      .sort((a, b) => a.input - b.input)[0];
+    return up ? { label: up.label, cost: estimateScan({ chunks, prices: up }) } : null;
+  }, [chunks, choices, chosen]);
 
   // Named in the report from what actually read it, which is not necessarily
   // what was picked — the server has the last word on the model.
@@ -408,8 +454,8 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setBusy(false);
   }
 
-  async function pick(e) {
-    const chosen = e.target.files?.[0];
+  // One way in, whether the file was chosen from the picker or dropped on it.
+  async function take(chosen) {
     if (!chosen) return;
     reset();
     setFile(chosen);
@@ -417,6 +463,8 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setBytes(raw);
     await read(chosen, raw, '');
   }
+
+  const pick = (e) => take(e.target.files?.[0]);
 
   function unlock(e) {
     e.preventDefault();
@@ -485,13 +533,17 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // Asks for a set of slices and puts each answer at its own index. `which` is
   // the indexes to read — everything on the first go, only what is missing on a
   // second. Returns the slices in hand afterwards.
-  async function fetchSlices(chunks, held, which) {
-    setProgress({ done: 0, total: which.length });
+  async function fetchSlices(slices, held, which) {
+    setProgress({ done: 0, total: which.length, parts: [] });
     const { results } = await inBatches(
-      which.map((i) => chunks[i]),
+      which.map((i) => slices[i]),
       AT_ONCE,
       (chunk) => scanStatement(chunk, account?.id ?? null, model || null, effort || null),
-      (done, total) => setProgress({ done, total }),
+      // The slices that have settled come back with the count, so the running
+      // total on screen is what has actually been billed rather than a share
+      // of the estimate.
+      (done, total, parts) => setProgress({ done, total, parts: [...parts] }),
+      () => stopped.current,
     );
     const next = [...held];
     which.forEach((chunkIndex, k) => {
@@ -500,26 +552,38 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     return next;
   }
 
+  // Stopping keeps everything already read. The slices in the air are already
+  // paid for and are allowed to land; the ones not yet asked for never are, and
+  // the report says so and offers to finish the job.
+  function stopReading() {
+    stopped.current = true;
+    setStopping(true);
+  }
+
   async function readTransactions() {
     setReading(true);
+    setStopping(false);
+    stopped.current = false;
     setError(null);
-    setProgress({ done: 0, total: 0 });
+    setProgress({ done: 0, total: chunks?.length ?? 0, parts: [] });
     try {
-      // Shorter slices where the model has been asked to think, because the
-      // thinking happens before the first row is written and the host stops
-      // waiting at sixty seconds regardless.
-      const chunks = chunkStatement(outgoing.text, linesFor(effort));
+      // The slices are the ones the estimate was made from — shorter where the
+      // model has been asked to think, because the thinking happens before the
+      // first row is written and the host stops waiting at sixty seconds
+      // regardless.
+      const slices = chunks ?? chunkStatement(outgoing.text, linesFor(effort));
       const held = await fetchSlices(
-        chunks,
+        slices,
         [],
-        chunks.map((_, i) => i),
+        slices.map((_, i) => i),
       );
-      setSlices({ chunks, held });
-      await makeReport(chunks, held);
+      setSlices({ chunks: slices, held });
+      await makeReport(slices, held);
     } catch (err) {
       setError(err.message);
     }
     setReading(false);
+    setStopping(false);
     setProgress(null);
   }
 
@@ -534,6 +598,7 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setReading(true);
     setError(null);
     try {
+      stopped.current = false;
       const held = await fetchSlices(slices.chunks, slices.held, which);
       setSlices({ chunks: slices.chunks, held });
       await makeReport(slices.chunks, held);
@@ -646,73 +711,138 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     );
   }
 
+  // Which of the three steps this is. Derived rather than held: the state that
+  // decides it — a file, its text, a reading in flight — is state the scan
+  // already keeps, and a second copy of it would be a second thing to get
+  // wrong.
+  // Step two is reached by a file that opened, not by one that had words in
+  // it. A statement whose pages are photographs has nothing to send and so
+  // nothing to check — but it has been opened, and showing it the picker again
+  // says the file failed when it did not.
+  const step = reading ? 3 : result ? 2 : 1;
+  const stepWords = {
+    1: locked ? 'This one is locked' : 'Choose the file',
+    2: result?.hasText ? 'Check what is sent' : 'Nothing here to send',
+    3: `about ${Math.max(10, (slicesTotal || 1) * 12)} seconds`,
+  };
+
   return (
     <DisplayContext.Provider value={shown}>
-      <Modal
-        title="Scan a statement"
-        onClose={onClose}
-        /* Once there is something to read, the dialog stops being a dialog.
-           The report is a page of its own — findings, categories, a table of
-           every line — and reading it through a 760px slot with the setup
-           controls still stacked above was the single thing most wrong with
-           it. */
-        className="scanner"
-      >
-        <div className="stack-sm">
-          <span className="muted" style={{ fontSize: '0.85rem' }}>
-            Read here in your browser. The file is not uploaded and nothing is saved — close this
-            and it is gone.
+      <Modal title="Scan a statement" onClose={onClose} className="scanner">
+        {/* Three segments, drawn from the first screen, so the shape of the
+          task is visible before any of it is done. A file picker with no idea
+          how much comes after it is a file picker somebody abandons. */}
+        <div className="scan-steps">
+          <span className="scan-step-said">
+            Step {step} of 3 · {stepWords[step]}
+          </span>
+          <span className="scan-step-rail" aria-hidden="true">
+            {[1, 2, 3].map((n) => (
+              <i key={n} className={n <= step ? 'on' : ''} />
+            ))}
           </span>
         </div>
 
-        <label className="field">
-          Statement
-          <input type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={pick} />
-        </label>
-
-        {locked && (
-          <form className="stack-sm" onSubmit={unlock}>
-            <label className="field">
-              Password
-              <input
-                type="password"
-                ref={passwordRef}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="off"
-                required
-              />
-              <span className="muted">
-                {locked === WRONG_PASSWORD
-                  ? 'That one did not open it. Banks often use a date of birth with part of a card number.'
-                  : 'This statement is locked. The password stays in this browser — it is not sent anywhere.'}
-              </span>
-            </label>
-            <button type="submit" className="primary" disabled={busy || !password}>
-              {busy ? 'Opening…' : 'Open it'}
-            </button>
-          </form>
-        )}
-
-        {busy && !locked && <span className="muted">Reading…</span>}
-
         {error && <div className="error-text">{error}</div>}
 
-        {result && (
-          <div className="stack-sm">
-            {/* A class, not the prose: the browser suites used to select this
-              sort of thing by its wording, and rewording one broke six of
-              them. */}
-            <span className="muted scan-summary" style={{ fontSize: '0.85rem' }}>
-              {file?.name}
-              {result.pageCount
-                ? ` · ${result.pageCount} page${result.pageCount === 1 ? '' : 's'}`
-                : ''}
-              {result.hasText ? ` · ${result.text.split('\n').length} lines of text` : ''}
-              {result.imageCount
-                ? ` · ${result.imageCount} scanned page${result.imageCount === 1 ? '' : 's'}`
-                : ''}
-            </span>
+        {/* ── Step one: the file ─────────────────────────────────────── */}
+        {step === 1 && !locked && (
+          <>
+            <label
+              className={`scan-drop${dragging ? ' over' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                const dropped = e.dataTransfer?.files?.[0];
+                if (dropped) take(dropped);
+              }}
+            >
+              <b>Drop a statement here</b>
+              <span>PDF or CSV · a locked PDF is fine</span>
+              <span className="scan-drop-button">{busy ? 'Opening…' : 'Choose a file'}</span>
+              <input
+                type="file"
+                accept=".pdf,.csv,application/pdf,text/csv"
+                onChange={pick}
+                disabled={busy}
+              />
+            </label>
+
+            {/* The promise, made where the file is handed over rather than in
+              a footnote underneath everything. */}
+            <p className="scan-promise">
+              <b>The file and its password never leave this browser.</b> Only the text is sent to
+              be read, and nothing is saved — closing this is the whole cleanup.
+            </p>
+          </>
+        )}
+
+        {/* ── Step one, locked ───────────────────────────────────────── */}
+        {step === 1 && locked && (
+          <>
+            <div className="scan-file">
+              <span className="scan-file-what">
+                <b>{file?.name}</b>
+                <small className="scan-summary">
+                  {[fileSize(file), result?.pageCount ? `${result.pageCount} pages` : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </small>
+              </span>
+              <span className="scan-badge">Locked</span>
+            </div>
+
+            <form className="stack-sm" onSubmit={unlock}>
+              <label className="field">
+                Password
+                <input
+                  type="password"
+                  ref={passwordRef}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                <span className="muted">
+                  {locked === WRONG_PASSWORD
+                    ? 'That one did not open it. Banks often use a date of birth with the last four digits of the card.'
+                    : 'Banks often use a date of birth with the last four digits of the card. It is tried here in your browser and sent nowhere.'}
+                </span>
+              </label>
+              <button type="submit" className="primary" disabled={busy || !password}>
+                {busy ? 'Opening…' : 'Open it'}
+              </button>
+            </form>
+            <button type="button" className="subtle" onClick={reset}>
+              Choose another file
+            </button>
+          </>
+        )}
+
+        {/* ── Step two: what is sent, and what it will cost ──────────── */}
+        {step === 2 && (
+          <>
+            <div className="scan-file">
+              <span className="scan-file-what">
+                <b>{file?.name}</b>
+                <small className="scan-summary">
+                  {[
+                    result.pageCount ? `${result.pageCount} page${result.pageCount === 1 ? '' : 's'}` : null,
+                    `${result.text.split('\n').length} lines of text found`,
+                    result.imageCount
+                      ? `${result.imageCount} scanned page${result.imageCount === 1 ? '' : 's'}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </small>
+              </span>
+            </div>
 
             {/* Said once, at the top, rather than beside every picture. A page
               that is a photograph is not a failure — it is simply read a
@@ -727,86 +857,13 @@ export default function StatementScanner({ onClose, accounts = [] }) {
 
             {result.hasText && (
               <>
-                {accounts.length > 1 && (
-                  <label className="field">
-                    Which account is this from?
-                    <select value={accountId ?? ''} onChange={(e) => setAccountId(e.target.value)}>
-                      {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} · {a.currency}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                {choices && (
-                  <div className="scan-model">
-                    <label className="field">
-                      Read it with
-                      <select
-                        value={model}
-                        onChange={(e) => pickModel(e.target.value)}
-                        disabled={reading}
-                      >
-                        {choices.models.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                      {/* The note is the whole reason for offering a choice.
-                        Naming three models without saying what the difference
-                        buys you is a question nobody can answer. */}
-                      <span className="muted">{chosen?.note}</span>
-                    </label>
-
-                    {/* Only where the model takes one. Haiku refuses the field
-                      outright rather than ignoring it, so an effort picker
-                      beside it would be a control that breaks the scan. */}
-                    {chosen?.effort && (
-                      <label className="field">
-                        How hard to think
-                        <select
-                          value={effort}
-                          onChange={(e) => pickEffort(e.target.value)}
-                          disabled={reading}
-                        >
-                          {choices.efforts.map((e) => (
-                            <option key={e} value={e}>
-                              {EFFORT_WORDS[e] ?? e}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="muted">
-                          Reading a printed list is mostly transcription, and thinking is billed
-                          like writing. Low is usually right.
-                        </span>
-                      </label>
-                    )}
-                  </div>
-                )}
-
-                {(
-                  <>
-                    <button className="primary" onClick={readTransactions} disabled={reading}>
-                      {!reading
-                        ? 'Read the transactions'
-                        : progress?.total
-                          ? `Reading… part ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
-                          : 'Reading…'}
-                    </button>
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>
-                      The text below is sent to be read. The file and any password stay here.
-                    </span>
-                  </>
-                )}
-              </>
-            )}
-
-
-            {result.hasText && (
-              <div className="scan-sanitise">
+            {/* What was taken out, as something readable in two seconds. It
+              used to be a sentence over a thousand lines of proof, which meant
+              the proof was the screen and the summary was a caption on it. The
+              proof is still here and still exact; it is just folded. */}
+            <div className="scan-hidden scan-sanitise">
+              <div className="scan-hidden-head">
+                <b>{sanitise ? 'Hidden before sending' : 'Nothing is being hidden'}</b>
                 <label>
                   <input
                     type="checkbox"
@@ -816,18 +873,108 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   />
                   Hide account numbers and contact details
                 </label>
-                {/* Said against the preview it describes, because the preview
-                  is the proof: this is not a promise about what was sent, it
-                  is the thing that was sent. */}
+              </div>
+
+              {sanitise && (outgoing.found.length > 0 || outgoing.dropped > 0) && (
+                <ul className="scan-hidden-list">
+                  {outgoing.found.map((f, i) => (
+                    <li key={`${f.kind}-${i}`}>{f.what}</li>
+                  ))}
+                  {outgoing.dropped > 0 && (
+                    <li>
+                      {outgoing.dropped} line{outgoing.dropped === 1 ? '' : 's'} of letterhead
+                    </li>
+                  )}
+                </ul>
+              )}
+
+              <span className="muted">
+                {!sanitise
+                  ? 'The text goes exactly as it is printed, account numbers and all.'
+                  : outgoing.found.length || outgoing.dropped
+                    ? 'Your name, address and card number have nothing to do with what you spent, and the letterhead rides along with every part.'
+                    : 'Nothing in this statement needed hiding.'}
+              </span>
+
+              <details className="scan-proof">
+                <summary>
+                  See exactly what is sent{' '}
+                  <small>{outgoing.text.split('\n').length} lines</small>
+                </summary>
+                {/* The claim sits against the thing that proves it. This is not
+                  a promise about what will be sent — it is the text that will
+                  be, and it is here to be read rather than believed. */}
                 <span className="muted">
-                  {sanitise
-                    ? `${hiddenPhrase(outgoing)} What you see below is what leaves this browser — the file and any password do not.`
-                    : 'The text below goes exactly as it is printed, account numbers and all.'}
+                  This is what leaves this browser — the file and any password do not.
+                </span>
+                <pre className="scan-preview">{outgoing.text}</pre>
+              </details>
+            </div>
+
+            {/* Two rows of the same shape: which account this is read against,
+              and what it is read with. */}
+            <div className="scan-choice">
+              <span className="scan-choice-what">Statement from</span>
+              {accounts.length > 1 ? (
+                <select value={accountId ?? ''} onChange={(e) => setAccountId(e.target.value)}>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} · {a.currency}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <b>{[account?.name, currency].filter(Boolean).join(' · ') || 'This household'}</b>
+              )}
+            </div>
+
+            {choices && (
+              <div className="scan-choice scan-model">
+                <span className="scan-choice-what">How to read it</span>
+                <div className="scan-choice-controls">
+                  <select value={model} onChange={(e) => pickModel(e.target.value)} disabled={reading}>
+                    {choices.models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Only where the model takes one. Haiku refuses the field
+                    outright rather than ignoring it, so an effort picker beside
+                    it would be a control that breaks the scan. */}
+                  {chosen?.effort && (
+                    <select
+                      value={effort}
+                      onChange={(e) => pickEffort(e.target.value)}
+                      disabled={reading}
+                    >
+                      {choices.efforts.map((e) => (
+                        <option key={e} value={e}>
+                          {EFFORT_WORDS[e] ?? e}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {/* The price, before the button rather than after it. This is
+                    the one part of the app that spends money when something is
+                    pressed, and finding that out afterwards is no way to learn
+                    it. */}
+                  {estimate != null && <b className="scan-estimate">{describeCost(estimate)}</b>}
+                </div>
+                <span className="muted">
+                  {chosen?.note} {dearer ? `${dearer.label} reads the same statement for ${describeCost(dearer.cost)}.` : ''}
                 </span>
               </div>
             )}
 
-            {result.hasText && <pre className="scan-preview">{outgoing.text}</pre>}
+            <button className="primary" onClick={readTransactions} disabled={reading}>
+              Read the transactions
+            </button>
+            <span className="muted" style={{ fontSize: '0.8rem' }}>
+              Nothing is saved. This is gone when you close it.
+            </span>
+              </>
+            )}
 
             {result.pages
               ?.filter((page) => page.image)
@@ -837,7 +984,46 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   <figcaption>Page {page.n}</figcaption>
                 </figure>
               ))}
-          </div>
+          </>
+        )}
+
+        {/* ── Step three: the reading, part by part ──────────────────── */}
+        {step === 3 && (
+          <>
+            <div className="scan-reading-head">
+              <b>
+                {progress?.total
+                  ? `Part ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`
+                  : 'Reading…'}
+              </b>
+              <span className="muted">{describeCost(spent)} so far</span>
+            </div>
+
+            {/* Each part drawn as itself. A single sliding bar hides that six
+              readings are already safely in hand. */}
+            <div className="scan-parts" aria-hidden="true">
+              {Array.from({ length: progress?.total ?? 0 }, (_, i) => (
+                <i
+                  key={i}
+                  className={i < (progress?.done ?? 0) ? 'read' : i < inFlightTo ? 'flight' : ''}
+                />
+              ))}
+            </div>
+            <span className="muted scan-parts-said">
+              {progress?.total
+                ? `${progress.done} read · ${Math.max(0, inFlightTo - progress.done)} in flight · ${Math.max(0, progress.total - inFlightTo)} to go · about ${linesFor(effort)} lines each`
+                : ''}
+            </span>
+
+            <p className="scan-promise">
+              A part that fails is asked for once more, and the parts already read are kept either
+              way. One slow part no longer costs you the whole statement.
+            </p>
+
+            <button className="subtle" onClick={stopReading} disabled={stopping}>
+              {stopping ? 'Stopping…' : 'Stop reading'}
+            </button>
+          </>
         )}
       </Modal>
     </DisplayContext.Provider>

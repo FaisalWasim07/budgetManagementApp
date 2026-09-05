@@ -81,7 +81,7 @@ const check = (name, ok, detail = '') => {
 
   // --- a typed statement --------------------------------------------------
   await open('statement-plain.pdf');
-  await page.waitForSelector('.scan-preview', { timeout: 20000 });
+  await page.waitForSelector('.scan-hidden', { timeout: 20000 });
   const plain = await page.locator('.scan-preview').textContent();
   check('a typed statement is read straight away', plain.includes('CARREFOUR MALL OF EMIRATES'));
   check('the cryptic descriptors survive exactly as printed', plain.includes('TAP*DUB4471'));
@@ -106,9 +106,17 @@ const check = (name, ok, detail = '') => {
   check('a locked statement asks rather than failing', true);
   check(
     'and says the password stays here',
-    (await page.locator('.modal.scanner .field .muted').last().textContent()).includes(
-      'not sent anywhere',
+    /sent nowhere|not sent anywhere/.test(
+      await page.locator('.modal.scanner .field .muted').last().textContent(),
     ),
+    await page.locator('.modal.scanner .field .muted').last().textContent(),
+  );
+  // The document is named while it is being asked about, so it is obvious
+  // which file the password is for.
+  check(
+    'and names the file it is asking about',
+    (await page.locator('.scan-file').textContent()).includes('statement-locked.pdf'),
+    await page.locator('.scan-file').textContent(),
   );
   check('with nothing shown before it opens', (await page.locator('.scan-preview').count()) === 0);
 
@@ -130,7 +138,7 @@ const check = (name, ok, detail = '') => {
 
   await page.fill('.modal.scanner input[type="password"]', PASSWORD);
   await page.click('.modal.scanner button:has-text("Open it")');
-  await page.waitForSelector('.scan-preview', { timeout: 20000 });
+  await page.waitForSelector('.scan-hidden', { timeout: 20000 });
   const unlocked = await page.locator('.scan-preview').textContent();
   check('the right password opens it', unlocked.includes('CARREFOUR MALL OF EMIRATES'));
   // pdf.js detaches the buffer it is handed, so a retry that reuses the same
@@ -191,7 +199,7 @@ const check = (name, ok, detail = '') => {
   // --- reading it, which is the only part that leaves the machine ---------
   await close();
   await open('statement-plain.pdf');
-  await page.waitForSelector('.scan-preview', { timeout: 20000 });
+  await page.waitForSelector('.scan-hidden', { timeout: 20000 });
   const readIt = page.locator('.modal.scanner button:has-text("Read the transactions")');
   check('a statement that has text offers to have it read', (await readIt.count()) === 1);
 
@@ -351,7 +359,7 @@ const check = (name, ok, detail = '') => {
     '.modal.scanner input[type="file"]',
     path.join(FIXTURES, 'statement-plain.pdf'),
   );
-  await oldPage.waitForSelector('.scan-preview', { timeout: 25000 });
+  await oldPage.waitForSelector('.scan-hidden', { timeout: 25000 });
   check(
     'a browser without ReadableStream async iteration still reads a statement',
     (await oldPage.locator('.scan-preview').textContent()).includes('CARREFOUR'),
@@ -483,7 +491,7 @@ const check = (name, ok, detail = '') => {
       }),
     );
     await open('statement-plain.pdf');
-    await page.waitForSelector('.scan-preview', { timeout: 20000 });
+    await page.waitForSelector('.scan-hidden', { timeout: 20000 });
     await page.click('.modal.scanner button:has-text("Read the transactions")');
     await page.waitForSelector('.scan-report', { timeout: 20000 });
   };
@@ -880,7 +888,7 @@ const check = (name, ok, detail = '') => {
   );
 
   await open('statement-long.pdf');
-  await page.waitForSelector('.scan-preview', { timeout: 25000 });
+  await page.waitForSelector('.scan-hidden', { timeout: 25000 });
   await page.click('.modal.scanner button:has-text("Read the transactions")');
   await page.waitForSelector('.scan-report', { timeout: 40000 });
 
@@ -990,7 +998,7 @@ const check = (name, ok, detail = '') => {
   );
 
   await open('statement-long.pdf');
-  await page.waitForSelector('.scan-preview', { timeout: 25000 });
+  await page.waitForSelector('.scan-hidden', { timeout: 25000 });
   await page.click('.modal.scanner button:has-text("Read the transactions")');
   await page.waitForSelector('.scan-report', { timeout: 40000 });
 
