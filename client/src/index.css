@@ -3197,20 +3197,193 @@ th.num {
   color: var(--ink-2);
 }
 
+/* Rows against each other with a rule between them, not cards with air
+   between them: seventeen of these is a list to read down. */
 .scan-cats {
   display: flex;
   flex-direction: column;
-  gap: 9px;
 }
+/* A category is one line until it is asked about. Eighteen of them three lines
+   tall is a wall; eighteen one-line rows is a list you can read down. Folded
+   the way everything else in the app folds — a bare <details>, the browser's
+   own marker, no open state in React and nothing animated. */
 .scan-cat {
+  font-size: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+.scan-cat:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.scan-cat > summary {
+  cursor: pointer;
+  padding: 7px 0;
+  list-style-position: inside;
+}
+.scan-cat > summary:hover .scan-cat-name {
+  color: var(--brand-deep);
+}
+/* Sits beside the marker rather than replacing it, which is why it is
+   inline-grid and why it stops short of the full width. */
+.scan-cat-head {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) minmax(36px, 104px) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 1.6em);
+  vertical-align: middle;
+}
+.scan-cat-name {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scan-cat-sum {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.scan-cat-count {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  min-width: 5.5em;
+  text-align: right;
+}
+/* What the reading could not place is still a row in the list — moving it or
+   dropping it would be hiding it — but it is drawn as the odd one out, because
+   it is not a kind of spending. */
+.scan-cat.unplaced .scan-cat-name {
+  color: var(--ink-2);
+  font-style: italic;
+}
+.scan-cat.unplaced .scan-bar > i {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--ink-3) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* The answer to "what are these three lines". Indented past the marker so it
+   reads as belonging to the row above it. */
+.scan-cat-lines {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 0.85rem;
+  padding: 2px 0 10px 1.6em;
 }
-.scan-cat small {
+.scan-cat-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+}
+.scan-cat-line .when {
+  color: var(--ink-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.76rem;
+}
+.scan-cat-line .num {
+  white-space: nowrap;
+  text-align: right;
+}
+.scan-cat-line-what {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.scan-cat-line-what b {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scan-cat-line-what small {
   font-size: 0.74rem;
   color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scan-cat-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+}
+.scan-cat-foot small {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+.scan-cat-foot .link {
+  font-size: 0.76rem;
+}
+
+/* Said in the section rather than in the list, because it is not a fact about
+   spending — it is a fact about the reading. */
+.scan-unplaced {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line));
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 68ch;
+}
+.scan-unplaced b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* A fact that is also a way to the lines behind it. Drawn as the text it
+   replaced, underlined only on hover, so the report still reads as a document
+   rather than as a page of links. */
+.scan-jump {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.scan-jump:hover,
+.scan-jump:focus-visible {
+  color: var(--brand-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The category somebody arrived by, and the way back out of it. */
+.scan-chip-only {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  /* The bar is the first thing to go: at this width it is a stub that says
+     less than the percentage next to it. */
+  .scan-cat-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+  }
+  .scan-cat-head .scan-bar {
+    display: none;
+  }
+  .scan-cat-count {
+    grid-column: 1 / -1;
+    text-align: left;
+    min-width: 0;
+  }
 }
 /* The bar is the share, drawn. Only ever as wide as its own percentage, so two
    categories side by side compare by eye without reading either number. */

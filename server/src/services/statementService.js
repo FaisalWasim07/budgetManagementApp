@@ -152,8 +152,11 @@ const ROW_SCHEMA = {
           category: {
             type: 'string',
             description:
-              'A plain, obvious spending category — Groceries, Eating out, Fuel, Utilities. ' +
-              'Choose the ordinary word for it rather than anything clever.',
+              'A plain, obvious spending category. Use one of these words wherever it fits: ' +
+              'Groceries, Eating out, Fuel, Transport, Utilities, Health, Shopping, ' +
+              'Subscriptions, Cash, Fees, Travel, Education. Something genuinely outside all ' +
+              'of them may have its own ordinary word, but reach for the list first, and ' +
+              'never reach for "Other" — a low `confidence` is how you say you could not tell.',
           },
           confidence: {
             type: 'string',
@@ -233,6 +236,15 @@ const SYSTEM = [
   '  not "groceries were bought". Three or four words at most.',
   '- Mark `confidence` low whenever you are guessing at the merchant or the category.',
   '  A guess admitted is useful; a guess presented as fact is not.',
+  '',
+  'You are reading one slice of a statement and cannot see what the other slices called',
+  'things, so the words have to come from somewhere fixed. Use these, spelled exactly as',
+  'they are here: Groceries, Eating out, Fuel, Transport, Utilities, Health, Shopping,',
+  'Subscriptions, Cash, Fees, Travel, Education. A merchant that genuinely fits none of',
+  'them may have its own plain word. A merchant you cannot place at all still gets your',
+  'best guess from that list, marked low confidence — "Other" is not a category and is',
+  'never an answer: it collects unrelated spending into the largest line on the report',
+  'and tells the person nothing about any of it.',
   '',
   'On a card statement `kind` is easy to get wrong and matters. A line reading',
   '"TRANSFER PAYMENT RECEIVED" is the cardholder paying the card off: a credit to the',

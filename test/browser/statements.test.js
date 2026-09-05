@@ -869,6 +869,225 @@ const check = (name, ok, detail = '') => {
     (await page.locator('.scan-source summary').count()) === 1,
   );
 
+  // --- a statement the size real ones come in ------------------------------
+  // Every check above ran against four rows, and four rows is not the shape
+  // this screen fails at. A real statement came back as eighteen categories
+  // with `Other` on top of them at 22% — a wall of blocks, each naming a count
+  // of lines nobody could get to. Nothing in a four-row stub could have shown
+  // that, which is why it shipped.
+  const manyRows = [];
+  const add = (category, merchant, amount, times) => {
+    for (let i = 0; i < times; i += 1) {
+      manyRows.push({
+        date: `2026-08-${String((manyRows.length % 28) + 1).padStart(2, '0')}`,
+        postDate: null,
+        raw: `${merchant.toUpperCase()} ${manyRows.length}`,
+        merchant: `${merchant}${times > 1 ? ` ${i + 1}` : ''}`,
+        what: 'a shop',
+        amount,
+        direction: 'out',
+        kind: 'purchase',
+        category,
+        confidence: 'high',
+      });
+    }
+  };
+  // The shape of the statement that prompted all of this: the largest thing on
+  // it is the reading giving up, and the second largest is spelled two ways.
+  add('Other', 'Unclear charge', 637.35, 3);
+  add('Eating out', 'Tap Coffee', 52.37, 32);
+  add('Groceries', 'Carrefour', 131.82, 6);
+  add('groceries', 'Spinneys', 131.82, 5);
+  add('Fuel', 'ENOC', 92.5, 9);
+  add('Transport', 'Careem', 34.25, 8);
+  add('Utilities', 'DEWA', 210.4, 3);
+  add('Health', 'Clinic', 180, 4);
+  add('Shopping', 'Namshi', 149.99, 7);
+  add('Subscriptions', 'Spotify', 39, 6);
+  add('Cash', 'ATM', 500, 2);
+  add('Fees', 'Card fee', 26.25, 4);
+  add('Travel', 'Emirates', 890, 2);
+  add('Education', 'Coursera', 145, 2);
+  add('Insurance', 'Daman', 320, 2);
+  add('Childcare', 'Nursery', 750, 2);
+  add('Pharmacy', 'Life Pharmacy', 62.4, 5);
+  add('Parking', 'Parkin', 12, 6);
+  add('Uncategorised', 'Unknown', 88, 3);
+  const manySpent = Math.round(manyRows.reduce((sum, r) => sum + r.amount, 0) * 100) / 100;
+  // The server groups on the raw string, so this is what the screen would show
+  // if it took the grouping as given: `Groceries` and `groceries`, twice.
+  const rawGroups = [...new Set(manyRows.map((r) => r.category))].map((category) => {
+    const of = manyRows.filter((r) => r.category === category);
+    const total = Math.round(of.reduce((sum, r) => sum + r.amount, 0) * 100) / 100;
+    return {
+      category,
+      total,
+      count: of.length,
+      average: Math.round((total / of.length) * 100) / 100,
+      share: Math.round((total / manySpent) * 1000) / 10,
+    };
+  });
+
+  await showReport(
+    stub({
+      rows: [
+        ...manyRows,
+        {
+          date: '2026-08-01',
+          postDate: null,
+          raw: 'TRANSFER PAYMENT RECEIVED',
+          merchant: 'Card payment',
+          what: 'paying the card',
+          amount: 10117.51,
+          direction: 'in',
+          kind: 'payment',
+          category: 'Payment',
+          confidence: 'high',
+        },
+      ],
+      overview: {
+        lines: manyRows.length,
+        spent: manySpent,
+        credited: 10117.51,
+        credits: { payments: 10117.51, refunds: 0, cashback: 0, income: 0 },
+        from: '2026-08-01',
+        to: '2026-08-28',
+      },
+      categories: rawGroups.sort((a, b) => b.total - a.total),
+      findings: {
+        duplicates: [],
+        repeats: [],
+        outliers: [],
+        frequent: [{ merchant: 'Tap Coffee 1', times: 32, total: 1675.84, average: 52.37 }],
+      },
+    }),
+  );
+
+  const catCount = await page.locator('.scan-cat').count();
+  check(
+    'nineteen category names come out as seventeen rows, because two pairs mean one thing each',
+    catCount === 17,
+    `${catCount} rows from ${rawGroups.length} names`,
+  );
+  check(
+    'and the merged one is labelled with the spelling the statement used most',
+    (await page.locator('.scan-cat-name', { hasText: /^Groceries$/ }).count()) === 1 &&
+      (await page.locator('.scan-cat-name', { hasText: /^groceries$/ }).count()) === 0,
+  );
+  check(
+    'holding every line of both spellings',
+    (await page.locator('.scan-cat:has(.scan-cat-name:text-is("Groceries"))').textContent()).includes(
+      '11 lines',
+    ),
+    await page.locator('.scan-cat:has(.scan-cat-name:text-is("Groceries"))').textContent(),
+  );
+  check(
+    'the count above the list is the same seventeen',
+    (await page.locator('#went .scan-q-sub').textContent()).includes('17 categories'),
+    await page.locator('#went .scan-q-sub').textContent(),
+  );
+  check(
+    'and so is the one in the margin, so the two never disagree',
+    (
+      await page.locator('.scan-doc-link:has-text("Where it went") .scan-doc-count').textContent()
+    ).trim() === '17',
+    await page.locator('.scan-doc-link:has-text("Where it went") .scan-doc-count').textContent(),
+  );
+
+  // Eighteen categories is only readable because none of them is open.
+  check('every category is one line until it is asked about', (await page.locator('.scan-cat[open]').count()) === 0);
+
+  // The largest thing on this statement is the reading admitting defeat, and
+  // displayed as a category it reads as a habit somebody has.
+  const note = await page.locator('.scan-unplaced').textContent();
+  check('what could not be placed is named as that, not as spending', note.includes('not a category'), note);
+  check('with how much of the month is in it', /\d+(\.\d)?%/.test(note), note);
+  check(
+    'and the model’s word and the code’s are one row, not two',
+    (await page.locator('.scan-cat.unplaced').count()) === 1,
+  );
+  check(
+    'holding both of their lines',
+    (await page.locator('.scan-cat.unplaced').textContent()).includes('6 lines'),
+    await page.locator('.scan-cat.unplaced').textContent(),
+  );
+
+  // The question that started this: "3 lines" — but what are they?
+  const utilities = page.locator('.scan-cat:has(.scan-cat-name:text-is("Utilities"))');
+  await utilities.locator('summary').click();
+  const few = await utilities.locator('.scan-cat-line').count();
+  check('opening a small category shows every line behind it', few === 3, String(few));
+  const fewAmounts = (await utilities.locator('.scan-cat-line > .num').allTextContents()).length;
+  check('each with its own amount', fewAmounts === few, String(fewAmounts));
+
+  // Thirty-two lines opened in place is a scroll with the way out at the far
+  // end of it, which is worse than the wall this replaced. The panel shows the
+  // largest few and says so — the rest is what the table is for.
+  const eatingOut = page.locator('.scan-cat:has(.scan-cat-name:text-is("Eating out"))');
+  await eatingOut.locator('summary').click();
+  const opened = await eatingOut.locator('.scan-cat-line').count();
+  check('a long category shows the largest few rather than all thirty-two', opened === 8, String(opened));
+  check(
+    'and says that is what it is doing, rather than looking like the whole of it',
+    (await eatingOut.locator('.scan-cat-foot').textContent()).includes('8 largest of 32'),
+    await eatingOut.locator('.scan-cat-foot').textContent(),
+  );
+
+  // Door two: the way out of a list too long to read in place.
+  await eatingOut.locator('.scan-cat-foot .link').click();
+  await page.waitForSelector('.scan-chip-only', { timeout: 5000 });
+  check(
+    'and following it to the table says which category is being shown',
+    (await page.locator('.scan-chip-only').textContent()).includes('Eating out'),
+    await page.locator('.scan-chip-only').textContent(),
+  );
+  const narrowed = await page.locator('.scan-rows tbody tr').count();
+  check(
+    'showing exactly the lines the count promised',
+    narrowed === 32,
+    `${narrowed} rows in the table against the 32 the category counted`,
+  );
+  check(
+    'and saying so, rather than looking like the whole statement',
+    (await page.locator('.scan-showing').textContent()).includes(`showing 32 of ${manyRows.length + 1}`),
+    await page.locator('.scan-showing').textContent(),
+  );
+
+  // Door three: a finding names a merchant, which until now was a fact you
+  // could not follow.
+  await page.locator('.scan-finding .scan-jump').first().click();
+  check(
+    'a finding’s merchant is the way to its lines too',
+    (await page.locator('.scan-search').inputValue()) === 'Tap Coffee 1',
+    await page.locator('.scan-search').inputValue(),
+  );
+  // Two narrowings at once, by two different clicks, is how somebody ends up
+  // looking at nothing and not knowing which click did it.
+  check(
+    'and it clears the category, so the table is never narrowed two ways at once',
+    (await page.locator('.scan-chip-only').count()) === 0,
+  );
+
+  // The row that merges two words has to find by the same rule it grouped by,
+  // or a row labelled six lines opens onto three of them.
+  const unplacedRow = page.locator('.scan-cat.unplaced');
+  await unplacedRow.locator('summary').click();
+  await unplacedRow.locator('.scan-cat-foot .link').click();
+  await page.waitForSelector('.scan-chip-only', { timeout: 5000 });
+  const unplacedShown = await page.locator('.scan-rows tbody tr').count();
+  check(
+    'following what could not be placed brings back every line it was counting',
+    unplacedShown === 6,
+    `${unplacedShown} rows`,
+  );
+  // And the way back out of it, since nothing else on this screen says the
+  // table is showing a seventeenth of the statement.
+  await page.locator('.scan-chip-only').click();
+  check(
+    'and the chip is the way back to the whole statement',
+    (await page.locator('.scan-rows tbody tr').count()) === manyRows.length + 1,
+    String(await page.locator('.scan-rows tbody tr').count()),
+  );
   // --- a reading that does not add up --------------------------------------
   await showReport(
     stub({

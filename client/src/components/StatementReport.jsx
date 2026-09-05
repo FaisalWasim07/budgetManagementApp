@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Money } from '../utils/display';
 import { rank } from '../utils/statementRanking';
+import { groupCategories, groupKey, unplacedNote } from '../utils/statementCategories';
 import { formatMonth } from '../utils/month';
 
 // The report a scan produces, as a document rather than as a dialog.
@@ -15,6 +16,13 @@ import { formatMonth } from '../utils/month';
 // scroll region — and it holds here, because this fills the window: the page
 // behind it has nothing left to scroll, so this pane is the only scroller on
 // screen rather than the inner one of two.
+
+// How many of a category's lines the panel shows before handing over to the
+// table. Thirty-two of them in place is a scroll with the way out at the far
+// end of it, which is worse than the wall this replaced. Eight answers "what
+// are these lines" for the sizes that question is asked at, and says plainly
+// what it is not showing.
+const MOST_LINES_SHOWN = 8;
 
 const QUESTIONS = [
   ['bill', 'The bill', 'Question one', 'What do I owe?'],
@@ -130,12 +138,22 @@ export default function StatementReport({
   const [sort, setSort] = useState(null);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
+  // A category the table has been narrowed to, set by following one from
+  // question two rather than by anything in question four. Held apart from the
+  // chips above so it reads as what it is: a door somebody came through.
+  const [only, setOnly] = useState(null);
   const paneRef = useRef(null);
   const marks = useRef({});
 
   const ranked = useMemo(() => rank(report.findings), [report.findings]);
   const rows = report.rows;
   const { overview, reconciliation = {} } = report;
+
+  // Grouped here rather than read off the server's own grouping, because the
+  // screen needs two things that one does not have: the rows behind each
+  // category, and spellings folded together. See ../utils/statementCategories.js.
+  const categories = useMemo(() => groupCategories(rows), [rows]);
+  const unplaced = useMemo(() => unplacedNote(categories), [categories]);
 
   // Which question is being read, so the nav says where you are. An observer
   // rather than a scroll handler: the pane is the scroller, and asking the
@@ -161,8 +179,37 @@ export default function StatementReport({
     marks.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  // Every count on this page names something, and until now naming was all it
+  // did. These are the two ways through: a category, which the table can be
+  // narrowed to exactly, and a merchant, which it can be searched for.
+  //
+  // Each clears the other. Arriving at the table already narrowed two ways, by
+  // two different clicks, is how a person ends up looking at nothing and not
+  // knowing why.
+  const showCategory = useCallback(
+    (name) => {
+      setOnly(name);
+      setQuery('');
+      setFilter('all');
+      setSort(null);
+      goTo('lines');
+    },
+    [goTo],
+  );
+
+  const showMerchant = useCallback(
+    (merchant) => {
+      setOnly(null);
+      setQuery(merchant);
+      setFilter('all');
+      setSort(null);
+      goTo('lines');
+    },
+    [goTo],
+  );
+
   const counts = {
-    went: report.categories?.length ?? 0,
+    went: categories.length,
     stands: ranked.length,
     lines: rows.length,
   };
@@ -174,6 +221,10 @@ export default function StatementReport({
     const match = FILTERS.find(([key]) => key === filter)?.[2] ?? (() => true);
     const needle = query.trim().toLowerCase();
     let list = rows.filter(match);
+    // By the key the list grouped on, not by the word on the row: following
+    // "Other" has to bring back everything that row is counting, including the
+    // lines the code called Uncategorised.
+    if (only) list = list.filter((row) => groupKey(row.category) === groupKey(only));
     if (needle) {
       list = list.filter((row) =>
         [row.merchant, row.raw, row.category, row.what].some((field) =>
@@ -185,7 +236,7 @@ export default function StatementReport({
     }
     if (!sort) return list;
     return [...list].sort((a, b) => SORTS[sort.by](a, b) * sort.dir);
-  }, [rows, filter, query, sort]);
+  }, [rows, filter, query, sort, only]);
 
   const clickHeader = (by) =>
     setSort((held) => (held?.by === by ? { by, dir: held.dir * -1 } : { by, dir: 1 }));
@@ -199,13 +250,19 @@ export default function StatementReport({
         .reduce((top, row) => (!top || row.amount > top.amount ? row : top), null),
     [rows],
   );
+  // Read off the same grouping the list above uses, or the callout names
+  // `groceries` where the list two inches higher says `Groceries`. Whatever
+  // could not be placed is left out of it: "most lines" is meant to name a
+  // habit, and the reading giving up is not one — the note above says that.
   const busiest = useMemo(
     () =>
-      (report.categories ?? []).reduce((top, c) => (!top || c.count > top.count ? c : top), null),
-    [report.categories],
+      categories
+        .filter((c) => !c.unplaced)
+        .reduce((top, c) => (!top || c.count > top.count ? c : top), null),
+    [categories],
   );
   const biggestCategory = biggest
-    ? report.categories?.find((c) => c.category === biggest.category)
+    ? categories.find((c) => c.key === groupKey(biggest.category))
     : null;
 
   // Credits are not one thing. Paying a card off is a credit for the whole
@@ -491,29 +548,81 @@ export default function StatementReport({
             <span className="scan-q-eyebrow">{QUESTIONS[1][2]}</span>
             <h3 className="scan-q-title">{QUESTIONS[1][3]}</h3>
             <p className="scan-q-sub">
-              <Money amount={overview.spent} currency={currency} /> across{' '}
-              {report.categories?.length ?? 0}{' '}
-              {(report.categories?.length ?? 0) === 1 ? 'category' : 'categories'}
+              <Money amount={overview.spent} currency={currency} /> across {categories.length}{' '}
+              {categories.length === 1 ? 'category' : 'categories'}
             </p>
 
-            {report.categories?.length > 0 && (
+            {/* What the reading could not place, said as that rather than left
+              sitting at the top of the list looking like a kind of spending. A
+              fifth of a month in "Other" is not a habit anybody has; it is the
+              reading admitting it did not know. */}
+            {unplaced && (
+              <p className="scan-unplaced">
+                <b>
+                  {unplaced.leads ? 'The largest category is not a category.' : 'A large slice was not placed.'}
+                </b>{' '}
+                <Money amount={unplaced.total} currency={currency} /> — {unplaced.share}% of what
+                went out — is in <b>{unplaced.category}</b>, which is the reading saying it could
+                not tell what those {unplaced.count} line{unplaced.count === 1 ? '' : 's'} were.
+                Open it to see them.
+              </p>
+            )}
+
+            {categories.length > 0 && (
               <div className="scan-cats">
-                {report.categories.map((cat) => (
-                  <div className="scan-cat" key={cat.category}>
-                    <div className="row-tight" style={{ justifyContent: 'space-between' }}>
-                      <b>{cat.category}</b>
-                      <span>
-                        <Money amount={cat.total} currency={currency} /> · {cat.share}%
+                {categories.map((cat) => (
+                  // Closed, and one line while it is. Eighteen categories three
+                  // lines tall is a wall; eighteen one-line rows is a list. The
+                  // count in the summary is the promise the panel keeps — see
+                  // `.scan-proof` and Latest.jsx, where an affordance always
+                  // says how much is behind it.
+                  <details className={`scan-cat${cat.unplaced ? ' unplaced' : ''}`} key={cat.key}>
+                    <summary>
+                      {/* One span so the summary keeps the browser's own
+                        disclosure marker — laying the four parts out on the
+                        summary itself takes it away. */}
+                      <span className="scan-cat-head">
+                        <b className="scan-cat-name">{cat.category}</b>
+                        <span className="scan-bar">
+                          <i style={{ width: `${cat.share}%` }} />
+                        </span>
+                        <span className="scan-cat-sum">
+                          <Money amount={cat.total} currency={currency} /> · {cat.share}%
+                        </span>
+                        <small className="scan-cat-count">
+                          {cat.count} line{cat.count === 1 ? '' : 's'}
+                        </small>
                       </span>
+                    </summary>
+
+                    <div className="scan-cat-lines">
+                      {cat.rows.slice(0, MOST_LINES_SHOWN).map((row, i) => (
+                        <div className="scan-cat-line" key={`${row.date}-${row.raw}-${i}`}>
+                          <span className="when">{shortDate(row.date)}</span>
+                          <span className="scan-cat-line-what">
+                            <b>{row.merchant}</b>
+                            <small>{row.what}</small>
+                          </span>
+                          <span className="num">
+                            <Money amount={row.amount} currency={currency} />
+                          </span>
+                        </div>
+                      ))}
+                      <div className="scan-cat-foot">
+                        <small>
+                          {cat.count > MOST_LINES_SHOWN
+                            ? `the ${MOST_LINES_SHOWN} largest of ${cat.count}, averaging `
+                            : 'averaging '}
+                          <Money amount={cat.average} currency={currency} /> a line
+                        </small>
+                        <button className="link" onClick={() => showCategory(cat.category)}>
+                          {cat.count > MOST_LINES_SHOWN
+                            ? `See all ${cat.count} in the table`
+                            : 'See these in the table'}
+                        </button>
+                      </div>
                     </div>
-                    <div className="scan-bar">
-                      <i style={{ width: `${cat.share}%` }} />
-                    </div>
-                    <small>
-                      {cat.count} line{cat.count === 1 ? '' : 's'}, averaging{' '}
-                      <Money amount={cat.average} currency={currency} />
-                    </small>
-                  </div>
+                  </details>
                 ))}
               </div>
             )}
@@ -524,7 +633,10 @@ export default function StatementReport({
                   <div className="scan-callout">
                     <small>Largest single line</small>
                     <b>
-                      {biggest.merchant} — <Money amount={biggest.amount} currency={currency} />
+                      <button className="scan-jump" onClick={() => showMerchant(biggest.merchant)}>
+                        {biggest.merchant}
+                      </button>{' '}
+                      — <Money amount={biggest.amount} currency={currency} />
                     </b>
                     <span>
                       {biggestCategory && biggestCategory.count === 1
@@ -537,7 +649,10 @@ export default function StatementReport({
                   <div className="scan-callout">
                     <small>Most lines</small>
                     <b>
-                      {busiest.category} — {busiest.count} line{busiest.count === 1 ? '' : 's'}
+                      <button className="scan-jump" onClick={() => showCategory(busiest.category)}>
+                        {busiest.category}
+                      </button>{' '}
+                      — {busiest.count} line{busiest.count === 1 ? '' : 's'}
                     </b>
                     <span>
                       averaging <Money amount={busiest.average} currency={currency} /> a time
@@ -596,7 +711,15 @@ export default function StatementReport({
                     <li key={finding.id} className={`scan-finding ${finding.kind}`}>
                       <span className="scan-finding-kind">{finding.label}</span>
                       <span className="scan-finding-what">
-                        <b>{finding.merchant}</b>
+                        {/* The merchant is the question this row raises, so it
+                          is also the way to the lines it was raised from. */}
+                        <button
+                          className="scan-jump"
+                          onClick={() => showMerchant(finding.merchant)}
+                          title={`Find ${finding.merchant} in the table`}
+                        >
+                          {finding.merchant}
+                        </button>
                         <small>{whyFor(finding, currency)}</small>
                       </span>
                       <span className="scan-finding-stake">
@@ -652,6 +775,19 @@ export default function StatementReport({
                     {label}
                   </button>
                 ))}
+                {/* Somebody arrived here from a category above. The table is
+                  narrower than it looks, and the only honest way to show that
+                  is to say which category and offer the way out in the same
+                  breath. */}
+                {only && (
+                  <button
+                    className="scan-chip on scan-chip-only"
+                    onClick={() => setOnly(null)}
+                    title="Show every category again"
+                  >
+                    Category: {only} <span aria-hidden="true">×</span>
+                  </button>
+                )}
               </div>
               <span className="muted scan-showing">
                 {shown.length === rows.length
@@ -717,6 +853,18 @@ export default function StatementReport({
                     <tr>
                       <td className="muted" colSpan={4}>
                         No line here matches that.
+                        {(only || query || filter !== 'all') && (
+                          <button
+                            className="link"
+                            onClick={() => {
+                              setOnly(null);
+                              setQuery('');
+                              setFilter('all');
+                            }}
+                          >
+                            Show every line again
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
