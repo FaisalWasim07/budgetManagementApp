@@ -3080,6 +3080,15 @@ th.num {
 .scan-bill .scan-verdict {
   margin-left: auto;
 }
+/* A statement that printed no balance still gets a first section, and it is
+   drawn quieter than a bill because it is not one. */
+.scan-bill-none {
+  box-shadow: none;
+  background: var(--surface-2);
+}
+.scan-bill-none b {
+  color: var(--ink-2);
+}
 .scan-bill-what {
   font-size: 0.78rem;
   color: var(--ink-2);

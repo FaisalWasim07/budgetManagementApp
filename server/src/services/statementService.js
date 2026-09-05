@@ -182,8 +182,22 @@ const ROW_SCHEMA = {
     statement: {
       type: 'object',
       properties: {
-        openingBalance: { type: ['number', 'null'] },
-        closingBalance: { type: ['number', 'null'] },
+        openingBalance: {
+          type: ['number', 'null'],
+          description:
+            'What the account or card stood at before these transactions. On a card statement ' +
+            'this is printed in the summary box as "Previous Balance", "Opening Balance" or ' +
+            '"Balance brought forward". Copy the figure exactly.',
+        },
+        closingBalance: {
+          type: ['number', 'null'],
+          description:
+            'What is owed or held at the end of this statement — the single figure the ' +
+            'cardholder is being asked to pay. Banks print it under a variety of names: ' +
+            '"Total Amount Due", "Closing Balance", "New Balance", "Statement Balance", ' +
+            '"Total Outstanding". It appears in the summary box above the transactions, ' +
+            'below the table, or both. Copy the figure exactly.',
+        },
         periodStart: { type: ['string', 'null'] },
         periodEnd: { type: ['string', 'null'] },
       },
@@ -229,6 +243,16 @@ const SYSTEM = [
   'the period covered. They are used to check that your reading adds up. Where the',
   'document does not print one, answer null rather than working it out — a figure you',
   'derived cannot check the rows you derived it from.',
+  '',
+  'Those balances are not in the transaction list. They are in the summary the bank',
+  'prints above the table, below it, or both, and they are the most important thing on',
+  'the page: the closing balance is the one figure the cardholder opened the statement',
+  'to find. It goes by many names — "Total Amount Due", "Closing Balance", "New',
+  'Balance", "Statement Balance", "Total Outstanding" — and the opening one by',
+  '"Previous Balance" or "Balance brought forward". Sections marked as a header or as a',
+  'statement summary are there to be read for exactly this; only the part marked',
+  'transactions is the list of rows. Read the balances even when a section says it is',
+  'not transactions — that marking means "do not make rows of this", not "ignore it".',
 ].join('\n');
 
 // Everything that does not change between slices lives here, and nothing that

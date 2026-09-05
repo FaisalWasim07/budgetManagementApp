@@ -30,6 +30,7 @@ const SUITES = [
   'api/ranking.test.js',
   'api/csv.test.js',
   'api/cost.test.js',
+  'api/chunks.test.js',
   'api/notify.test.js',
   'api/whois.test.js',
   'api/identity.test.js',

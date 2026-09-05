@@ -353,6 +353,33 @@ export default function StatementReport({
             <span className="scan-q-eyebrow">{QUESTIONS[0][2]}</span>
             <h3 className="scan-q-title">{QUESTIONS[0][3]}</h3>
 
+            {/* No balance came back. The headline question then has no answer,
+              and saying nothing at all leaves a report whose first section is
+              simply missing — which reads as a bug rather than as a statement
+              that did not print one. What the lines add up to is shown instead,
+              and named as what it is: a movement worked out from the rows, not
+              a figure the bank printed and not something to pay. */}
+            {reconciliation.closing == null && (
+              <div className="scan-bill scan-bill-none">
+                <span className="scan-bill-what">This statement printed no balance to read</span>
+                <b>
+                  <Money
+                    amount={Math.abs(overview.spent - overview.credited)}
+                    currency={currency}
+                  />
+                </b>
+                <span className="muted">
+                  {overview.spent >= overview.credited ? 'more went out than came in' : 'more came in than went out'}
+                </span>
+                <span className="scan-verdict">Not checked</span>
+                <span className="scan-bill-verdict reconciled">
+                  That is what these lines move, not what you owe. Without the bank’s own opening
+                  and closing figures there is nothing to check the reading against — and a total
+                  worked out from the rows cannot check the rows it came from.
+                </span>
+              </div>
+            )}
+
             {reconciliation.closing != null && (
               <div className="scan-bill">
                 <span className="scan-bill-what">

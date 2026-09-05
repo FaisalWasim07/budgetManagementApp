@@ -49,19 +49,68 @@ export const AT_ONCE = 3;
 // start early it swallowed the first few, and because the header is repeated
 // into every slice, those transactions then came back once per slice. Ninety
 // became ninety-six, and on a real statement that is spending you did not do.
-const MOST_HEADER_LINES = 12;
+const MOST_HEADER_LINES = 30;
 
-// A transaction line ends in an amount, or begins with a date. Either is enough
-// to say the header is over; neither appears in a bank's letterhead.
-const looksLikeTransaction = (line) =>
-  /\d[\d,]*\.\d{2}\s*(CR)?$/i.test(line.trim()) || /^\d{1,2}[\s/-][A-Za-z]{3}/.test(line.trim());
+// The cap when there is no date to go on and the header has to be guessed at
+// from amounts alone. Lower, because that guess can be wrong in the direction
+// that swallows transactions.
+const HEADER_WITHOUT_DATES = 12;
 
+// What the bank prints under the table: a closing balance, a minimum payment, a
+// due date. Short, and never transactions.
+const MOST_FOOTER_LINES = 12;
+
+// A transaction line begins with a date. That is the signal, and it is the only
+// one that can tell a transaction from the summary box above it.
+const startsWithDate = (line) =>
+  /^\d{1,2}[\s/-][A-Za-z]{3}/.test(line.trim()) ||
+  /^\d{4}-\d{2}-\d{2}/.test(line.trim()) ||
+  /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(line.trim());
+
+// Ending in an amount is a much weaker signal, kept only for statements that
+// print no dates at the start of a line at all.
+const endsWithAmount = (line) => /\d[\d,]*\.\d{2}\s*(CR)?$/i.test(line.trim());
+
+const looksLikeTransaction = (line) => startsWithDate(line) || endsWithAmount(line);
+
+// Where the transaction table starts.
+//
+// This used to cut at the first line ending in an amount, and that is exactly
+// what a card statement's summary box is made of:
+//
+//   Previous Balance      10,117.51
+//   Payments and Credits  10,678.51
+//   Total Amount Due       9,496.06
+//
+// Every one of those ends in an amount and none of them is a transaction, so
+// the header was cut above the balances and they fell into the body — under a
+// heading that says "transactions only", where a model doing as it is told
+// skips them. The one figure somebody opens a statement to find never reached
+// the model as a balance at all.
+//
+// A date at the start of the line is what actually marks the table. Where there
+// is one, the cut lands on it exactly, so a generous cap cannot swallow a
+// transaction — the line above the first dated line is never one.
 function headerEnd(lines) {
-  const first = lines.findIndex(looksLikeTransaction);
+  const dated = lines.findIndex(startsWithDate);
+  if (dated >= 0) return Math.min(dated, MOST_HEADER_LINES);
+
+  const any = lines.findIndex(looksLikeTransaction);
   // Nothing that looks like a transaction at all: keep a little context and let
   // the model make of it what it can.
-  if (first < 0) return Math.min(4, lines.length);
-  return Math.min(first, MOST_HEADER_LINES);
+  if (any < 0) return Math.min(4, lines.length);
+  return Math.min(any, HEADER_WITHOUT_DATES);
+}
+
+// Where the table ends. Everything after the last dated line is the summary the
+// bank prints at the bottom — which on plenty of statements is the only place
+// the closing balance appears at all. It is not transactions, so carrying it
+// into every slice cannot duplicate one.
+function footerStart(lines) {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (startsWithDate(lines[i])) return i + 1;
+  }
+  return lines.length;
 }
 
 export function chunkStatement(text, linesPerChunk = LINES_PER_CHUNK) {
@@ -70,14 +119,26 @@ export function chunkStatement(text, linesPerChunk = LINES_PER_CHUNK) {
 
   const start = headerEnd(lines);
   const header = lines.slice(0, start).join('\n');
+
+  const footFrom = footerStart(lines);
+  const footer = lines.slice(footFrom, footFrom + MOST_FOOTER_LINES).join('\n');
   const chunks = [];
 
   for (let i = start; i < lines.length; i += linesPerChunk) {
-    const body = lines.slice(i, i + linesPerChunk).join('\n');
+    const end = i + linesPerChunk;
+    const body = lines.slice(i, end).join('\n');
     if (!body.trim()) continue;
-    // The header is marked rather than pasted in silently, so the model does
-    // not read it as transactions and return the account number as a purchase.
-    chunks.push(`${header}\n\n--- part ${chunks.length + 1}, transactions only ---\n${body}`);
+    // The header and the footer are marked rather than pasted in silently, so
+    // the model does not read them as transactions and return the account
+    // number as a purchase. The footer is left off the slice that already
+    // reaches it — repeating a statement's last lines to themselves says
+    // nothing and reads as a second copy of them.
+    const tail = footer.trim() && end <= footFrom
+      ? `\n\n--- statement summary, not transactions ---\n${footer}`
+      : '';
+    chunks.push(
+      `${header}\n\n--- part ${chunks.length + 1}, transactions only ---\n${body}${tail}`,
+    );
   }
 
   return chunks.length ? chunks : [text];
