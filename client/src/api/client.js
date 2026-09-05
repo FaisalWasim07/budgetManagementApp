@@ -23,13 +23,26 @@ export class NetworkError extends Error {
   }
 }
 
-async function request(path, options = {}) {
+// A request that got no answer and no refusal either — the socket simply stayed
+// open. `fetch` has no timeout of its own and will wait for as long as the
+// other end is willing to hold the connection, which on a host that has already
+// killed the function underneath it is forever. Without one of these, a single
+// unlucky request does not fail: it hangs, and everything waiting on it hangs
+// with it, showing a progress line that will never move again.
+//
+// Only asked for where the wait has a known ceiling — see statements.js, where
+// the host gives up at sixty seconds and there is nothing to wait for after
+// that. Everywhere else the browser's own behaviour is left alone.
+async function request(path, { timeoutMs, ...options } = {}) {
   let response;
+  const stopper = timeoutMs ? new AbortController() : null;
+  const alarm = stopper ? setTimeout(() => stopper.abort(), timeoutMs) : null;
   try {
     response = await fetch(`/api${path}`, {
       // Balances change under these URLs constantly, and a reply from a cache is
       // the app quietly showing you last minute's money.
       cache: 'no-store',
+      ...(stopper ? { signal: stopper.signal } : {}),
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -43,6 +56,8 @@ async function request(path, options = {}) {
     // and those words went straight to the screen, where they told nobody
     // anything. What actually happened is that nothing came back.
     throw new NetworkError(err);
+  } finally {
+    if (alarm) clearTimeout(alarm);
   }
   if (!response.ok) {
     // The auth routes are how you get in, so a 401 there is a wrong password
@@ -70,8 +85,8 @@ export function get(path) {
   return request(path);
 }
 
-export function post(path, body) {
-  return request(path, { method: 'POST', body: JSON.stringify(body) });
+export function post(path, body, options) {
+  return request(path, { method: 'POST', body: JSON.stringify(body), ...options });
 }
 
 export function put(path, body) {

@@ -314,10 +314,20 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   // The bill so far, added up from what each slice actually reported rather
   // than from the estimate the button made.
   const spent = spentSoFar(progress?.parts);
-  // Slices already read, plus the ones in the air behind them. AT_ONCE is the
-  // concurrency, so that is how many are in flight at any moment until the end
-  // of the queue is reached.
-  const inFlightTo = Math.min(progress?.total ?? 0, (progress?.done ?? 0) + AT_ONCE);
+  // Slices already read, plus the ones in the air behind them.
+  //
+  // The first one goes on its own, and that is worth being accurate about
+  // rather than tidy: everything that does not change between slices is cached
+  // server-side after the first request that sends it, so three leaving
+  // together would all miss that cache and all pay to write it. It means the
+  // opening wait is one request long and looks like nothing is happening — the
+  // exact moment somebody decides the app has died — so the screen says one is
+  // in flight, because one is, and says why.
+  const first = (progress?.done ?? 0) === 0;
+  const inFlightTo = Math.min(
+    progress?.total ?? 0,
+    (progress?.done ?? 0) + (first ? 1 : AT_ONCE),
+  );
 
   // Asked for once, when the dialog opens, rather than on every file: it is a
   // fixed list and the answer does not change between statements. A failure
@@ -962,7 +972,20 @@ export default function StatementScanner({ onClose, accounts = [] }) {
                   {estimate != null && <b className="scan-estimate">{describeCost(estimate)}</b>}
                 </div>
                 <span className="muted">
-                  {chosen?.note} {dearer ? `${dearer.label} reads the same statement for ${describeCost(dearer.cost)}.` : ''}
+                  {chosen?.note}{' '}
+                  {dearer
+                    ? `${dearer.label} reads the same statement for ${describeCost(dearer.cost)}.`
+                    : ''}
+                  {/* Thinking happens before the first row is written, and the
+                    host stops waiting at sixty seconds either way. Slices are
+                    made shorter to compensate, but a part can still be asked
+                    to think for longer than it is allowed to take — and when
+                    that happens it is the wait, not the bill, that goes wrong.
+                    Said here, where the setting is, rather than discovered
+                    during a reading that has stopped moving. */}
+                  {effort && effort !== 'low'
+                    ? ` Thinking takes time the host does not always allow: at ${effort} effort a part can run past sixty seconds and have to be asked for again. Low is the setting that reads a printed list.`
+                    : ''}
                 </span>
               </div>
             )}
@@ -1016,8 +1039,9 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             </span>
 
             <p className="scan-promise">
-              A part that fails is asked for once more, and the parts already read are kept either
-              way. One slow part no longer costs you the whole statement.
+              {first
+                ? 'The first part goes on its own. What does not change between parts is cached after it, so the ones behind it cost a tenth — which is why this first wait is the long one.'
+                : 'A part that fails is asked for once more, and the parts already read are kept either way. One slow part no longer costs you the whole statement.'}
             </p>
 
             <button className="subtle" onClick={stopReading} disabled={stopping}>
