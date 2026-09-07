@@ -56,10 +56,15 @@ export default function Sparkline({
   showHighlight = false,
   normalise = false,
   label,
-  // Zero on every side by default, so a KPI card's sparkline sits flush with
-  // the card's edges. A caller that draws something at the last point — an end
-  // dot — has to inset by at least its radius, or half of it is cut off.
-  margin = { top: 2, right: 0, bottom: 0, left: 0 },
+  // Flush left and right, so a KPI card's sparkline still bleeds to the card's
+  // edges, but never flush along the bottom. bklit measures an all-positive
+  // series from zero, so a month with nothing in it plots exactly on the
+  // chart's floor — and with no bottom margin the floor is the last row of
+  // pixels, which cuts the stroke in half down its whole length. Two is enough
+  // to clear a 1.8px line and small enough that the fill still reads as
+  // reaching the card's edge. A caller that draws something at the last point —
+  // an end dot — has to inset by at least its radius, or half of it is cut off.
+  margin = { top: 2, right: 0, bottom: 2, left: 0 },
   className = 'mini',
   children,
 }) {

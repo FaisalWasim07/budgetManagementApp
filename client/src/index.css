@@ -4091,8 +4091,6 @@ th.num {
 }
 
 /* ── Charts ──────────────────────────────────────────────────────── */
-/* Two across. align-items keeps a short card short instead of stretching it to
-   match whatever tall thing happens to sit beside it. */
 /* Four figures, one row, above the charts. The tile is the whole answer:
    what it is now, which way it moved, and the shape of the year behind it. */
 .kpis {
@@ -4115,12 +4113,22 @@ th.num {
   min-width: 0;
 }
 /* Title on the left, the move on the right — bklit's stat card puts its
-   trend badge in the card header, and this is that row. */
+   trend badge in the card header, and this is that row.
+
+   The badge is not always there: the first month of a year has nothing before
+   it to have moved from, and a month that moved by less than a twentieth of a
+   percent is not a move worth printing. Without a floor the row is as tall as
+   the badge when there is one and as tall as the title when there isn't, so
+   crossing the sparkline with the cursor nudged the figure, the caption and
+   the shape itself two pixels up the card and back. The floor is the badge's
+   own height — its text, its padding and its border — so the row measures the
+   same whether the badge is drawn or not. */
 .kpi-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: calc(0.68rem + 8px);
 }
 .kpi .k {
   font-size: 0.73rem;
@@ -4183,11 +4191,17 @@ th.num {
   aspect-ratio: auto !important;
 }
 
+/* Two across, and the two in a row are the same height. Left to their natural
+   heights every card ended somewhere different — a donut beside a bar chart
+   beside two rows of bars — and six cards ending at six heights reads as a
+   page that failed to lay itself out rather than as six answers. Each row
+   takes its tallest card; the rows still differ from each other, which is
+   honest, because a row of bar charts genuinely needs more height than a row
+   of two-line lists. */
 .charts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  align-items: start;
 }
 .chart {
   background: var(--surface);
@@ -4245,9 +4259,15 @@ th.num {
   width: 100%;
   height: auto;
 }
+/* It lies over the whole donut, hole and ring alike, so without this it eats
+   every pointer event the slices were drawn to receive and the ring answers
+   only when its legend is hovered. bklit's own PieCenter is
+   `pointer-events-none` for exactly this reason; this span replaced it and had
+   to inherit the property along with the position. */
 .donut-centre {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;

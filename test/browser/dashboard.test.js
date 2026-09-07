@@ -723,6 +723,88 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     `${slices} slices, ${legend} legend rows`,
   );
 
+  // Those transparent hit paths are only reachable if nothing lies over them.
+  // The centre label is positioned across the whole donut, hole and ring
+  // alike, so without `pointer-events: none` it swallows every one of them and
+  // the ring answers only when its legend is hovered — which is a legend that
+  // works, not a chart that does.
+  const donutBox = await page.locator('.donut').boundingBox();
+  const centreSays = () => page.locator('.donut-centre').textContent();
+  const donutResting = await centreSays();
+  // Halfway out along the ring, at one o'clock: inside every slice's arc
+  // whatever the data divides it into.
+  const reach = donutBox.width * 0.38 * Math.SQRT1_2;
+  await page.mouse.move(donutBox.x + donutBox.width / 2 + reach, donutBox.y + donutBox.height / 2 - reach);
+  await page.waitForTimeout(400);
+  const donutHovered = await centreSays();
+  const litRows = await page.locator('.donut-legend li.on').count();
+  check(
+    'pointing at the ring itself names the slice, not only its legend row',
+    donutHovered !== donutResting && litRows === 1,
+    `${donutResting} -> ${donutHovered}, ${litRows} legend rows lit`,
+  );
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(300);
+
+  // A tile's trend badge is not drawn for every point — the first month of the
+  // year has nothing before it to have moved from — so unless its slot is held
+  // open the header row is one height with it and another without, and running
+  // the cursor along the sparkline nudges the figure, the caption and the
+  // shape itself up the card and back.
+  const headRoom = await page.evaluate(() => {
+    const head = document.querySelector('.kpi-head');
+    const probe = document.createElement('span');
+    probe.className = 'kpi-badge up';
+    probe.textContent = '↑ 9%';
+    head.appendChild(probe);
+    const withBadge = head.getBoundingClientRect().height;
+    const badge = probe.getBoundingClientRect().height;
+    probe.remove();
+    return { withBadge, without: head.getBoundingClientRect().height, badge };
+  });
+  check(
+    'a tile keeps its shape whether or not it is showing a trend badge',
+    headRoom.withBadge === headRoom.without,
+    `${headRoom.without}px without, ${headRoom.withBadge}px with a ${headRoom.badge}px badge`,
+  );
+
+  // bklit measures an all-positive series from zero, so a month with nothing
+  // in it plots on the chart's floor. If the floor is the last row of pixels
+  // the stroke is cut in half down its whole length — which is most of the
+  // length, on a household that has only just started recording.
+  const floor = await page.evaluate(() => {
+    const svg = document.querySelector('.kpi .mini svg');
+    // What the chart plots inside its own margins: the transparent rect it
+    // lays down to catch the pointer is exactly that area.
+    const plot = svg.querySelector('g > rect[fill="transparent"]');
+    const line = [...svg.querySelectorAll('path')].find((p) => p.getAttribute('stroke-width'));
+    return {
+      room: svg.getBoundingClientRect().bottom - plot.getBoundingClientRect().bottom,
+      half: Number(line.getAttribute('stroke-width')) / 2,
+    };
+  });
+  check(
+    'and a sparkline sitting on its floor is still a whole line',
+    floor.room >= floor.half,
+    `${floor.room}px under the floor, ${floor.half}px of stroke to fit`,
+  );
+
+  // Six cards ending at six different heights reads as a page that failed to
+  // lay itself out. Each row takes its tallest.
+  const cardHeights = await page.evaluate(() =>
+    [...document.querySelectorAll('.chart')].map((el) =>
+      Math.round(el.getBoundingClientRect().height),
+    ),
+  );
+  check(
+    'and the two cards in a row are the same height',
+    cardHeights.length === 6 &&
+      cardHeights[0] === cardHeights[1] &&
+      cardHeights[2] === cardHeights[3] &&
+      cardHeights[4] === cardHeights[5],
+    cardHeights.join(' / '),
+  );
+
   // --- the month, and coming back to today ---------------------------------
   // On Activity, not Home: Home holds no entry rows, so counting them there
   // would pass for last month whether the month selector worked or not.
