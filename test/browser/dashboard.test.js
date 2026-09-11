@@ -825,6 +825,50 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     keptScale.join(' ') || 'no share scale',
   );
 
+  // "Went out" means spending plus what the recurring items took — the figure
+  // in the tile, and the arithmetic behind the share chart. In and out used to
+  // draw only the spending under that name, with subscriptions as a third bar
+  // beside it, so the same two words carried two numbers a hand's width apart.
+  // Hovering the last band is the month the tile is reporting, so the two have
+  // to land on the same figure.
+  const agreement = await page.evaluate(async () => {
+    const card = document.querySelectorAll('.chart')[0];
+    // The plot is the transparent rect the chart lays inside its margins; its
+    // right-hand edge is the last month, whatever the card's own size.
+    const plot = card.querySelector('svg g > rect[fill="transparent"]');
+    const box = plot.getBoundingClientRect();
+    const x = box.right - 3;
+    const y = box.top + box.height / 2;
+    for (const type of ['pointerover', 'pointermove', 'mouseover', 'mousemove']) {
+      plot.dispatchEvent(
+        new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }),
+      );
+    }
+    await new Promise((done) => setTimeout(done, 500));
+
+    const row = [...document.querySelectorAll('.flex.items-center.justify-between')].find((el) =>
+      el.textContent.includes('Went out'),
+    );
+    const digits = row ? row.textContent.replace(/[^0-9]/g, '') : '';
+    const tile = [...document.querySelectorAll('.kpi')].find((el) =>
+      el.querySelector('.k').textContent.includes('Went out'),
+    );
+    const flow = tile.querySelector('.v number-flow-react');
+    return {
+      chart: digits ? Number(digits) : null,
+      // The tile's figure rolls rather than prints, so it is read from the
+      // data the roll was built from rather than off the screen.
+      tile: flow ? Math.round(JSON.parse(flow.getAttribute('data')).value) : null,
+    };
+  });
+  check(
+    'the chart and the tile agree on what went out',
+    agreement.chart !== null && agreement.chart === agreement.tile,
+    `chart ${agreement.chart}, tile ${agreement.tile}`,
+  );
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(300);
+
   // --- the month, and coming back to today ---------------------------------
   // On Activity, not Home: Home holds no entry rows, so counting them there
   // would pass for last month whether the month selector worked or not.
