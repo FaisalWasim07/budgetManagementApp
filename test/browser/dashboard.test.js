@@ -805,6 +805,26 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     cardHeights.join(' / '),
   );
 
+  // Twelve months of bars are drawn to be taken in together; without a scale
+  // beside them the only way to learn what any one of them is worth is to
+  // hover it, one at a time, which is the opposite of what the shape is for.
+  // Both axes label themselves with the same class, so the months have to be
+  // filtered out: what is being asked here is whether a share scale is there
+  // at all, beside the twelve names that were already.
+  const keptScale = await page.evaluate(() => {
+    const card = [...document.querySelectorAll('.chart')].find((el) =>
+      el.querySelector('h3').textContent.includes('Kept'),
+    );
+    return [...card.querySelectorAll('.text-chart-label')]
+      .map((el) => el.textContent.trim())
+      .filter((label) => /^-?\d+%$/.test(label));
+  });
+  check(
+    'kept over time can be read without hovering it',
+    keptScale.length > 1,
+    keptScale.join(' ') || 'no share scale',
+  );
+
   // --- the month, and coming back to today ---------------------------------
   // On Activity, not Home: Home holds no entry rows, so counting them there
   // would pass for last month whether the month selector worked or not.

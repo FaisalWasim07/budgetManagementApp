@@ -1,4 +1,11 @@
-import { BarChart, Bar, BarXAxis, Grid, ChartTooltip } from '../../vendor/bklit/charts/index.js';
+import {
+  BarChart,
+  Bar,
+  BarXAxis,
+  Grid,
+  ChartTooltip,
+  YAxis,
+} from '../../vendor/bklit/charts/index.js';
 import { sequentialBlue } from '../../utils/palette';
 import { shortMonth } from '../../utils/month';
 
@@ -41,10 +48,21 @@ export default function KeptChart({ trend }) {
             {/* Zero is the line that matters: below it the month cost more
                 than it earned. */}
             <Grid horizontal highlightRowValues={[0]} highlightRowStroke="var(--ink-3)" />
+            {/* Without a scale the bars could only be read by hovering them
+                one at a time, which is not what a chart of twelve months is
+                for — the whole point is taking them in together, and that
+                needs to know whether the tall ones are sixty per cent or
+                ninety. Not masked: a share tells you nothing about how much,
+                which is the same reason the figure above it isn't. */}
+            <YAxis formatValue={(v) => `${Math.round(v)}%`} />
+            {/* A small radius rather than "round", which is half the bar's
+                width: at this width that curved the foot of every bar away
+                from the zero line the grid draws, and zero is the line this
+                chart is read against. */}
             <Bar
               dataKey="kept"
               fill={good}
-              lineCap="round"
+              lineCap={4}
               fillFor={(row) => (row.kept < 0 ? bad : undefined)}
             />
             <BarXAxis />
