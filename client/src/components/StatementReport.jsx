@@ -140,6 +140,14 @@ export default function StatementReport({
   summaryError,
   onWriteSummary,
   onDownloadCsv,
+  // Keeping is the one thing in this dialog that outlives it. Everything else
+  // here is gone when the tab closes, which has always been the promise; this
+  // is the explicit exception, and it is a button rather than a side effect of
+  // reading precisely so the promise still holds for every scan nobody presses
+  // it on.
+  onKeep,
+  keepState,
+  keepError,
   onScanAnother,
   onClose,
   reading,
@@ -312,9 +320,34 @@ export default function StatementReport({
             {account?.name || currency ? ' · ' : ''}read just now
           </small>
         </span>
+        {/* A CSV outlives the dialog too, but only as a file on a disk that
+            nothing here can read back. Keeping is what lets next month's
+            statement be compared against this one. */}
+        {onKeep ? (
+          <button
+            className="secondary scan-doc-keep"
+            onClick={onKeep}
+            disabled={keepState === 'keeping' || keepState === 'kept'}
+            title={
+              keepState === 'kept'
+                ? 'Kept — open Statements to compare it'
+                : 'Keep this statement so next month can be compared against it'
+            }
+          >
+            {keepState === 'keeping' ? 'Keeping…' : keepState === 'kept' ? '✓ Kept' : 'Keep'}
+            <span className="scan-wide-only">{keepState === 'kept' ? '' : ' this statement'}</span>
+          </button>
+        ) : null}
         <button className="secondary scan-doc-csv" onClick={onDownloadCsv}>
           <span className="scan-wide-only">Download </span>CSV
         </button>
+        {/* Said where the button is, not in a banner across the document: it
+            is about the press, and nothing else on this screen changed. */}
+        {keepError ? (
+          <span className="scan-doc-keep-error error-text" role="status">
+            {keepError}
+          </span>
+        ) : null}
         <button className="subtle" onClick={onClose} aria-label="Close">
           ✕
         </button>

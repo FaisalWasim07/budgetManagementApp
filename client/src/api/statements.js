@@ -1,4 +1,4 @@
-import { get, post } from './client';
+import { get, post, del } from './client';
 
 // Which models a statement may be read with, and what each costs. Asked for
 // rather than held here: the list and its prices have one home, on the server,
@@ -55,3 +55,37 @@ export const summariseStatement = (rows, statement, accountId, model, effort) =>
     },
     { timeoutMs: HOST_GIVES_UP_AT },
   );
+
+// --- kept statements -------------------------------------------------------
+
+// Keeping one. This is the only call in this file that writes anything, and it
+// is the whole reason there is something for next month to be compared
+// against — a scan that is read and closed still leaves nothing behind.
+//
+// The rows go rather than the report, exactly as they do for the summary: what
+// is stored is worked out on the server from these, by the same code that
+// produced what is on screen, so a browser cannot file a total of its own
+// choosing.
+export const keepStatement = (rows, statement, accountId) =>
+  post('/statements/kept', {
+    rows,
+    statement: statement ?? null,
+    account_id: accountId ?? null,
+  });
+
+// Everything kept, with the trend across it, the two most recent compared, and
+// what recurs. One call rather than four: they are read together on one screen
+// and the arithmetic over a year of statements is milliseconds.
+export const getKeptStatements = () => get('/statements/kept');
+
+// One kept statement, read back with the same analysis the report showed —
+// worked out again from the stored rows rather than stored beside them, so it
+// cannot drift from what the rows say.
+export const getKeptStatement = (id) => get(`/statements/kept/${id}`);
+
+// Any two of them against each other, chosen by the reader rather than by
+// being the most recent.
+export const compareKeptStatements = (before, after) =>
+  get(`/statements/kept/${before}/against/${after}`);
+
+export const forgetStatement = (id) => del(`/statements/kept/${id}`);

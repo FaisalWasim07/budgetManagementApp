@@ -313,4 +313,11 @@ module.exports = {
   repeats,
   outliers,
   frequent,
+  // Exported for statementHistory, which reads several statements at once.
+  // It has to group merchants and round money by exactly these rules: a
+  // merchant folded together inside one statement's report and split apart in
+  // the view across months would be the same data disagreeing with itself on
+  // two screens, and the reader would have no way to tell which was right.
+  key,
+  money,
 };

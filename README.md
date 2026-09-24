@@ -424,9 +424,54 @@ or not. A scan is the opposite: you have just chosen a file and asked for it to
 be read, with the statement itself in front of you. The dialog opts out for
 itself and changes nothing for the rest of the app.
 
-**Nothing is stored.** There is no statements table and no migration; the rows
-come back in the response and are gone when you close the dialog. Nothing here
-can write to your ledger, so a misread line cannot reach your budget.
+**Nothing is stored unless you keep it.** A scan you read and close writes
+nothing at all — the rows come back in the response and go when the dialog
+does. Pressing **Keep** on a report is the exception, and it is a button rather
+than something that happens to you, so the promise still holds for every
+statement you were only checking.
+
+Nothing here can write to your ledger either way, so a misread line cannot
+reach your budget.
+
+## Comparing statements
+
+**Statements** in the sidebar is what kept statements are for. A single
+statement can only tell you what is in it; two can tell you what changed.
+
+- what each one came to, and the trend across all of them
+- categories and merchants month against month — what moved, what appeared,
+  what stopped
+- **what is charging you every statement**, and whether the price moved.
+  A monthly subscription appears exactly once in a one-month statement, so
+  the scanner's own repeat-finder can only see a repeat already inside the
+  file. Across kept statements the same charge appears once per statement,
+  which is the rhythm it was always looking for — this is the finding one
+  statement structurally cannot produce.
+
+Statements live on their own. They are their own tables, with no foreign key
+into the ledger and none out of it: a statement is a document a bank printed,
+and the ledger is what the household decided to record. They disagree
+constantly — a card payment is one line on a statement and a transfer in the
+ledger, cash spent is in the ledger and invisible to the bank — and joining
+them would force an answer to a question nobody has asked yet.
+
+**Categories are a closed list**, and that is because of this page rather than
+in spite of it. The reading used to be allowed its own word for a merchant
+that fitted none of the usual ones, which is the better answer while a scan is
+read once and thrown away. Compared across months it stops being a label and
+becomes a join key: September has no idea August said "Eating out" rather than
+"Dining", and the two spellings show up as one category vanishing and another
+appearing, both totals wrong, said with a confident arrow. So the schema
+closes the list, and a merchant that fits none of them gets the nearest word
+marked low confidence.
+
+That fixes the words. It cannot fix the judgement: the same coffee shop can
+land in Groceries one month and Eating out the next, and both readings are
+defensible. When it happens, the comparison says so above the category list
+rather than letting two categories move by equal and opposite amounts with
+nothing to explain it. Same bargain the scanner makes everywhere else — the
+model may be wrong about *what* something is, as long as you can see it and
+disagree.
 
 The model is set in `server/src/services/statementService.js` and reads at low
 effort. That matters more than it sounds: Opus thinks by default and thinking

@@ -1578,6 +1578,95 @@ const check = (name, ok, detail = '') => {
   await page.unroute('**/api/statements/scan');
   await page.unroute('**/api/statements/analyse');
 
+  // --- statements kept, and compared -------------------------------------
+  //
+  // The comparison arithmetic is tested directly in test/api/history.test.js.
+  // What a browser is needed for is the screen: that a page exists to reach,
+  // that it reads what was kept, and — the one that matters — that the caveat
+  // about a merchant refiled between two readings is printed ABOVE the
+  // category list it qualifies rather than below it. A warning that arrives
+  // after the claim it undermines has already been believed.
+  const keep = async (periodStart, periodEnd, rows) =>
+    page.evaluate(
+      async ([start, end, lines, household]) => {
+        const res = await fetch('/api/statements/kept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Household-Id': String(household) },
+          body: JSON.stringify({
+            statement: { periodStart: start, periodEnd: end },
+            rows: lines,
+          }),
+        });
+        return res.status;
+      },
+      [periodStart, periodEnd, rows, await page.evaluate(() => localStorage.getItem('budget.householdId'))],
+    );
+
+  const line = (merchant, amount, category) => ({
+    date: '2026-07-04',
+    raw: merchant.toUpperCase(),
+    merchant,
+    what: 'a shop',
+    amount,
+    direction: 'out',
+    kind: 'purchase',
+    category,
+    confidence: 'high',
+  });
+
+  const keptJuly = await keep('2026-07-01', '2026-07-31', [
+    line('Carrefour', 400, 'Groceries'),
+    line('Tap Coffee', 200, 'Eating out'),
+    line('Netflix', 56, 'Subscriptions'),
+  ]);
+  // The same coffee shop, filed elsewhere the second time. This is the drift a
+  // fixed vocabulary cannot remove — both answers are defensible — and it is
+  // what the caveat exists to name.
+  const keptAugust = await keep('2026-08-01', '2026-08-31', [
+    line('Carrefour', 520, 'Groceries'),
+    line('Tap Coffee', 200, 'Groceries'),
+    line('Netflix', 62, 'Subscriptions'),
+  ]);
+  check('two statements can be kept', keptJuly === 201 && keptAugust === 201,
+    `${keptJuly} and ${keptAugust}`);
+
+  await page.click('.side-nav button:has-text("Statements")');
+  await page.waitForSelector('.stmt-list', { timeout: 10000 });
+  check('the statements page lists what was kept',
+    (await page.locator('.stmt-list li').count()) === 2,
+    String(await page.locator('.stmt-list li').count()));
+  check('and names the periods the way a person would say them',
+    (await page.locator('.stmt-list li .n').first().textContent()).includes('August 2026'),
+    await page.locator('.stmt-list li .n').first().textContent());
+  check('the two most recent are compared without anything being chosen',
+    (await page.locator('.stmt-compare .stmt-headline').textContent()).includes('Spending'),
+    await page.locator('.stmt-compare .stmt-headline').textContent());
+
+  const caveat = page.locator('.stmt-caveat');
+  check('a merchant refiled between the two readings is named',
+    (await caveat.count()) === 1 && (await caveat.textContent()).includes('Tap Coffee'),
+    (await caveat.count()) ? await caveat.textContent() : 'no caveat');
+  const caveatTop = (await caveat.boundingBox())?.y ?? 0;
+  const categoriesTop =
+    (await page.locator('.stmt-compare h4:has-text("Categories")').boundingBox())?.y ?? 0;
+  check('and said above the categories it makes misleading, not below them',
+    caveatTop > 0 && caveatTop < categoriesTop, `caveat ${Math.round(caveatTop)}, list ${Math.round(categoriesTop)}`);
+
+  check('a charge in both statements is found, which one statement could not show',
+    (await page.locator('.stmt-recurring').textContent()).includes('Netflix'),
+    await page.locator('.stmt-recurring .stmt-mover .n').first().textContent());
+
+  // Nothing here reached the ledger. That separation is the whole premise of
+  // keeping statements in their own tables, so it is asserted rather than
+  // assumed.
+  const ledger = await page.evaluate(async (household) => {
+    const res = await fetch('/api/transactions?month=2026-08', {
+      headers: { 'X-Household-Id': String(household) },
+    });
+    return (await res.json()).length;
+  }, await page.evaluate(() => localStorage.getItem('budget.householdId')));
+  check('and none of it was written into the ledger', ledger === 0, String(ledger));
+
   check('no page errors throughout', bad.length === 0, bad.join(' | '));
 
   await browser.close();

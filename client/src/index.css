@@ -5420,8 +5420,13 @@ hr.rule {
 
   .tabbar {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    /* A viewer's bar has no + in it, so it is four across, not five with a hole. */
+    /* As many equal columns as there are buttons, worked out from the buttons
+       themselves. It used to name the number, with a second rule underneath
+       for a viewer — whose bar has no + in it — and a third would have been
+       needed for every destination added after. A column per child is the rule
+       both of those were spelling out the long way. */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     position: fixed;
     left: 0;
     right: 0;
@@ -5449,9 +5454,6 @@ hr.rule {
     font: inherit;
     font-size: 0.66rem;
     font-weight: 550;
-  }
-  .tabbar:not(:has(.add)) {
-    grid-template-columns: repeat(4, 1fr);
   }
   .tabbar button.active {
     color: var(--ink);
@@ -5495,5 +5497,259 @@ hr.rule {
   }
   .month-trigger .tiny-label {
     display: inline;
+  }
+}
+
+/* ── Statements ──────────────────────────────────────────────────── */
+/* The documents a bank printed, kept so one month can be compared with
+   another. Styled with the same cards and rows the rest of the app uses
+   rather than a look of its own: it is a different subject, not a different
+   application, and giving it its own visual language would say otherwise. */
+
+/* What is kept beside what changed. The list is the narrower half — it is
+   read to pick from, while the comparison is read to be understood. */
+.stmt-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.stmt-list ul,
+.stmt-movers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stmt-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.stmt-list li:first-child {
+  border-top: 0;
+}
+/* The two being compared, marked in the list so the selects above the
+   comparison are not the only thing saying which two they are. */
+.stmt-list li.on .n {
+  font-weight: 620;
+}
+.stmt-list li.on::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--brand);
+}
+.stmt-list li {
+  position: relative;
+  padding-left: 11px;
+}
+.stmt-list .n,
+.stmt-mover .n {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+.stmt-list .n small,
+.stmt-mover .n small {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stmt-list .a,
+.stmt-mover .a {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* Picking the two. A row rather than a form: there are two fields and no
+   submit, because changing either one is the whole action. */
+.stmt-pick {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.stmt-pick select {
+  flex: 1;
+  min-width: 140px;
+}
+.stmt-vs {
+  font-size: 0.78rem;
+  color: var(--ink-3);
+  flex: none;
+}
+
+.stmt-headline {
+  font-size: 1.05rem;
+  font-weight: 620;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+.stmt-headline small {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+/* Spending more is the bad direction, which is the opposite of the rest of
+   the app — a net worth going up is good, and an arrow that means one thing
+   on Home and the other here would be worse than no colour at all. Said in
+   its own class rather than reusing the ledger's up/down so the two cannot
+   be confused for the same idea. */
+.stmt-change {
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+.stmt-change.up {
+  color: var(--neg);
+}
+.stmt-change.down {
+  color: var(--pos);
+}
+.stmt-change small {
+  font-weight: 500;
+  opacity: 0.85;
+}
+.stmt-flat {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.stmt-compare h4 {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  margin: 18px 0 6px;
+}
+.stmt-sub {
+  font-size: 0.76rem;
+  color: var(--ink-3);
+  margin: 10px 0 2px;
+}
+
+.stmt-mover {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.stmt-mover:first-child {
+  border-top: 0;
+}
+.stmt-mover .was {
+  font-size: 0.78rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The caveat that qualifies everything under it, so it sits above rather than
+   below. A merchant the two readings filed differently makes two categories
+   move by equal and opposite amounts, and a reader who has already believed
+   the list is not going to unbelieve it for a footnote. */
+.stmt-caveat {
+  border: 1px solid color-mix(in srgb, var(--warn, #B45309) 25%, transparent);
+  background: color-mix(in srgb, var(--warn, #B45309) 7%, transparent);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.stmt-caveat ul {
+  margin: 7px 0 0;
+  padding-left: 18px;
+}
+.stmt-caveat li {
+  margin-top: 3px;
+}
+
+.stmt-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+.stmt-empty h3 {
+  margin-bottom: 8px;
+}
+.stmt-empty p {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0 0 9px;
+  max-width: 62ch;
+}
+
+/* Keeping is a header button beside the CSV one. `scan-wide-only` on the
+   second half of its label is what the CSV button already does, so on a phone
+   it reads "Keep" and "CSV" rather than wrapping the header onto two lines. */
+.scan-doc-keep[disabled] {
+  opacity: 1;
+  color: var(--pos);
+  border-color: color-mix(in srgb, var(--pos) 35%, transparent);
+}
+.scan-doc-keep-error {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .stmt-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  /* Two full-width selects with the word between them, rather than a row that
+     wraps and leaves "against" stranded on the end of the first line reading
+     as though it belonged to the select before it. */
+  .stmt-pick {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    justify-items: stretch;
+  }
+  .stmt-vs {
+    justify-self: center;
+  }
+  /* The change and the pair it is a change between cannot share a line at this
+     width without one of them truncating, so the row becomes two: what it is,
+     then what it did. */
+  .stmt-mover {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 2px;
+  }
+  .stmt-mover .was {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 0.74rem;
+  }
+  .stmt-mover .stmt-change,
+  .stmt-mover .stmt-flat {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 }

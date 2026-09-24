@@ -5,6 +5,7 @@ import {
   analyseStatement,
   getScanChoices,
   summariseStatement,
+  keepStatement,
 } from '../api/statements';
 import { chunkStatement, inBatches, linesFor, AT_ONCE } from '../utils/statementChunks';
 import { DisplayContext, Money } from '../utils/display';
@@ -302,6 +303,12 @@ export default function StatementScanner({ onClose, accounts = [] }) {
   const [summary, setSummary] = useState(null);
   const [writing, setWriting] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  // Whether this reading has been filed: null before it is asked for,
+  // 'keeping' while it is in flight, 'kept' once it is. Not a boolean, because
+  // the button has to say which of the three it is — a scan that looks kept
+  // and is not would be the worst of the three states to guess at.
+  const [keepState, setKeepState] = useState(null);
+  const [keepError, setKeepError] = useState(null);
   // Pages left out of the reading. A statement is often not only a statement:
   // terms and conditions, a marketing insert, a page of small print about
   // interest rates. Every one of those is text, so every one of them is cut
@@ -722,6 +729,29 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
+  // Filing this reading, so next month has something to be compared against.
+  //
+  // The rows go, not the report: everything stored is worked out on the server
+  // from these by the code that produced what is on screen, which is the same
+  // bargain the summary route makes and for the same reason — a browser cannot
+  // file a figure of its own choosing.
+  //
+  // Re-keeping the same account and period replaces what was there, so pressing
+  // this twice, or rescanning a month you already filed, cannot leave you with
+  // two of the same statement to compare against each other.
+  async function keep() {
+    if (!report || keepState === 'keeping' || keepState === 'kept') return;
+    setKeepState('keeping');
+    setKeepError(null);
+    try {
+      await keepStatement(report.rows, report.statement, account?.id ?? null);
+      setKeepState('kept');
+    } catch (err) {
+      setKeepState(null);
+      setKeepError(err.message);
+    }
+  }
+
   // Once there is a report, that is the whole screen. It is a document with
   // its own header, its own nav and its own scroller — see StatementReport.jsx
   // — so the dialog goes bare and hands it the box, rather than stacking it
@@ -743,6 +773,9 @@ export default function StatementScanner({ onClose, accounts = [] }) {
             summaryError={summaryError}
             onWriteSummary={writeSummary}
             onDownloadCsv={downloadCsv}
+            onKeep={keep}
+            keepState={keepState}
+            keepError={keepError}
             onScanAnother={reset}
             onClose={onClose}
             reading={reading}

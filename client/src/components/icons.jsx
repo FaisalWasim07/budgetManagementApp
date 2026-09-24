@@ -134,6 +134,19 @@ export const Repeat = ({ size = 21 }) => (
   </svg>
 );
 
+// A printed page with lines on it, and a corner turned down. A statement is
+// the one thing in this app that arrived as a document somebody was handed,
+// rather than as something the household decided to write down, and the glyph
+// says so — the list icon would have made it look like another view of the
+// ledger, which is exactly what it is not.
+export const Doc = ({ size = 21 }) => (
+  <svg {...base(size)}>
+    <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" {...stroke} strokeWidth="1.8" />
+    <path d="M14 3v5h5" {...stroke} strokeWidth="1.8" />
+    <path d="M9 13h6M9 17h4" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
 // Two arrows passing each other: money going one way out of an account and
 // arriving in another.
 export const Exchange = ({ size = 15 }) => (

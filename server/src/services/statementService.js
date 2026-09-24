@@ -92,6 +92,86 @@ const MAX_TOKENS = 8000;
 // faster for the same reason.
 const DEFAULT_EFFORT = 'low';
 
+// The categories a statement may be read into — a closed list, and the single
+// place it is written down. The schema below enforces it and the prompt quotes
+// it, so the two cannot drift apart the way they do when a list is typed out
+// twice.
+//
+// It is closed on purpose, and it did not used to be: the description used to
+// offer these as words to reach for first and let a merchant that genuinely fit
+// none of them have its own. That was the better answer while a scan was a
+// single report read once and thrown away — a bespoke word is more informative
+// than a category it does not belong in, and nothing downstream cared.
+//
+// Keeping statements changed what the field is for. Compared across months,
+// a free category stops being a label and becomes a join key, and a model
+// reading September has no idea August said "Eating out" rather than "Dining".
+// The drift costs more than the precision was worth: the two spellings show up
+// as one category vanishing and another appearing, both totals wrong, and the
+// report says it with a confident arrow. A fixed vocabulary is what makes two
+// months the same question asked twice.
+//
+// A merchant that fits none of them still has somewhere honest to go — the
+// nearest word, marked low confidence, which is a statement the reader can see
+// and disagree with rather than a category invented to hide the doubt.
+const CATEGORIES = [
+  'Groceries',
+  'Eating out',
+  'Fuel',
+  'Transport',
+  'Utilities',
+  'Health',
+  'Shopping',
+  'Subscriptions',
+  'Cash',
+  'Fees',
+  'Travel',
+  'Education',
+];
+
+// Where a word that is not on the list ends up. Not offered to the model —
+// the prompt is emphatic that "Other" is never an answer, and this is the same
+// idea under a different name — but rows also arrive from a browser, and
+// anything kept has to be one of a known set or the comparison is comparing
+// spellings again.
+const UNPLACED = 'Uncategorised';
+
+// Everything that means "could not place it", whichever word was reached for.
+// The report screen folds these into one row already; this is that same rule,
+// server-side, so what is stored matches what was shown.
+const UNPLACED_WORDS = new Set([
+  'other',
+  'uncategorised',
+  'uncategorized',
+  'misc',
+  'miscellaneous',
+  '',
+]);
+
+// Case and spacing folded away — `Eating out`, `Eating Out` and `eating  out`
+// are one category. Deliberately not punctuation-stripping the way the merchant
+// key is: `Health & fitness` and `Health and fitness` are different enough
+// words that merging them would be guessing rather than tidying.
+const categoryKey = (name) =>
+  String(name ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// A category as it will be stored. Anything on the list comes back spelled the
+// list's way whatever case it arrived in; anything that means "unplaced" comes
+// back as one word; anything else is kept as it was, trimmed.
+//
+// That last case is deliberate rather than an oversight. The schema stops a
+// scan inventing a word, so what reaches here off the list came from a browser
+// posting its own rows — and renaming somebody's real category to
+// `Uncategorised` to enforce a list would be destroying data to tidy it.
+function canonicalCategory(name) {
+  const folded = categoryKey(name);
+  if (UNPLACED_WORDS.has(folded)) return UNPLACED;
+  return CATEGORIES.find((c) => categoryKey(c) === folded) ?? String(name).trim();
+}
+
 // One row per line on the statement. `strict` schema-valid output, so what
 // comes back is checked before this code ever sees it — no parsing prose, no
 // half-written JSON to repair.
@@ -151,12 +231,11 @@ const ROW_SCHEMA = {
           },
           category: {
             type: 'string',
+            enum: CATEGORIES,
             description:
-              'A plain, obvious spending category. Use one of these words wherever it fits: ' +
-              'Groceries, Eating out, Fuel, Transport, Utilities, Health, Shopping, ' +
-              'Subscriptions, Cash, Fees, Travel, Education. Something genuinely outside all ' +
-              'of them may have its own ordinary word, but reach for the list first, and ' +
-              'never reach for "Other" — a low `confidence` is how you say you could not tell.',
+              'A plain, obvious spending category, from the list and spelled exactly as it ' +
+              'appears there. A merchant you cannot place still gets your best guess from ' +
+              'the list, marked low `confidence` — that is how you say you could not tell.',
           },
           confidence: {
             type: 'string',
@@ -238,11 +317,12 @@ const SYSTEM = [
   '  A guess admitted is useful; a guess presented as fact is not.',
   '',
   'You are reading one slice of a statement and cannot see what the other slices called',
-  'things, so the words have to come from somewhere fixed. Use these, spelled exactly as',
-  'they are here: Groceries, Eating out, Fuel, Transport, Utilities, Health, Shopping,',
-  'Subscriptions, Cash, Fees, Travel, Education. A merchant that genuinely fits none of',
-  'them may have its own plain word. A merchant you cannot place at all still gets your',
-  'best guess from that list, marked low confidence — "Other" is not a category and is',
+  'things, and you cannot see what last month\'s statement called them either — these are',
+  'kept and compared, so a category is a word two readings have to agree on rather than a',
+  'description. Use these and only these, spelled exactly as they are here:',
+  `  ${CATEGORIES.join(', ')}.`,
+  'A merchant you cannot place still gets your nearest guess from that list, marked low',
+  'confidence — that is how you say you could not tell. "Other" is not a category and is',
   'never an answer: it collects unrelated spending into the largest line on the report',
   'and tells the person nothing about any of it.',
   '',
@@ -340,7 +420,9 @@ function clean(rows) {
         merchant: String(row.merchant).trim() || String(row.raw),
         what: String(row.what).trim(),
         kind: row.kind || 'other',
-        category: String(row.category).trim() || 'Uncategorised',
+        // Through the canonicaliser rather than trimmed: the schema keeps a
+        // scan on the list, and this keeps casing consistent with it.
+        category: canonicalCategory(row.category),
       };
     })
     .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
@@ -581,6 +663,8 @@ async function summarise({ analysis, currency = null, model: asked, effort: aske
 
 module.exports = {
   scan,
+  CATEGORIES,
+  canonicalCategory,
   summarise,
   digestFor,
   choices,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
 import Recurring from './pages/Recurring';
+import Statements from './pages/Statements';
 import Activity from './pages/Activity';
 import Account from './pages/Account';
 import HouseholdSetup from './pages/HouseholdSetup';
@@ -15,7 +16,7 @@ import AddSheet from './components/AddSheet';
 import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
 import PasskeyNudge from './components/PasskeyNudge';
-import { Bars, Eye, EyeOff, Home, List, Mark, Plus, Refresh, Repeat } from './components/icons';
+import { Bars, Doc, Eye, EyeOff, Home, List, Mark, Plus, Refresh, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
@@ -27,13 +28,16 @@ import { clearLiveCache, useLiveData } from './utils/live';
 import { proveItIsYou, UNLOCK_MINUTES } from './utils/lock';
 import { applyTheme, loadTheme, saveTheme, nextTheme } from './utils/theme';
 
-// Four destinations, the same four on both shells. Activity is new: it was the
-// tail of Home, which is why Home was the longest screen in the app.
+// Five destinations, the same five on both shells. Activity was the tail of
+// Home, which is why Home was the longest screen in the app. Statements is the
+// odd one out and deliberately so: the other four are views of the ledger, and
+// that one is the documents a bank printed, which the ledger never sees.
 const PAGES = [
   ['dashboard', 'Home', Home],
   ['activity', 'Activity', List],
   ['stats', 'Stats', Bars],
   ['recurring', 'Recurring', Repeat],
+  ['statements', 'Statements', Doc],
 ];
 
 const LAST_HOUSEHOLD = 'budget.householdId';
@@ -548,6 +552,11 @@ export default function App({ user, onSignedOut }) {
             phone={phone}
           />
         )}
+
+        {/* No `summary` in its props, and not because it was forgotten: this
+            page reads statements and nothing else. It loads what it needs
+            itself, so the ledger being empty is no reason for it to be. */}
+        {page === 'statements' && <Statements phone={phone} readOnly={readOnly} />}
           </main>
         </div>
       </div>
