@@ -53,7 +53,7 @@ const check = (name, ok, detail = '') => {
   await page.locator('input.person-name').nth(0).fill('Faisal');
   await page.click('button:has-text("Create household")');
   await page.waitForSelector('.topbar', { timeout: 15000 });
-  await page.click('.side-nav button:has-text("Stats")');
+  await page.click('.side-nav button:has-text("Statements")');
   await page.waitForTimeout(500);
 
   const open = async (name) => {
@@ -71,8 +71,15 @@ const check = (name, ok, detail = '') => {
 
   // --- where it lives -----------------------------------------------------
   check(
-    'Stats carries the scan action',
+    'Statements carries the scan action',
     (await page.locator('button:has-text("Scan a statement")').count()) === 1,
+  );
+  // The state where nothing has been kept is the state where the button is
+  // most needed, and it is the first thing anybody sees here.
+  check(
+    'and it is there on a first run, with nothing kept yet',
+    (await page.locator('.stmt-empty').count()) === 1,
+    (await page.locator('.stmt-empty h3').textContent().catch(() => 'no empty state')).trim(),
   );
   check(
     'and it is in the top bar rather than a strip of its own',
@@ -427,7 +434,7 @@ const check = (name, ok, detail = '') => {
   await oldPage.locator('input.person-name').nth(0).fill('Faisal');
   await oldPage.click('button:has-text("Create household")');
   await oldPage.waitForSelector('.topbar', { timeout: 15000 });
-  await oldPage.click('.side-nav button:has-text("Stats")');
+  await oldPage.click('.side-nav button:has-text("Statements")');
   await oldPage.waitForTimeout(500);
   await oldPage.click('button:has-text("Scan a statement")');
   await oldPage.waitForSelector('.modal.scanner', { timeout: 10000 });
@@ -1682,6 +1689,12 @@ const check = (name, ok, detail = '') => {
   check('two statements can be kept', keptJuly === 201 && keptAugust === 201,
     `${keptJuly} and ${keptAugust}`);
 
+  // Away and back, because this section kept its statements through the API
+  // rather than through the dialog. The page loads when it mounts; clicking
+  // the tab it is already on is not a visit, and would have it reporting a
+  // snapshot taken before any of these existed.
+  await page.click('.side-nav button:has-text("Stats")');
+  await page.waitForTimeout(400);
   await page.click('.side-nav button:has-text("Statements")');
   await page.waitForSelector('.stmt-list', { timeout: 10000 });
   check('the statements page lists what was kept',

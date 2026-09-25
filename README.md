@@ -400,7 +400,7 @@ git ls-files | grep -E "\.env$|sqlite"    # should print nothing
 
 ## Reading a bank statement
 
-**Stats → Scan a statement.** Open a statement and it is read in your browser:
+**Statements → Scan a statement.** Open a statement and it is read in your browser:
 the file is not uploaded, and a password-protected one never has to hand over
 its password, because the PDF is opened here rather than posted anywhere.
 

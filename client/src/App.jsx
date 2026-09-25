@@ -524,13 +524,7 @@ export default function App({ user, onSignedOut }) {
         )}
 
         {summary && !empty && page === 'stats' && (
-          <Stats
-            summary={summary}
-            trend={trend}
-            categories={categories}
-            month={month}
-            phone={phone}
-          />
+          <Stats summary={summary} trend={trend} categories={categories} month={month} />
         )}
 
         {summary && !empty && page === 'activity' && (
@@ -555,8 +549,15 @@ export default function App({ user, onSignedOut }) {
 
         {/* No `summary` in its props, and not because it was forgotten: this
             page reads statements and nothing else. It loads what it needs
-            itself, so the ledger being empty is no reason for it to be. */}
-        {page === 'statements' && <Statements phone={phone} readOnly={readOnly} />}
+            itself, so the ledger being empty is no reason for it to be.
+
+            `accounts` is the exception, and it is not ledger data being read
+            into a statement: the scanner asks which account a statement was
+            printed for, so its amounts can be read in that account's own
+            currency. */}
+        {page === 'statements' && (
+          <Statements phone={phone} readOnly={readOnly} accounts={accounts} />
+        )}
           </main>
         </div>
       </div>

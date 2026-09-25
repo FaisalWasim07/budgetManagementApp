@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getKeptStatements,
   compareKeptStatements,
@@ -7,8 +7,14 @@ import {
 import { Money } from '../utils/display';
 import { SkeletonRows } from '../components/Skeleton';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { Trash } from '../components/icons';
+import ToolbarSlot from '../components/ToolbarSlot';
+import { Search, Trash } from '../components/icons';
 import { useToast } from '../utils/toast';
+
+// Loaded when someone actually scans something. It carries pdf.js, which is
+// half a megabyte — a weight every visit would otherwise pay for a thing done
+// once a month.
+const StatementScanner = lazy(() => import('../components/StatementScanner'));
 
 // The statements somebody kept, and what can only be said once there are two.
 //
@@ -78,9 +84,10 @@ function MoverRow({ row, currency }) {
   );
 }
 
-export default function Statements({ phone, readOnly }) {
+export default function Statements({ phone, readOnly, accounts = [] }) {
   const [kept, setKept] = useState(null);
   const [error, setError] = useState(null);
+  const [scanning, setScanning] = useState(false);
   // Which two are being compared. Null means the two most recent, which the
   // server already worked out — opening this page should answer the question
   // without anybody choosing anything first.
@@ -113,7 +120,6 @@ export default function Statements({ phone, readOnly }) {
   );
 
   const comparison = pair ?? kept?.latest ?? null;
-  const idOf = (id) => statements.find((s) => String(s.id) === String(id));
 
   async function choose(beforeId, afterId) {
     if (!beforeId || !afterId || beforeId === afterId) return;
@@ -139,15 +145,70 @@ export default function Statements({ phone, readOnly }) {
     }
   }
 
+  // Reading a statement starts here, which is the one action this page has.
+  // It opens as a dialog rather than a screen of its own: a destination
+  // implies you can come back and find it, and a reading you did not keep is
+  // gone the moment it closes.
+  const scanButton = readOnly ? null : (
+    <button onClick={() => setScanning(true)}>
+      <Search size={14} /> Scan a statement
+    </button>
+  );
+
+  // Above every early return below, not inside the one that has statements to
+  // show. The state where nothing is kept yet is exactly the state where
+  // somebody most needs the button, and a first run that offers no way to
+  // start would be the one screen this page cannot afford to get wrong.
+  const chrome = (
+    <>
+      {/* At a desk the action sits in the top bar; a phone's bar has no room,
+          so there it stays on the page — the same arrangement Recurring uses. */}
+      {scanButton ? (
+        phone ? (
+          <div className="section-head">
+            <span />
+            {scanButton}
+          </div>
+        ) : (
+          <ToolbarSlot>{scanButton}</ToolbarSlot>
+        )
+      ) : null}
+
+      {scanning && (
+        <Suspense fallback={null}>
+          <StatementScanner
+            onClose={() => setScanning(false)}
+            accounts={accounts}
+            // Keeping one is the only thing in that dialog this page can see
+            // the result of, so it says so and the list behind it fills in
+            // without waiting for the dialog to close or the tab to be
+            // reloaded.
+            onKept={load}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+
   if (error) {
     return (
-      <div className="card">
-        <p className="error-text">{error}</p>
-      </div>
+      <>
+        {chrome}
+        <div className="card">
+          <p className="error-text">{error}</p>
+        </div>
+      </>
     );
   }
 
-  if (!kept) return <SkeletonRows count={4} />;
+  if (!kept) {
+    return (
+      <>
+        {chrome}
+        <SkeletonRows count={4} />
+      </>
+    );
+  }
 
   // Nothing kept yet. The page says what it is for and where the button is,
   // rather than showing an empty frame for a table that has no rows — this is
@@ -155,26 +216,32 @@ export default function Statements({ phone, readOnly }) {
   // them that keeping is a thing they have to choose.
   if (statements.length === 0) {
     return (
-      <div className="card stmt-empty">
-        <h3>No statements kept yet</h3>
-        <p className="muted">
-          Scanning a statement reads it and then forgets it — the rows are gone when you close
-          the dialog, which is the promise the scanner has always made. Press <b>Keep</b> on a
-          report and it stays here instead, so the next one has something to be compared against.
-        </p>
-        <p className="muted">
-          Statements live on their own. Nothing kept here is written to your accounts, and
-          nothing in your accounts is read to produce any of it.
-        </p>
-        <p className="muted">
-          <b>Stats → Scan a statement</b> is where a reading starts.
-        </p>
-      </div>
+      <>
+        {chrome}
+        <div className="card stmt-empty">
+          <h3>No statements kept yet</h3>
+          <p className="muted">
+            Scanning a statement reads it and then forgets it — the rows are gone when you close
+            the dialog, which is the promise the scanner has always made. Press <b>Keep</b> on a
+            report and it stays here instead, so the next one has something to be compared against.
+          </p>
+          <p className="muted">
+            Statements live on their own. Nothing kept here is written to your accounts, and
+            nothing in your accounts is read to produce any of it.
+          </p>
+          <p className="muted">
+            {readOnly
+              ? 'You have view-only access to this household, so scanning and keeping are not yours to do here.'
+              : 'Scan a statement to start.'}
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {chrome}
       <p className="page-note">
         {statements.length === 1
           ? 'One statement kept. Keep another to compare them.'

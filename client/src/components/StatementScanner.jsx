@@ -261,7 +261,7 @@ const EFFORT_WORDS = {
   high: 'High — deliberate over every line',
 };
 
-export default function StatementScanner({ onClose, accounts = [] }) {
+export default function StatementScanner({ onClose, accounts = [], onKept }) {
   const [file, setFile] = useState(null);
   const [bytes, setBytes] = useState(null);
   const [password, setPassword] = useState('');
@@ -746,6 +746,11 @@ export default function StatementScanner({ onClose, accounts = [] }) {
     try {
       await keepStatement(report.rows, report.statement, account?.id ?? null);
       setKeepState('kept');
+      // The screen behind this dialog is the list this was just added to, so
+      // it is told rather than left to find out when the dialog closes. Called
+      // after the state is set, so a caller that throws cannot leave the
+      // button saying it is still working on something that landed.
+      onKept?.();
     } catch (err) {
       setKeepState(null);
       setKeepError(err.message);
