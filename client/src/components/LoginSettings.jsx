@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { listUsers, changePassword, setEmail } from '../api/auth';
 import { listPersons, setPersonUser } from '../api/persons';
+import SettingsSection from './SettingsSection';
 
 // Managing who can sign in. Deliberately separate from `persons` in the
 // budget — adding a login here does not create a person, because whose money
 // an account holds is a different question from who can open the app.
 export default function LoginSettings({ user, onSignedOut, onChanged }) {
-  const [users, setUsers] = useState([]);
-  const [persons, setPersons] = useState([]);
+  // Null until the answer arrives. An empty array would say "asked, and there
+  // are none", which is a different fact and the one the screen would draw.
+  const [users, setUsers] = useState(null);
+  const [persons, setPersons] = useState(null);
   const [mode, setMode] = useState(null); // null | 'password'
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -22,11 +25,12 @@ export default function LoginSettings({ user, onSignedOut, onChanged }) {
         setUsers(list);
         setEmailValue(list.find((u) => u.id === user.id)?.email ?? '');
       })
-      .catch(() => {});
-    listPersons().then(setPersons, () => {});
+      .catch(() => setUsers([]));
+    listPersons().then(setPersons, () => setPersons([]));
   }, [user.id]);
 
-  const mine = persons.find((p) => p.user_id === user.id) ?? null;
+  const loading = users === null || persons === null;
+  const mine = persons?.find((p) => p.user_id === user.id) ?? null;
 
   function reset() {
     setMode(null);
@@ -51,24 +55,21 @@ export default function LoginSettings({ user, onSignedOut, onChanged }) {
 
 
   return (
-    <div className="stack-sm">
-      <div className="spread">
-        <strong style={{ fontSize: '0.9rem' }}>Logins</strong>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          Signed in as {user.username}
-        </span>
-      </div>
-
-      {users.length > 0 && (
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          {users.map((u) => u.username).join(', ')}
-        </span>
-      )}
-
+    // Named for the question it answers rather than for the table behind it.
+    // "Logins" was the developer's word: the row is about you — your address,
+    // which of the people in the budget you are, and your password.
+    <SettingsSection title="You" state={`Signed in as ${user.username}`} loading={loading}>
+      {/* The comma-separated list of every username was here, and it went for
+          two reasons. It came from a route that returned every account on the
+          server rather than the ones you share a household with — see the
+          comment on /auth/users — and even scoped it said nothing you could
+          act on: a row of names with no roles, no state and nothing to press.
+          People & sharing is where logins are actually managed, so this points
+          there and stops pretending to be a directory. */}
       <span className="muted" style={{ fontSize: '0.8rem' }}>
-        To give someone access to a budget, use <strong>People &amp; sharing</strong> on the
-        household menu — that adds them to the household and gives them an account, which adding a
-        bare login here would not.
+        Giving somebody access to this budget is <strong>People &amp; sharing</strong> on the
+        household menu — that adds them and gives them an account, which a bare login here would
+        not.
       </span>
 
       {/* Nothing is *sent* to this address — it is a second name to sign in
@@ -114,7 +115,7 @@ export default function LoginSettings({ user, onSignedOut, onChanged }) {
           and by elimination where the count leaves only one possibility. This
           is here for the households where it couldn't tell, and to correct it
           if it got the wrong one. */}
-      {persons.length > 0 && (
+      {persons?.length > 0 && (
         <label className="field">
           You are
           <select
@@ -138,7 +139,7 @@ export default function LoginSettings({ user, onSignedOut, onChanged }) {
             }}
           >
             <option value="">Nobody in particular</option>
-            {persons.map((person) => (
+            {persons?.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
               </option>
@@ -194,6 +195,6 @@ export default function LoginSettings({ user, onSignedOut, onChanged }) {
 
       {note && <div className="secondary" style={{ fontSize: '0.85rem' }}>{note}</div>}
       {error && <div className="error-text">{error}</div>}
-    </div>
+    </SettingsSection>
   );
 }

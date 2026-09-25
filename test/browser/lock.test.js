@@ -96,6 +96,15 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     await page.click('.menu button:has-text("Settings")');
     await page.waitForSelector('.modal', { timeout: 8000 });
     await page.click('.modal-tabs button:has-text("Account")');
+    await page.waitForTimeout(250);
+    // The passkey controls live behind a closed row now; open it as a person
+    // would when they came in through the menu rather than through the nudge.
+    const signingIn = page.locator('.set-section:has(.set-section-title:text-is("Signing in"))');
+    if (await signingIn.count()) {
+      if (!(await signingIn.evaluate((el) => el.open))) {
+        await signingIn.locator('summary').click();
+      }
+    }
     await page.waitForTimeout(700);
   };
 

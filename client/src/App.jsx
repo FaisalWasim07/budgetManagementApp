@@ -78,6 +78,7 @@ export default function App({ user, onSignedOut }) {
   const [categories, setCategories] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState(undefined);
+  const [settingsSection, setSettingsSection] = useState(undefined);
   // Waved away for this session only. Not stored: a passkey is worth asking
   // for again next time, and a flag in one browser saying otherwise is the
   // thing this whole area moved away from.
@@ -455,6 +456,9 @@ export default function App({ user, onSignedOut }) {
           <PasskeyNudge
             onAdd={() => {
               setSettingsTab('account');
+              // Named, so pressing "Add a passkey" arrives at the passkey
+              // controls rather than at the tab that contains them.
+              setSettingsSection('signing-in');
               setShowSettings(true);
             }}
             onDismiss={() => setNudgeDismissed(true)}
@@ -628,6 +632,7 @@ export default function App({ user, onSignedOut }) {
           onLockedChange={setWantsLock}
           onPasskeysChange={setHasPasskeys}
           initialTab={settingsTab}
+          openSection={settingsSection}
           primaryCurrency={summary.primaryCurrency}
           rates={summary.rates}
           user={user}

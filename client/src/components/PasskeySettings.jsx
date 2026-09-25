@@ -7,6 +7,7 @@ import {
   newRecoveryCodes,
 } from '../api/auth';
 import { Shield, Trash } from './icons';
+import SettingsSection from './SettingsSection';
 import { createPasskey, passkeysSupported, wasCancelled } from '../utils/passkey';
 import { setLockAmounts } from '../api/auth';
 import { UNLOCK_MINUTES } from '../utils/lock';
@@ -100,7 +101,7 @@ function RecoveryCodes({ codes, onDone }) {
 // Passkeys are the app's second factor. The password gets you as far as a
 // challenge; the device signs it. Nothing here is a secret worth stealing —
 // the server holds only public keys.
-export default function PasskeySettings({ locked, onLockedChange, onPasskeysChange }) {
+export default function PasskeySettings({ locked, onLockedChange, onPasskeysChange, defaultOpen = false }) {
   const [passkeys, setPasskeys] = useState(null);
   const [codesLeft, setCodesLeft] = useState(0);
   const [codes, setCodes] = useState(null);
@@ -177,14 +178,19 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
   const on = passkeys && passkeys.length > 0;
 
   return (
-    <div className="stack-sm">
-      <div className="spread">
-        <strong style={{ fontSize: '0.9rem' }}>Passkeys</strong>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          {on ? `On · ${codesLeft} recovery code${codesLeft === 1 ? '' : 's'} left` : 'Off'}
-        </span>
-      </div>
-
+    // "Signing in" rather than "Passkeys": the row says what it is for, so
+    // somebody who has never met the word still knows whether to open it.
+    <SettingsSection
+      title="Signing in"
+      defaultOpen={defaultOpen}
+      loading={passkeys === null}
+      // Symmetrical, and an answer to the question the row asks. The count of
+      // recovery codes was here first and was the wrong thing: it is a detail
+      // about a passkey rather than a statement about how you get in, and a
+      // row reading "10 recovery codes left" never actually says you have a
+      // passkey at all.
+      state={on ? 'Password + passkey' : 'Password only'}
+    >
       <span className="muted" style={{ fontSize: '0.8rem' }}>
         {on
           ? 'Signing in asks for your password, then your face, fingerprint or device PIN. A passkey only works on this site, so it can’t be given away to a copy of it.'
@@ -318,23 +324,36 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
             </button>
           )}
           {on && (
-            <button
-              type="button"
-              className="tiny subtle"
-              onClick={() => {
-                setConfirming('codes');
-                setNote(null);
-                setError(null);
-              }}
-            >
-              New recovery codes
-            </button>
+            <>
+              {/* How many are left, said beside the button that makes more.
+                  This used to be crammed into the section's own summary line,
+                  which was the wrong place twice over: the row is meant to say
+                  how you sign in, and a count of codes is not that — and once
+                  the row said something else, the number had nowhere to live
+                  and quietly stopped being shown at all. Recovery codes are
+                  the way back in when the passkey is on a phone at the bottom
+                  of a canal, so how many remain is worth a line. */}
+              <span className="muted" style={{ fontSize: '0.8rem' }}>
+                {codesLeft} recovery code{codesLeft === 1 ? '' : 's'} left
+              </span>
+              <button
+                type="button"
+                className="tiny subtle"
+                onClick={() => {
+                  setConfirming('codes');
+                  setNote(null);
+                  setError(null);
+                }}
+              >
+                New recovery codes
+              </button>
+            </>
           )}
         </div>
       )}
 
       {note && <div className="secondary" style={{ fontSize: '0.85rem' }}>{note}</div>}
       {error && <div className="error-text">{error}</div>}
-    </div>
+    </SettingsSection>
   );
 }

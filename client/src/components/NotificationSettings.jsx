@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import SettingsSection from './SettingsSection';
 import { current, disable, enable, getDevices, preview, support } from '../utils/push';
 import { useToast } from '../utils/toast';
 
@@ -94,14 +95,11 @@ export default function NotificationSettings() {
   }
 
   return (
-    <div className="stack-sm">
-      <div className="spread">
-        <strong style={{ fontSize: '0.9rem' }}>Notifications</strong>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          {on ? 'On for this device' : 'Off for this device'}
-        </span>
-      </div>
-
+    <SettingsSection
+      title="Notifications"
+      loading={devices === null}
+      state={on ? 'On for this device' : 'Off for this device'}
+    >
       <span className="muted" style={{ fontSize: '0.82rem' }}>
         Reminders about what is due and what a month came to. Each device answers separately, so
         turning it on here says nothing about your other ones.
@@ -197,7 +195,7 @@ export default function NotificationSettings() {
           </div>
         </div>
       </details>
-    </div>
+    </SettingsSection>
   );
 }
 

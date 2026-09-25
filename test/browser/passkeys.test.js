@@ -49,6 +49,16 @@ const openSettings = async (page) => {
   // Settings opens on Money; logins and passkeys are the Account tab.
   await page.click('.modal-tabs button:has-text("Account")');
   await page.waitForTimeout(250);
+  // And the three jobs on that tab are closed rows until asked for, so the
+  // passkey controls have to be opened the way a person opens them. Arriving
+  // from the nudge's own "Add a passkey" lands with this already open — see
+  // openSection in SettingsModal — but this helper comes in through the menu,
+  // which is the long way round on purpose.
+  const signingIn = page.locator('.set-section:has(.set-section-title:text-is("Signing in"))');
+  if (!(await signingIn.evaluate((el) => el.open))) {
+    await signingIn.locator('summary').click();
+    await page.waitForTimeout(200);
+  }
 };
 
 (async () => {
@@ -85,11 +95,12 @@ const openSettings = async (page) => {
   await page.waitForSelector('.topbar', { timeout: 20000 });
   await openSettings(page);
 
-  const passkeySection = page.locator('.modal', { hasText: 'Passkeys' });
-  check('settings has a passkeys section', (await passkeySection.count()) > 0);
+  const passkeySection = page.locator('.set-section:has(.set-section-title:text-is("Signing in"))');
+  check('settings has a section for how you sign in', (await passkeySection.count()) > 0);
   check(
-    'and it starts switched off',
-    (await page.locator('.modal').textContent()).includes('Off'),
+    'and it says so on the closed row, rather than only once opened',
+    (await passkeySection.locator('.set-section-state').textContent()).includes('Password only'),
+    await passkeySection.locator('.set-section-state').textContent(),
   );
 
   // --- adding one ----------------------------------------------------------
@@ -109,7 +120,8 @@ const openSettings = async (page) => {
 
   const after = await page.locator('.modal').textContent();
   check('the passkey is listed afterwards', (await page.locator('.passkey-row').count()) === 1);
-  check('and the account reports itself protected', after.includes('On ·'), after.slice(0, 0) || undefined);
+  check('and the account reports itself protected', after.includes('Password + passkey'),
+    await page.locator('.set-section-state').nth(1).textContent());
   check('with ten codes left', after.includes('10 recovery codes left'));
 
   // --- signing in now takes two steps -------------------------------------

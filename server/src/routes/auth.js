@@ -247,11 +247,44 @@ router.get(
 
 // Everything below needs an existing session — these are for managing logins
 // once you're already in, not for getting in.
+// The logins you share a household with, and your own.
+//
+// This used to select the whole `users` table. It sits behind requireAuth,
+// which is enough to say somebody is signed in and nothing about who they are
+// entitled to see — and these routes mount above the household middleware, so
+// there was nothing else to scope it. Any account on the server could read
+// every other account's username and email address, including people it shared
+// no household with and had no way to reach.
+//
+// Scoped to the households the caller actually belongs to. A deployment with
+// one family in it sees no difference; a shared one stops handing strangers a
+// directory. The email column stays, because the caller's own address is what
+// the settings screen reads out of this, but it now only ever carries
+// addresses of people you are already in a household with.
 router.get(
   '/users',
   requireAuth,
   h(async (req, res) => {
-    res.json(await db.all('SELECT id, username, email, created_at FROM users ORDER BY id'));
+    res.json(
+      await db.all(
+        // Yourself first and unconditionally, rather than as a consequence of
+        // being a member of something: an account between signing up and
+        // creating its first household belongs to no household at all, and
+        // would otherwise be unable to read back its own email address.
+        `SELECT u.id, u.username, u.email, u.created_at
+           FROM users u
+          WHERE u.id = ?
+             OR u.id IN (
+                  SELECT theirs.user_id
+                    FROM household_members mine
+                    JOIN household_members theirs
+                      ON theirs.household_id = mine.household_id
+                   WHERE mine.user_id = ?
+                )
+          ORDER BY u.id`,
+        [req.user.id, req.user.id]
+      )
+    );
   })
 );
 

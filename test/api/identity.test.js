@@ -114,6 +114,38 @@ const meFor = async (c) => (await c.get('/api/persons')).data;
   const bea = namedPeople.find((p) => p.name === `Bea${u}`);
   check('and it is the right one', Boolean(bea?.user_id), JSON.stringify(namedPeople.map((p) => [p.name, p.user_id])));
 
+  // --- who you may see ----------------------------------------------------
+  //
+  // The settings screen reads your own email address out of this list. It used
+  // to be the whole `users` table: these routes sit above the household
+  // middleware, requireAuth says somebody is signed in and nothing about what
+  // they may look at, and so every account on the server could read every
+  // other account's username and email — people it shared no household with
+  // and had no way to reach.
+  const outsider = client();
+  const outsiderName = `stranger_${u}`;
+  await outsider.post('/api/auth/signup', { username: outsiderName, password: 'strangerpass1' });
+  await outsider.post('/api/auth/email', { email: `${outsiderName}@example.com` });
+  const outsiderHome = await outsider.post('/api/households', { name: 'Theirs', people: ['Them'] });
+  outsider.use(outsiderHome.data.id);
+
+  const visible = await named.get('/api/auth/users');
+  check(
+    'somebody in another household is not in your list of logins',
+    !visible.data.some((row) => row.username === outsiderName),
+    visible.data.map((row) => row.username).join(', ')
+  );
+  check(
+    'and neither is their email address',
+    !visible.data.some((row) => row.email && row.email.includes(outsiderName)),
+    JSON.stringify(visible.data.map((row) => row.email))
+  );
+  check(
+    'you can always see yourself, which is what the screen reads from it',
+    visible.data.some((row) => row.username === namedUser),
+    visible.data.map((row) => row.username).join(', ')
+  );
+
   const { failed } = report('Knowing who you are');
   process.exit(failed ? 1 : 0);
 })();

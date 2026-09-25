@@ -5857,3 +5857,102 @@ hr.rule {
     grid-row: 1 / span 2;
   }
 }
+
+/* ── Settings sections ───────────────────────────────────────────── */
+/* One job to a row: what it is, where it stands, and the controls once you
+   ask for them. See SettingsSection.jsx for why the Account tab stopped being
+   three of these stacked open. */
+.set-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.set-section {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+/* The whole closed row is the target, not the word in the middle of it. */
+.set-section > summary {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+/* Safari draws its own triangle through ::-webkit-details-marker, which
+   list-style alone does not remove. */
+.set-section > summary::-webkit-details-marker {
+  display: none;
+}
+.set-section > summary:hover {
+  background: color-mix(in srgb, var(--ink-3) 6%, transparent);
+}
+.set-section > summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.set-section-title {
+  font-size: 0.92rem;
+  font-weight: 620;
+}
+.set-section-state {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.set-section > summary svg {
+  color: var(--ink-3);
+  transition: transform 0.18s ease;
+  flex: none;
+}
+.set-section[open] > summary svg {
+  transform: rotate(180deg);
+}
+/* The rule appears only when there is something under it to separate. */
+.set-section[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.set-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+/* Three dots where the state will be, while it is being fetched. The row
+   cannot say "Off" before anything has been asked — that is a real answer to
+   the question somebody opened this to ask, and the one they would act on. */
+.set-section-dots {
+  display: inline-block;
+  width: 26px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.22;
+  animation: set-waiting 1.1s ease-in-out infinite;
+  vertical-align: middle;
+}
+@keyframes set-waiting {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .set-section-dots {
+    animation: none;
+  }
+}

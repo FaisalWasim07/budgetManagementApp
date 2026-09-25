@@ -28,6 +28,11 @@ export default function SettingsModal({
   onLockedChange,
   onPasskeysChange,
   initialTab,
+  // Which section to arrive with already open. Something that sends you
+  // here for one specific job — the passkey nudge's own button — should not
+  // land you on three closed rows to hunt through for the thing it just
+  // offered you.
+  openSection,
 }) {
   const [currency, setCurrency] = useState(primaryCurrency);
   const [manual, setManual] = useState({});
@@ -215,18 +220,23 @@ export default function SettingsModal({
 
   // Deliberately not inside the form above: pressing Enter in a password field
   // must not save currency settings.
+  // Three jobs, each a row that says where it stands and opens when asked.
+  // They used to be stacked open with a rule between them, which came to most
+  // of a laptop screen inside a dialog and could not be scanned: three
+  // headings the same weight as each other and as everything under them.
+  // The rules are gone with the stacking — a closed row is already a boundary,
+  // and a line between two of them would be drawing the same edge twice.
   const accountTab = () => (
-    <div className="stack">
+    <div className="set-sections">
       {/* onSaved so that saying which person you are reorders the dashboard
           behind the dialog straight away. */}
       <LoginSettings user={user} onSignedOut={onSignedOut} onChanged={onSaved} />
-      <hr className="divider" />
       <PasskeySettings
+        defaultOpen={openSection === 'signing-in'}
         locked={locked}
         onLockedChange={onLockedChange}
         onPasskeysChange={onPasskeysChange}
       />
-      <hr className="rule" />
       <NotificationSettings />
     </div>
   );
