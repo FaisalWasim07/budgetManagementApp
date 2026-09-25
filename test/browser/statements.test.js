@@ -711,6 +711,58 @@ const check = (name, ok, detail = '') => {
   // with it are the header now.
   const docHead = await page.locator('.scan-doc-head').textContent();
   check('and names the file it read', docHead.includes('statement-plain.pdf'), docHead);
+
+  // --- keeping says it is working, and only says it is done when it is -----
+  //
+  // Held open deliberately: the real request is a single insert and answers in
+  // milliseconds, which is too fast for the working state to be observed at
+  // all. What is being pinned is the rule, not the duration — the button must
+  // not read as finished while the request is still in the air, because the
+  // whole point of the state is telling somebody whether their statement is
+  // safe yet.
+  let releaseKeep;
+  await page.route('**/api/statements/kept', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await new Promise((resolve) => {
+      releaseKeep = resolve;
+    });
+    return route.continue();
+  });
+
+  await page.click('.scan-doc-keep');
+  await page.waitForSelector('.scan-doc-keeping', { timeout: 5000 });
+  check('keeping shows it is working, under the button that started it',
+    (await page.locator('.scan-doc-keeping').count()) === 1,
+    (await page.locator('.scan-doc-keeping').textContent()).trim());
+  check('and says how much is being written rather than a made-up percentage',
+    /Keeping \d+ lines?…/.test(await page.locator('.scan-doc-keeping').textContent()),
+    (await page.locator('.scan-doc-keeping').textContent()).trim());
+  check('the button does not read as done while the request is still in the air',
+    (await page.locator('.scan-doc-keep.is-kept').count()) === 0 &&
+      (await page.locator('.scan-doc-keep').textContent()).includes('Keeping'),
+    (await page.locator('.scan-doc-keep').textContent()).trim());
+
+  releaseKeep();
+  await page.waitForSelector('.scan-doc-keep.is-kept', { timeout: 10000 });
+  check('and only once it has landed', (await page.locator('.scan-doc-keep').textContent()).includes('Kept'),
+    (await page.locator('.scan-doc-keep').textContent()).trim());
+  check('the working line goes when it does',
+    (await page.locator('.scan-doc-keeping').count()) === 0);
+  await page.unroute('**/api/statements/kept');
+
+  // That press kept a real statement. Forgotten again here so the section
+  // below can still assert an exact count rather than a "more than" — an
+  // expectation that has to be loosened every time a test above it writes
+  // something has stopped pinning anything down.
+  const forgotten = await page.evaluate(async (household) => {
+    const headers = { 'X-Household-Id': String(household) };
+    const kept = await (await fetch('/api/statements/kept', { headers })).json();
+    for (const statement of kept.statements) {
+      await fetch(`/api/statements/kept/${statement.id}`, { method: 'DELETE', headers });
+    }
+    return (await (await fetch('/api/statements/kept', { headers })).json()).statements.length;
+  }, await page.evaluate(() => localStorage.getItem('budget.householdId')));
+  check('and the kept statement can be forgotten again', forgotten === 0, String(forgotten));
   check('with the account it was read against', docHead.includes('AED'), docHead);
   check(
     'the four questions are a table of contents, with how much of each',

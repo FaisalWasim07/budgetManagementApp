@@ -2369,6 +2369,12 @@ th.num {
   flex: none;
   display: flex;
   align-items: center;
+  /* Wrapping so that a full-width item — the keeping bar, or the error if a
+     keep fails — drops onto its own line under the buttons instead of
+     becoming a greedy item on the same row, which squeezed the file name into
+     a column one word wide. Nothing else in here ever wraps: the name column
+     shrinks (min-width: 0) and the buttons are small. */
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px 18px;
   border-bottom: 1px solid var(--line);
@@ -5706,7 +5712,11 @@ hr.rule {
 /* Keeping is a header button beside the CSV one. `scan-wide-only` on the
    second half of its label is what the CSV button already does, so on a phone
    it reads "Keep" and "CSV" rather than wrapping the header onto two lines. */
-.scan-doc-keep[disabled] {
+/* Green once it is kept, and only then. While it is still going the button is
+   an ordinary disabled button: colouring it as done the moment it is pressed
+   would say the thing has happened at exactly the point nobody yet knows
+   whether it has. */
+.scan-doc-keep.is-kept[disabled] {
   opacity: 1;
   color: var(--pos);
   border-color: color-mix(in srgb, var(--pos) 35%, transparent);
@@ -5714,6 +5724,67 @@ hr.rule {
 .scan-doc-keep-error {
   flex-basis: 100%;
   font-size: 0.78rem;
+}
+
+/* Under the button, on its own line in the header. */
+.scan-doc-keeping {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  /* Pulled up against the buttons it belongs to: the header's own 12px gap is
+     the space between things standing side by side, and too much for a thing
+     reporting on the button directly above it. */
+  margin-top: -5px;
+  /* Full basis to claim the line, then held to the right so it sits under the
+     button that started it rather than stretching back under the file name,
+     which is not doing anything and has no progress to report. */
+  justify-content: flex-end;
+}
+.scan-doc-keeping small {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+/* A stripe travelling the track rather than a bar filling it. Keeping is one
+   request that lands or doesn't, so there is no proportion to draw — see the
+   comment where this is rendered. The track is the full width it will ever
+   be, which is what stops it reading as a bar stuck near the start. */
+.scan-doc-keeping-bar {
+  position: relative;
+  flex: 0 1 190px;
+  height: 3px;
+  min-width: 90px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink-3) 18%, transparent);
+}
+.scan-doc-keeping-bar i {
+  position: absolute;
+  inset-block: 0;
+  width: 38%;
+  border-radius: 999px;
+  background: var(--brand);
+  animation: keeping-sweep 1.15s ease-in-out infinite;
+}
+@keyframes keeping-sweep {
+  from {
+    left: -38%;
+  }
+  to {
+    left: 100%;
+  }
+}
+/* Somebody who has asked for less movement still needs to know it is working,
+   so the stripe stops travelling and holds as a quiet full-width bar rather
+   than disappearing and leaving the row looking finished. */
+@media (prefers-reduced-motion: reduce) {
+  .scan-doc-keeping-bar i {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.55;
+  }
 }
 
 @media (max-width: 900px) {

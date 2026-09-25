@@ -325,7 +325,7 @@ export default function StatementReport({
             statement be compared against this one. */}
         {onKeep ? (
           <button
-            className="secondary scan-doc-keep"
+            className={`secondary scan-doc-keep${keepState === 'kept' ? ' is-kept' : ''}`}
             onClick={onKeep}
             disabled={keepState === 'keeping' || keepState === 'kept'}
             title={
@@ -335,7 +335,11 @@ export default function StatementReport({
             }
           >
             {keepState === 'keeping' ? 'Keeping…' : keepState === 'kept' ? '✓ Kept' : 'Keep'}
-            <span className="scan-wide-only">{keepState === 'kept' ? '' : ' this statement'}</span>
+            {/* The object only belongs on the verb at rest. Once it is going
+                it is "Keeping…", not "Keeping… this statement", and once it is
+                done it is "✓ Kept" — both of which read as finished sentences
+                without it. */}
+            <span className="scan-wide-only">{keepState ? '' : ' this statement'}</span>
           </button>
         ) : null}
         <button className="secondary scan-doc-csv" onClick={onDownloadCsv}>
@@ -351,6 +355,26 @@ export default function StatementReport({
         <button className="subtle" onClick={onClose} aria-label="Close">
           ✕
         </button>
+
+        {/* Under the button, while it is working.
+
+            Deliberately a moving stripe rather than a filling bar, because
+            keeping is one request that either lands or does not — there are no
+            parts arriving to count, the way there are while a statement is
+            being read. A bar creeping to 80% would be a number invented to
+            look reassuring, and this dialog spends its whole length refusing
+            to invent numbers. What it can honestly say is that something is
+            happening and how much is being written, so it says that. */}
+        {keepState === 'keeping' ? (
+          <div className="scan-doc-keeping" role="status" aria-live="polite">
+            <span className="scan-doc-keeping-bar" aria-hidden="true">
+              <i />
+            </span>
+            <small>
+              Keeping {report.rows.length} line{report.rows.length === 1 ? '' : 's'}…
+            </small>
+          </div>
+        ) : null}
       </header>
 
       <div className="scan-doc-body">

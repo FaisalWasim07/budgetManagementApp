@@ -364,28 +364,41 @@ router.post(
       );
       const id = created[0].id;
 
-      for (const row of rows) {
-        await t.run(
-          `INSERT INTO statement_rows
-             (statement_id, sort_order, entry_date, post_date, raw, merchant, what,
-              amount, direction, kind, category, confidence)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            id,
-            row.sortOrder,
-            row.entryDate,
-            row.postDate,
-            row.raw,
-            row.merchant,
-            row.what,
-            row.amount,
-            row.direction,
-            row.kind,
-            row.category,
-            row.confidence,
-          ]
-        );
-      }
+      // Every row in one statement, not one statement per row.
+      //
+      // This was a loop of awaited inserts, which is the same work and the
+      // same transaction — and on a database reached over a unix socket it is
+      // indistinguishable. Over a pooler in another region it is not: each
+      // insert is a network round-trip, they are sequential because each is
+      // awaited, and a hundred-line statement spent a hundred latencies end
+      // to end. The figure people saw was "keeping…" for several seconds on a
+      // statement that takes milliseconds to write.
+      //
+      // Twelve columns and a ceiling of MAX_ROWS rows is 24,000 parameters,
+      // comfortably under Postgres's 65,535 per statement, so this never needs
+      // chunking at any size this route accepts.
+      const columns = 12;
+      const placeholders = rows.map(() => `(${new Array(columns).fill('?').join(', ')})`).join(', ');
+      await t.run(
+        `INSERT INTO statement_rows
+           (statement_id, sort_order, entry_date, post_date, raw, merchant, what,
+            amount, direction, kind, category, confidence)
+         VALUES ${placeholders}`,
+        rows.flatMap((row) => [
+          id,
+          row.sortOrder,
+          row.entryDate,
+          row.postDate,
+          row.raw,
+          row.merchant,
+          row.what,
+          row.amount,
+          row.direction,
+          row.kind,
+          row.category,
+          row.confidence,
+        ])
+      );
 
       return id;
     });
