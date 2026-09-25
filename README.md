@@ -438,6 +438,12 @@ reach your budget.
 **Statements** in the sidebar is what kept statements are for. A single
 statement can only tell you what is in it; two can tell you what changed.
 
+- **any one of them opened back up**, into the same four-question document the
+  scan produced — the same drill-down from a category to its lines, the same
+  sortable table with the bank's own line kept underneath, the same
+  reconciliation, the same CSV. Not a thinner read-only cousin: it is the same
+  statement, and two ways of reading one is two things to keep in agreement
+  and no way to tell which is lying the day they stop
 - what each one came to, and the trend across all of them
 - categories and merchants month against month — what moved, what appeared,
   what stopped

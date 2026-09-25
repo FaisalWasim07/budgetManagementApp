@@ -1717,6 +1717,46 @@ const check = (name, ok, detail = '') => {
   check('and said above the categories it makes misleading, not below them',
     caveatTop > 0 && caveatTop < categoriesTop, `caveat ${Math.round(caveatTop)}, list ${Math.round(categoriesTop)}`);
 
+  // --- opening one back up -------------------------------------------------
+  //
+  // A kept statement opens into the same document the scan produced, not a
+  // thinner read-only cousin — the detail is the reason for keeping it, and
+  // two ways of reading one statement is two things to keep in agreement.
+  await page.locator('.stmt-open').first().click();
+  await page.waitForSelector('.scan-report', { timeout: 15000 });
+  check('a kept statement opens back into the document it was read as',
+    (await page.locator('.scan-report').count()) === 1);
+  check('with its lines, worked out again from what was stored',
+    (await page.locator('.scan-rows tbody tr').count()) === 3,
+    String(await page.locator('.scan-rows tbody tr').count()));
+
+  // The scanner's standing promise is that nothing is saved. It is the one
+  // sentence in this document that a kept statement makes false, so it has to
+  // say something else.
+  const foot = await page.locator('.scan-cost').textContent();
+  check('and it does not claim nothing was saved, which is the one thing it cannot say here',
+    !foot.includes('Nothing is saved') && foot.includes('Kept'), foot.trim().slice(0, 90));
+  check('nor that it was read just now, months after it was',
+    (await page.locator('.scan-doc-file').textContent()).includes('kept'),
+    (await page.locator('.scan-doc-file').textContent()).trim());
+
+  // Offers that would do nothing are not made. Both of these are the scanner's
+  // and have nothing behind them here.
+  check('no offer to scan another from inside a kept statement',
+    (await page.locator('.scan-again').count()) === 0);
+  check('and no offer to spend money on a paragraph it cannot write',
+    (await page.locator('.scan-why').count()) === 0);
+  check('nothing to keep, because this is the thing that was kept',
+    (await page.locator('.scan-doc-keep').count()) === 0);
+  check('the lines can still be taken away as a CSV',
+    (await page.locator('.scan-doc-csv').count()) === 1);
+
+  await page.click('.scan-doc-head button[aria-label="Close"]');
+  await page.waitForTimeout(400);
+  check('and closing it comes back to the list',
+    (await page.locator('.scan-report').count()) === 0 &&
+      (await page.locator('.stmt-list').count()) === 1);
+
   check('a charge in both statements is found, which one statement could not show',
     (await page.locator('.stmt-recurring').textContent()).includes('Netflix'),
     await page.locator('.stmt-recurring .stmt-mover .n').first().textContent());

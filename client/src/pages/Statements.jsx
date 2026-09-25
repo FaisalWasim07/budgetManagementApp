@@ -1,14 +1,18 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   getKeptStatements,
+  getKeptStatement,
   compareKeptStatements,
   forgetStatement,
 } from '../api/statements';
-import { Money } from '../utils/display';
+import { DisplayContext, Money } from '../utils/display';
 import { SkeletonRows } from '../components/Skeleton';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Modal from '../components/Modal';
+import StatementReport from '../components/StatementReport';
 import ToolbarSlot from '../components/ToolbarSlot';
 import { Search, Trash } from '../components/icons';
+import { toCsv } from '../utils/statementCsv';
 import { useToast } from '../utils/toast';
 
 // Loaded when someone actually scans something. It carries pdf.js, which is
@@ -94,7 +98,21 @@ export default function Statements({ phone, readOnly, accounts = [] }) {
   const [pair, setPair] = useState(null);
   const [chosen, setChosen] = useState(null);
   const [forgetting, setForgetting] = useState(null);
+  // A kept statement opened back up. `opening` is the id being fetched, held
+  // separately from the answer so the row can say it is working without the
+  // dialog appearing empty first.
+  const [opening, setOpening] = useState(null);
+  const [open, setOpen] = useState(null);
   const { show } = useToast();
+
+  // Amounts show inside an opened statement, exactly as they do inside a
+  // scan. The eye hides the ledger because the ledger simply sits there —
+  // open the app in public and your balances are on screen whether you meant
+  // them to be or not. Opening a statement is the opposite: you went to a
+  // list, picked a document and asked for it. The list behind still obeys the
+  // toggle; this is a smaller scope than the toggle, not an override of it.
+  const display = useContext(DisplayContext);
+  const shownInReport = useMemo(() => ({ ...display, amountsHidden: false }), [display]);
 
   const load = useCallback(async () => {
     try {
@@ -129,6 +147,37 @@ export default function Statements({ phone, readOnly, accounts = [] }) {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function openStatement(statement) {
+    if (opening) return;
+    setOpening(statement.id);
+    try {
+      setOpen(await getKeptStatement(statement.id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setOpening(null);
+    }
+  }
+
+  // The same file a scan offers, built from the stored rows. Named for the
+  // period rather than the file it came from: the original file name was never
+  // stored, and "August 2026" is what somebody looking for this later would
+  // call it anyway.
+  function downloadCsv() {
+    if (!open) return;
+    const blob = new Blob([toCsv(open.rows, open.currency)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${periodName(open.periodStart, open.periodEnd).replace(/[^\w]+/g, '-')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Released on the next turn rather than immediately: revoking it in the
+    // same tick cancels the download in some browsers before it has started.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   async function forget(statement) {
@@ -173,6 +222,38 @@ export default function Statements({ phone, readOnly, accounts = [] }) {
           <ToolbarSlot>{scanButton}</ToolbarSlot>
         )
       ) : null}
+
+      {/* A kept statement, opened back into the document it was read as.
+          Deliberately the same component a scan renders rather than a lighter
+          read-only cousin: it is the same statement, and two ways of reading
+          one of them is two things to keep in agreement and no way to tell
+          which is lying the day they stop agreeing.
+
+          The scan-only halves are simply not passed. There is no file to name,
+          no model or cost — those are facts about the reading, not the
+          statement, and were never stored — no parts that failed to arrive,
+          and nothing to keep, because this is the thing that was kept. Every
+          one of those is already conditional in the report. */}
+      {open && (
+        <DisplayContext.Provider value={shownInReport}>
+          <Modal
+            title={periodName(open.periodStart, open.periodEnd)}
+            onClose={() => setOpen(null)}
+            className="scanner room"
+            bare
+          >
+            <StatementReport
+              report={open}
+              currency={open.currency}
+              account={open.accountName ? { name: open.accountName } : null}
+              fileName={periodName(open.periodStart, open.periodEnd)}
+              keptOn={open.keptAt}
+              onDownloadCsv={downloadCsv}
+              onClose={() => setOpen(null)}
+            />
+          </Modal>
+        </DisplayContext.Provider>
+      )}
 
       {scanning && (
         <Suspense fallback={null}>
@@ -275,17 +356,33 @@ export default function Statements({ phone, readOnly, accounts = [] }) {
                   String(chosen.after) === String(statement.id));
               return (
                 <li key={statement.id} className={isChosen ? 'on' : ''}>
-                  <span className="n">
-                    {periodName(statement.periodStart, statement.periodEnd)}
-                    <small>
-                      {[statement.personName, statement.accountName].filter(Boolean).join(' · ')}
-                      {statement.accountName ? ' · ' : ''}
-                      {statement.lines} lines
-                    </small>
-                  </span>
-                  <span className="a">
-                    <Money amount={figures?.spent ?? 0} currency={statement.currency} compact />
-                  </span>
+                  {/* The row is the door. A statement kept is a document, and
+                      a list of documents whose only offered action is deleting
+                      one is a list you cannot read — every figure the scan
+                      produced is still there, worked out again from the rows
+                      the moment it is asked for. */}
+                  <button
+                    className="stmt-open"
+                    onClick={() => openStatement(statement)}
+                    disabled={opening === statement.id}
+                    aria-label={`Open ${periodName(statement.periodStart, statement.periodEnd)}`}
+                  >
+                    <span className="n">
+                      {periodName(statement.periodStart, statement.periodEnd)}
+                      <small>
+                        {opening === statement.id
+                          ? 'Opening…'
+                          : `${[statement.personName, statement.accountName]
+                              .filter(Boolean)
+                              .join(' · ')}${statement.accountName ? ' · ' : ''}${
+                              statement.lines
+                            } lines`}
+                      </small>
+                    </span>
+                    <span className="a">
+                      <Money amount={figures?.spent ?? 0} currency={statement.currency} compact />
+                    </span>
+                  </button>
                   {readOnly ? null : (
                     <button
                       className="subtle"

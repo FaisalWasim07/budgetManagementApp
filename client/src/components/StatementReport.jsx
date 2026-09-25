@@ -132,6 +132,11 @@ export default function StatementReport({
   currency,
   account,
   fileName,
+  // Set only when this is a statement read back out of the store rather than
+  // one just scanned. It is what tells the document it is not ephemeral —
+  // several things below say "nothing is saved", which is the scanner's
+  // standing promise and a lie about a statement somebody kept on purpose.
+  keptOn,
   modelLabel,
   costPhrase,
   summary,
@@ -317,7 +322,12 @@ export default function StatementReport({
           <b>{fileName}</b>
           <small className="scan-summary">
             {[account?.name, currency].filter(Boolean).join(' · ')}
-            {account?.name || currency ? ' · ' : ''}read just now
+            {account?.name || currency ? ' · ' : ''}
+            {/* "read just now" is true of a scan and false of a statement
+                opened out of the store, which may have been kept months ago.
+                A document that misreports its own age is a small lie, and this
+                one sits in the line that says what the document is. */}
+            {keptOn ? `kept ${new Date(keptOn).toLocaleDateString()}` : 'read just now'}
           </small>
         </span>
         {/* A CSV outlives the dialog too, but only as a file on a disk that
@@ -411,23 +421,37 @@ export default function StatementReport({
               stay because they are what explains the money — a scan that costs
               twice what the last one did says why here. */}
             <span className="scan-cost">
-              Nothing is saved. Closing this is the whole cleanup.
-              {report.usage?.output
-                ? ` Read by ${modelLabel} in ${report.parts} part${
-                    report.parts === 1 ? '' : 's'
-                  }${costPhrase(report.usage.cost)}: ${(
-                    report.usage.input +
-                    report.usage.cached +
-                    report.usage.written
-                  ).toLocaleString()} tokens in and ${report.usage.output.toLocaleString()} out` +
-                  (report.usage.cached
-                    ? `, of which ${report.usage.cached.toLocaleString()} were read back from cache rather than sent again.`
-                    : '.')
-                : ''}
+              {keptOn ? (
+                <>
+                  Kept {new Date(keptOn).toLocaleDateString()}. Every figure here is worked out
+                  again from the lines that were stored, so it cannot drift from them. Nothing
+                  here is in your accounts.
+                </>
+              ) : (
+                <>
+                  Nothing is saved. Closing this is the whole cleanup.
+                  {report.usage?.output
+                    ? ` Read by ${modelLabel} in ${report.parts} part${
+                        report.parts === 1 ? '' : 's'
+                      }${costPhrase(report.usage.cost)}: ${(
+                        report.usage.input +
+                        report.usage.cached +
+                        report.usage.written
+                      ).toLocaleString()} tokens in and ${report.usage.output.toLocaleString()} out` +
+                      (report.usage.cached
+                        ? `, of which ${report.usage.cached.toLocaleString()} were read back from cache rather than sent again.`
+                        : '.')
+                    : ''}
+                </>
+              )}
             </span>
-            <button className="link scan-again" onClick={onScanAnother}>
-              Scan another statement
-            </button>
+            {/* Only where there is somewhere to scan from. A kept statement is
+                opened from the list, and the list already carries the button. */}
+            {onScanAnother ? (
+              <button className="link scan-again" onClick={onScanAnother}>
+                Scan another statement
+              </button>
+            ) : null}
           </div>
         </nav>
 
@@ -824,6 +848,12 @@ export default function StatementReport({
             <span className="scan-q-eyebrow">{QUESTIONS[2][2]}</span>
             <h3 className="scan-q-title">{QUESTIONS[2][3]}</h3>
 
+            {/* The written paragraph is offered only where there is something
+                to write it with. A kept statement is opened without it — the
+                sentence costs money and needs a model chosen, neither of which
+                this document has when it is read back out of the store — and
+                an offer whose button does nothing is worse than no offer. */}
+            {(summary || onWriteSummary) && (
             <section className="scan-why">
               <h4>
                 In a sentence <small>written from the figures above</small>
@@ -858,6 +888,7 @@ export default function StatementReport({
               )}
               {summaryError && <div className="error-text">{summaryError}</div>}
             </section>
+            )}
 
             {ranked.length > 0 ? (
               <div className="scan-findings">

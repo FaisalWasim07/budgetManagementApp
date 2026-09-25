@@ -5530,11 +5530,44 @@ hr.rule {
 }
 .stmt-list li {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 9px 0;
   border-top: 1px solid var(--line);
+}
+/* The row itself is the door into the statement, so the period, the account
+   and the total are all one target rather than a link somewhere inside a row
+   of text. A button rather than a div with a handler: it is reachable by
+   keyboard and announces itself, which a div never does however it is
+   styled. */
+.stmt-open {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px 3px 0;
+  margin: -3px 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stmt-open:hover {
+  background: color-mix(in srgb, var(--ink-3) 8%, transparent);
+}
+.stmt-open:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.stmt-open[disabled] {
+  cursor: default;
+  opacity: 0.6;
 }
 .stmt-list li:first-child {
   border-top: 0;
