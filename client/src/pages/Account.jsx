@@ -8,6 +8,7 @@ import TransactionEditModal from '../components/TransactionEditModal';
 import AccountFormModal from '../components/AccountFormModal';
 import ToolbarSlot from '../components/ToolbarSlot';
 import { useLive } from '../utils/live';
+import { shortMonth } from '../utils/month';
 
 const KIND_LABEL = {
   income: 'Income',
@@ -171,19 +172,33 @@ export default function Account({
             />
             {owed && <span className="per"> owed</span>}
           </p>
-          <p className="secondary" style={{ margin: 0, fontSize: '.85rem' }}>
-            {foreign && account.balancePrimary != null && (
-              <>
-                ≈ <Money amount={account.balancePrimary} currency={primaryCurrency} compact /> ·{' '}
-              </>
-            )}
-            {foreign && account.balancePrimary == null && (
-              <span className="error-text">
-                no {account.currency}→{primaryCurrency} rate for this month ·{' '}
-              </span>
-            )}
-            opening <Money amount={account.openingBalance} currency={account.currency} compact />
-          </p>
+          {/* The account's starting balance used to sit here, and it was the
+              one figure on this card that was not about the month on screen:
+              it is what was in the account before anything was recorded, set
+              once when the account was made and never moving again. Beside a
+              balance, an In/Out/Moved row and a ledger that all follow the
+              month picker, a number that ignores it reads as one that has gone
+              stale — and the ledger's own "Opening balance" row, a hand's width
+              away, is a different figure under nearly the same word. It is set
+              and shown in Edit account, which is where a setup value belongs.
+
+              So this line is now only the conversion, and only when there is
+              one to make. Rendered conditionally rather than left empty: an
+              empty <p> still takes its line, and the separators that used to
+              join these to the opening would have dangled. */}
+          {foreign && (
+            <p className="secondary" style={{ margin: 0, fontSize: '.85rem' }}>
+              {account.balancePrimary != null ? (
+                <>
+                  ≈ <Money amount={account.balancePrimary} currency={primaryCurrency} compact />
+                </>
+              ) : (
+                <span className="error-text">
+                  no {account.currency}→{primaryCurrency} rate for this month
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -340,8 +355,16 @@ export default function Account({
             <div className="txn opening">
               {!phone && <span className="on" />}
               <span className="what">
-                <b>Opening balance</b>
-                {phone && <small>where this month started</small>}
+                {/* Named for the month it belongs to, rather than "Opening
+                    balance" with a phone-only note underneath explaining
+                    which opening was meant. The note could not simply be
+                    shown on a desktop too: no other row there carries a
+                    <small>, so it would have been the one subtitle on the
+                    screen. Putting the month in the label itself says the
+                    same thing in both layouts and in one line — and it
+                    changes as you page through months, which is exactly the
+                    property that was being explained. */}
+                <b>Started {shortMonth(month)} at</b>
               </span>
               {!phone && <span className="amt muted">—</span>}
               <span className={phone ? 'amt' : 'amt running'}>
