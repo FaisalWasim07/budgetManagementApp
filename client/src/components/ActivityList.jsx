@@ -68,15 +68,32 @@ function byDay(rows) {
   return groups;
 }
 
-// "Transfer out" tells you nothing you could not already see from the minus
-// sign. The useful half is the account at the other end, which is the sibling
-// row sharing this one's transfer_id.
-function describe(row, rows) {
-  if (row.category || row.description) return row.category || row.description;
-  if (!row.transfer_id) return KIND_LABEL[row.kind];
+// The other end of a transfer, which is the half "Transfer out" leaves out:
+// the minus sign already says it left, not where it went.
+function route(row, rows) {
+  if (!row.transfer_id) return null;
   const other = rows.find((x) => x.transfer_id === row.transfer_id && x.id !== row.id);
-  if (!other) return KIND_LABEL[row.kind];
+  if (!other) return null;
   return row.kind === 'transfer_out' ? `To ${other.account_name}` : `From ${other.account_name}`;
+}
+
+// The entry's name: your own words when you wrote some, then the category,
+// then where a transfer went.
+//
+// It used to be category first, which meant an entry with both never showed
+// its description anywhere — the line you typed to recognise it by was the
+// one thing on the row you could not see.
+function describe(row, rows) {
+  if (row.description) return row.description;
+  if (row.category) return row.category;
+  return route(row, rows) ?? KIND_LABEL[row.kind];
+}
+
+// What the name pushed out. When the description takes the title, the
+// category — or for a transfer, where it went — is still worth a line.
+function aside(row, rows) {
+  if (!row.description) return null;
+  return row.category || route(row, rows);
 }
 
 // On a cross-currency transfer the two legs hold different amounts, and the one
@@ -271,6 +288,7 @@ export default function ActivityList({
                         <b>{label}</b>
                         <small>
                           {[
+                            aside(row, rows),
                             row.account_name,
                             personsById[row.person_id]?.name,
                             (() => {
@@ -328,7 +346,13 @@ export default function ActivityList({
                   <span className={`tile ${toneForEntry(row.kind)}`}>
                     <Icon />
                   </span>
-                  <b>{label}</b>
+                  {/* A transfer with a description of its own still says where
+                      it went, under it — the category column has no such
+                      thing to show for a transfer. */}
+                  <span className="what-text">
+                    <b title={label}>{label}</b>
+                    {row.description && row.transfer_id && <small>{route(row, rows)}</small>}
+                  </span>
                 </span>
                 <span className="col">{row.account_name}</span>
                 <span className="col who">

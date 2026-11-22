@@ -8,6 +8,18 @@ const { h } = require('../util/route');
 const router = express.Router();
 const ENTRY_KINDS = ['income', 'expense'];
 
+// A description is a line, not a document: long enough for "Weekly shop at
+// Carrefour, split with Noor", short enough that a row can still show it.
+// Trimmed so a stray space does not read as something written, and blank is
+// stored as nothing rather than as an empty string that every reader then has
+// to treat as missing.
+const DESCRIPTION_MAX = 200;
+function cleanDescription(value) {
+  if (value == null) return null;
+  const text = String(value).trim().slice(0, DESCRIPTION_MAX);
+  return text || null;
+}
+
 router.get(
   '/',
   h(async (req, res) => {
@@ -76,7 +88,7 @@ router.post(
     const row = await db.get(
       `INSERT INTO transactions (account_id, month, kind, amount, category, description, entry_date, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-      [accountId, month, kind, amount, category, description, entryDate, req.user.id]
+      [accountId, month, kind, amount, category, cleanDescription(description), entryDate, req.user.id]
     );
 
     res.status(201).json(row);
@@ -197,7 +209,7 @@ router.post(
         t.get(
           `INSERT INTO transactions (account_id, month, kind, amount, description, transfer_id, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-          [accountId, month, kind, value, description, transferId, req.user.id]
+          [accountId, month, kind, value, cleanDescription(description), transferId, req.user.id]
         );
 
       const written = [];
@@ -331,7 +343,7 @@ router.patch(
             [
               value,
               nextMonth,
-              description !== undefined ? description : leg.description,
+              description !== undefined ? cleanDescription(description) : leg.description,
               entryDate !== undefined ? entryDate : leg.entry_date,
               leg.id,
             ]
@@ -353,7 +365,7 @@ router.patch(
         nextMonth,
         kind ?? existing.kind,
         category !== undefined ? category : existing.category,
-        description !== undefined ? description : existing.description,
+        description !== undefined ? cleanDescription(description) : existing.description,
         entryDate !== undefined ? entryDate : existing.entry_date,
         req.params.id,
         req.household.id,

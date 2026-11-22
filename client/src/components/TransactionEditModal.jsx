@@ -184,7 +184,7 @@ export default function TransactionEditModal({
 
         <label className="field">
           Description
-          <input type="text" value={form.description} onChange={set('description')} />
+          <input type="text" value={form.description} maxLength={200} onChange={set('description')} />
         </label>
 
         {/* Which month it counts in. Almost never what you opened this to

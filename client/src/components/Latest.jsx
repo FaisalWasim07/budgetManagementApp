@@ -29,12 +29,31 @@ function when(value) {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-function describe(row, rows) {
-  if (row.category || row.description) return row.category || row.description;
-  if (!row.transfer_id) return KIND_LABEL[row.kind];
+// The other end of a transfer, which is the half "Transfer out" leaves out:
+// the minus sign already says it left, not where it went.
+function route(row, rows) {
+  if (!row.transfer_id) return null;
   const other = rows.find((x) => x.transfer_id === row.transfer_id && x.id !== row.id);
-  if (!other) return KIND_LABEL[row.kind];
+  if (!other) return null;
   return row.kind === 'transfer_out' ? `To ${other.account_name}` : `From ${other.account_name}`;
+}
+
+// The entry's name: your own words when you wrote some, then the category,
+// then where a transfer went.
+//
+// It used to be category first, which meant an entry with both never showed
+// its description anywhere. Same rule as Activity, so an entry has one name.
+function describe(row, rows) {
+  if (row.description) return row.description;
+  if (row.category) return row.category;
+  return route(row, rows) ?? KIND_LABEL[row.kind];
+}
+
+// What the name pushed out. When the description takes the title, the
+// category — or for a transfer, where it went — is still worth a line.
+function aside(row, rows) {
+  if (!row.description) return null;
+  return row.category || route(row, rows);
 }
 
 // The last handful of entries, next to the accounts they came out of. Activity
@@ -117,7 +136,7 @@ export default function Latest({
             <span className="what">
               <b>{label}</b>
               <small>
-                {[row.account_name, when(row.entry_date || row.created_at)]
+                {[aside(row, rows), row.account_name, when(row.entry_date || row.created_at)]
                   .filter(Boolean)
                   .join(' · ')}
               </small>

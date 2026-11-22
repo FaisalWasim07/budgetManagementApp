@@ -28,7 +28,10 @@ function whenOf(entry) {
   return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-const describe = (entry) => entry.category || entry.description || KIND_LABEL[entry.kind];
+// Your words first, as in Activity and on Home, so an entry is called the same
+// thing wherever you meet it. Category-first hid the description entirely on
+// any entry that had both.
+const describe = (entry) => entry.description || entry.category || KIND_LABEL[entry.kind];
 
 // An account expanded in place used to push the whole page down and could only
 // afford a list. On its own screen it can carry the balance, what moved this
@@ -312,7 +315,11 @@ export default function Account({
                 <span className="what">
                   <b>{label}</b>
                   <small>
-                    {[label === KIND_LABEL[entry.kind] ? null : KIND_LABEL[entry.kind], whenOf(entry)]
+                    {[
+                      entry.description ? entry.category : null,
+                      label === KIND_LABEL[entry.kind] ? null : KIND_LABEL[entry.kind],
+                      whenOf(entry),
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </small>
@@ -332,7 +339,10 @@ export default function Account({
                   <span className={`tile ${toneForEntry(entry.kind)}`}>
                     <Icon />
                   </span>
-                  <b>{label}</b>
+                  <span className="what-text">
+                    <b title={label}>{label}</b>
+                    {entry.description && entry.category && <small>{entry.category}</small>}
+                  </span>
                 </span>
                 <span className={isCredit(entry.kind) ? 'amt in' : 'amt'}>
                   <Money

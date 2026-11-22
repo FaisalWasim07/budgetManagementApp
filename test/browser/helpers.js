@@ -2,7 +2,7 @@
 // strip; it was the one thing on the page that was neither a balance nor an
 // account, and the + in the top bar and the middle of the phone's bar both
 // open the same sheet instead.
-async function addMoney(page, { amount, kind = 'Spent', category }) {
+async function addMoney(page, { amount, kind = 'Spent', category, description }) {
   const opener = (await page.locator('.add-top').count())
     ? '.add-top'
     : '.tabbar button.add';
@@ -11,6 +11,7 @@ async function addMoney(page, { amount, kind = 'Spent', category }) {
   await page.locator('.sheet input[aria-label="Amount"]').fill(String(amount));
   await page.locator(`.sheet button:has-text("${kind}")`).click();
   if (category) await page.locator('.sheet input[aria-label="Category"]').fill(category);
+  if (description) await page.locator('.sheet input[aria-label="Description"]').fill(description);
   await page.locator('.sheet button:has-text("Save")').click();
   await page.waitForTimeout(1500);
 }

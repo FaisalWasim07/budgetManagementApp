@@ -1925,6 +1925,27 @@ h3 {
 .txn-table .txn .what b {
   min-width: 0;
 }
+.txn-table .txn .what-text,
+.ledger-table .txn .what-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.txn-table .txn .what-text b,
+.ledger-table .txn .what-text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+.txn-table .txn .what-text small,
+.ledger-table .txn .what-text small {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .txn-table .txn .what .tile {
   width: 28px;
   height: 28px;
@@ -6454,4 +6475,16 @@ hr.rule {
   flex-direction: column;
   gap: 6px;
   padding: 8px 0;
+}
+
+
+/* "optional" beside a field's label: there, so nobody wonders whether the form
+   will refuse them for leaving it blank, and quiet, so it is not mistaken for
+   part of the name. */
+.label .optional {
+  margin-left: 4px;
+  font-size: 0.86em;
+  font-weight: 450;
+  color: var(--ink-3);
+  opacity: 0.8;
 }

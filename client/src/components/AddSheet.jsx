@@ -22,6 +22,7 @@ export default function AddSheet({
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const { show } = useToast();
@@ -38,6 +39,7 @@ export default function AddSheet({
     if (!open) return;
     setAmount('');
     setCategory('');
+    setDescription('');
     setError(null);
     setAccountId(String(defaultAccountId ?? accounts[0]?.id ?? ''));
     // Waited out rather than done immediately: focusing mid-slide makes some
@@ -105,6 +107,7 @@ export default function AddSheet({
         kind,
         amount: value,
         category: category.trim() || null,
+        description: description.trim() || null,
       });
       // Closed as soon as the entry is recorded. Waiting for the figures to be
       // recomputed as well kept the sheet up for the length of four round
@@ -116,9 +119,9 @@ export default function AddSheet({
       // arriving at the same moment is what makes the tap feel finished.
       show(kind === 'income' ? 'Money in, recorded' : 'Spending recorded', {
         tone: 'success',
-        body: `${money(value, account.currency)} · ${account.name}${
-          category.trim() ? ` · ${category.trim()}` : ''
-        }`,
+        body: [money(value, account.currency), account.name, description.trim() || category.trim()]
+          .filter(Boolean)
+          .join(' · '),
       });
     } catch (err) {
       setError(err.message);
@@ -209,6 +212,25 @@ export default function AddSheet({
             style={{ marginTop: 8 }}
           />
         </div>
+
+        {/* What it was, in your words. The category groups it; this is how you
+            recognise it again in Activity a month from now, so it is what
+            Activity shows as the entry's name. One line, because a sheet you
+            fill in at a till is no place for a paragraph. */}
+        <label className="field" style={{ marginTop: 14 }}>
+          <span className="label">
+            Description <span className="optional">optional</span>
+          </span>
+          <input
+            type="text"
+            placeholder={kind === 'income' ? 'e.g. November invoice' : 'e.g. Weekly shop at Carrefour'}
+            value={description}
+            maxLength={200}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+            aria-label="Description"
+          />
+        </label>
 
         {error && <div className="error-text" style={{ marginTop: 12 }}>{error}</div>}
 

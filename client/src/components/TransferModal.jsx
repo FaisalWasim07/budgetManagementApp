@@ -47,6 +47,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const [customBasis, setCustomBasis] = useState('');
   // Type the amount, or type the share and let it work the amount out.
   const [mode, setMode] = useState('amount');
+  const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const { money } = useDisplay();
@@ -200,6 +201,9 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
       await createTransfer({
         from_account_id: Number(fromId),
         month,
+        // One line for the whole move. Split across several accounts it is
+        // still one decision — "November savings" — so every pair carries it.
+        description: description.trim() || null,
         to: legs
           .filter((leg) => leg.to && leg.amount > 0)
           .map((leg) => ({
@@ -213,7 +217,9 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
       onSaved();
       show(sent.length === 1 ? 'Money moved' : `Moved to ${sent.length} accounts`, {
         tone: 'success',
-        body: `${money(total, from.currency)} out of ${from.name}`,
+        body: [`${money(total, from.currency)} out of ${from.name}`, description.trim()]
+          .filter(Boolean)
+          .join(' · '),
       });
     } catch (err) {
       setError(err.message);
@@ -459,6 +465,20 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
             </span>
           </div>
         )}
+
+        <label className="field">
+          <span className="label">
+            Description <span className="optional">optional</span>
+          </span>
+          <input
+            type="text"
+            placeholder="e.g. November savings"
+            value={description}
+            maxLength={200}
+            onChange={(e) => setDescription(e.target.value)}
+            aria-label="Description"
+          />
+        </label>
 
         {/* Only once something has been entered — saying it over an untouched
             form would be telling you off for having just opened it. */}

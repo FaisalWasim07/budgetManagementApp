@@ -642,7 +642,13 @@ export default function App({ user, onSignedOut, onUserChange }) {
           month={month}
           defaultAccountId={sheet?.accountId}
           onClose={() => setSheet(null)}
-          onSaved={load}
+          // Everything on screen, not only the totals. Home's latest entries
+          // and Activity hold the month's list in the live cache, and `load`
+          // never touched it — so a new entry changed every figure on Home and
+          // was missing from the list right beside them until something else
+          // happened to refresh. refreshAll reruns every mounted source,
+          // `load` included.
+          onSaved={refreshAll}
           onMove={() => setShowTransfer(true)}
         />
       )}
@@ -652,7 +658,7 @@ export default function App({ user, onSignedOut, onUserChange }) {
           accounts={accounts}
           month={month}
           onClose={() => setShowTransfer(false)}
-          onSaved={load}
+          onSaved={refreshAll}
         />
       )}
 
