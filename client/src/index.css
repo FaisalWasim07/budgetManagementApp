@@ -6045,7 +6045,10 @@ hr.rule {
   max-width: 940px;
   padding: 0;
   overflow: hidden;
-  max-height: calc(100dvh - 32px);
+  /* One height whichever tab is open. Sized to its content, the dialog grew
+     and shrank on every switch, and being centred it jumped up and down with
+     it. The tab's own body scrolls instead. */
+  height: min(860px, calc(100dvh - 32px));
 }
 .modal-side-nav {
   display: flex;
@@ -6093,16 +6096,6 @@ hr.rule {
   background: color-mix(in srgb, var(--brand) 16%, var(--surface));
   color: var(--brand-deep);
   box-shadow: none;
-}
-.modal-side-nav .modal-tabs button.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: var(--r-pill);
-  background: var(--brand-deep);
 }
 .modal-side-main {
   display: flex;
@@ -6605,9 +6598,6 @@ summary.set-top > svg {
     flex: 1;
     justify-content: center;
     padding: 9px 10px;
-  }
-  .modal-side-nav .modal-tabs button.active::before {
-    display: none;
   }
   .modal-side-head {
     padding: 14px 14px 8px;
