@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import SettingsSection from './SettingsSection';
 import { current, disable, enable, getDevices, preview, support } from '../utils/push';
 import { useToast } from '../utils/toast';
+import { Bell, Eye } from './icons';
+import { deviceIcon } from './PasskeySettings';
 
 // Turning notifications on, and — when they will not turn on — saying exactly
 // why in terms of this device rather than in general.
@@ -96,15 +98,28 @@ export default function NotificationSettings() {
 
   return (
     <SettingsSection
+      icon={<Bell />}
       title="Notifications"
+      subtitle="Reminders about what is due and what a month came to."
       loading={devices === null}
       state={on ? 'On for this device' : 'Off for this device'}
+      // The switch is for this device, and says so to a screen reader. Never
+      // disabled by a blocker alone: on a device that reports oddly, the
+      // attempt and its error say more than a greyed-out switch.
+      action={
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Notifications on this device"
+          className="switch"
+          disabled={busy || devices === null || (!on && !configured)}
+          onClick={on ? turnOff : turnOn}
+        >
+          <i />
+        </button>
+      }
     >
-      <span className="muted" style={{ fontSize: '0.82rem' }}>
-        Reminders about what is due and what a month came to. Each device answers separately, so
-        turning it on here says nothing about your other ones.
-      </span>
-
       {!configured && (
         <div className="warn-banner">
           The server has no notification keys set, so nothing can be sent yet.
@@ -115,65 +130,52 @@ export default function NotificationSettings() {
 
       {error && <div className="error-text">{error}</div>}
 
-      <div className="row-tight">
-        {on ? (
-          <>
-            <button type="button" onClick={turnOff} disabled={busy}>
-              Turn off
+      {!on && (
+        <span className="muted">
+          The switch is for this device. Each of your devices answers for itself.
+        </span>
+      )}
+
+      {((devices && devices.length > 0) || on) && (
+        <div className="device-strip">
+          {devices?.map((device) => (
+            <div className="device-chip" key={device.id}>
+              <span className="icon-tile soft round">{deviceIcon(device.label)}</span>
+              <span className="what">
+                <b>{device.label || 'A device'}</b>
+                <small>
+                  {device.failed_at
+                    ? 'Stopped accepting them. Turn on again there.'
+                    : device.last_sent_at
+                      ? `Last sent ${new Date(device.last_sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                      : 'Nothing sent yet'}
+                </small>
+              </span>
+            </div>
+          ))}
+          {/* Proves the whole chain (key, subscription, push service, worker,
+              phone settings) and shows the real words, so it answers "does it
+              work" and "what will it say" in one tap. */}
+          {on && (
+            <button type="button" className="pill-outline device-strip-action" onClick={showToday} disabled={busy}>
+              <Eye size={16} />
+              Preview today’s notification
             </button>
-            {/* Proves the whole chain — key, subscription, push service,
-                worker, phone settings — and shows the real words rather than
-                a stand-in, so it answers "does it work" and "what will it say"
-                in one tap. */}
-            <button type="button" className="primary" onClick={showToday} disabled={busy}>
-              Preview today's notification
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="primary"
-            onClick={turnOn}
-            // Never disabled by a blocker alone: on a device that reports
-            // oddly, the attempt and its error are more informative than a
-            // greyed-out button.
-            disabled={busy || !configured}
-          >
-            Turn on for this device
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {shown && (
         <div className="preview-note">
           <small className="muted">
             {shown.scheduled
               ? 'This is what today would send.'
-              : 'Nothing is scheduled for today — this is what the next one will say.'}
+              : 'Nothing is scheduled for today. This is what the next one will say.'}
           </small>
           {shown.messages.map((message) => (
             <div className="preview-card" key={message.title}>
               <b>{message.title}</b>
               <small>{message.body}</small>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {devices && devices.length > 0 && (
-        <div className="rows">
-          {devices.map((device) => (
-            <div className="passkey-row" key={device.id}>
-              <span className="what">
-                <b>{device.label || 'A device'}</b>
-                <small>
-                  {device.failed_at
-                    ? 'Stopped accepting notifications — turn them on again on that device.'
-                    : device.last_sent_at
-                      ? `Last sent ${new Date(device.last_sent_at).toLocaleDateString()}`
-                      : 'Nothing sent yet'}
-                </small>
-              </span>
             </div>
           ))}
         </div>

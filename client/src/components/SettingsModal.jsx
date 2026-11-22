@@ -4,6 +4,8 @@ import LoginSettings from './LoginSettings';
 import PasskeySettings from './PasskeySettings';
 import NotificationSettings from './NotificationSettings';
 import AccentSettings from './AccentSettings';
+import SettingsSection from './SettingsSection';
+import { Coins, Exchange, Gear, Pulse, User, Wallet } from './icons';
 import { useToast } from '../utils/toast';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
@@ -103,12 +105,19 @@ export default function SettingsModal({
     }
   }
 
-  // Money and account are two unrelated jobs, and stacking them made one box
-  // tall enough to need its own scrollbar. Either alone fits.
+  // Money and account are two unrelated jobs, each a tab of its own. Within
+  // Money, three cards: what everything totals in, the rates that get it
+  // there, and the services those rates come from.
   const moneyTab = () => (
-    <form className="stack" onSubmit={save}>
-        <label className="field">
-          Primary currency
+    <form className="set-sections" onSubmit={save}>
+      <SettingsSection
+        icon={<Coins />}
+        title="Primary currency"
+        subtitle="What the household totals are in. Accounts keep their own currency."
+        state={currency}
+      >
+        <label className="field set-field-narrow">
+          <span className="label">Currency</span>
           <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>
@@ -116,108 +125,99 @@ export default function SettingsModal({
               </option>
             ))}
           </select>
-          <span className="muted">
-            Everything is converted into this for the household totals. Accounts keep their own
-            currency.
-          </span>
         </label>
+      </SettingsSection>
 
-        <div className="stack-sm">
-          <div className="spread">
-            <strong style={{ fontSize: '0.9rem' }}>Exchange rates</strong>
-            <button type="button" className="tiny" onClick={refresh} disabled={busy}>
-              {busy ? 'Checking…' : 'Refresh now'}
-            </button>
-          </div>
-
-          {otherCurrencies.length === 0 && (
-            <span className="muted">No other currencies in use yet.</span>
-          )}
-
-          {otherCurrencies.map((code) => {
-            const info = rates[code] || {};
-            return (
-              <div key={code} className="stack-sm" style={{ gap: 4 }}>
-                <div className="spread" style={{ fontSize: '0.85rem' }}>
-                  <span>
-                    1 {code} → {primaryCurrency}
+      <SettingsSection
+        icon={<Exchange />}
+        title="Exchange rates"
+        subtitle="Fetched daily. A fallback is used whenever no live rate can be reached."
+        state={otherCurrencies.length ? `${otherCurrencies.length} in use` : 'None in use'}
+      >
+        {otherCurrencies.length === 0 && (
+          <span className="muted">No other currencies in use yet.</span>
+        )}
+        {otherCurrencies.length > 0 && (
+          <div className="rate-rows">
+            {otherCurrencies.map((code) => {
+              const info = rates[code] || {};
+              return (
+                <div key={code} className="rate-row">
+                  <span className="rate-pair">
+                    <b>
+                      1 {code} → {primaryCurrency}
+                    </b>
+                    <small className={info.rate == null ? 'error-text' : 'muted'}>
+                      {info.rate == null ? 'unavailable' : info.rate.toFixed(6)} ·{' '}
+                      {SOURCE_LABELS[info.source] || info.source}
+                    </small>
                   </span>
-                  <span className={info.rate == null ? 'error-text' : ''}>
-                    {info.rate == null ? 'unavailable' : info.rate.toFixed(6)}
-                    <span className="muted"> ({SOURCE_LABELS[info.source] || info.source})</span>
-                  </span>
+                  <label className="field">
+                    <span className="label">Fallback</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.000001"
+                      min="0"
+                      placeholder="e.g. 0.0128"
+                      value={manual[code] ?? ''}
+                      aria-label={`Fallback rate for ${code}`}
+                      onChange={(e) => setManual({ ...manual, [code]: e.target.value })}
+                    />
+                  </label>
                 </div>
-                <label className="field">
-                  Fallback rate for {code}
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.000001"
-                    min="0"
-                    placeholder="e.g. 0.0128"
-                    value={manual[code] ?? ''}
-                    onChange={(e) => setManual({ ...manual, [code]: e.target.value })}
-                  />
-                </label>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
+        <div className="set-actions-row">
+          <button type="button" className="pill-outline" onClick={refresh} disabled={busy}>
+            {busy ? 'Checking…' : 'Refresh now'}
+          </button>
+          {note && <span className="muted">{note}</span>}
+        </div>
+      </SettingsSection>
 
-          {otherCurrencies.length > 0 && (
-            <span className="muted" style={{ fontSize: '0.8rem' }}>
-              Used whenever no live rate can be fetched, so your totals still add up. Leave blank to
-              use the last known rate instead.
-            </span>
-          )}
-
-          {otherCurrencies.length > 0 && (
-            <>
-              <div className="spread">
-                <strong style={{ fontSize: '0.9rem' }}>Rate sources</strong>
-                <button type="button" className="tiny" onClick={runDiagnosis} disabled={busy}>
-                  Test connection
-                </button>
-              </div>
-
-              {!diagnosis && (
-                <span className="muted" style={{ fontSize: '0.8rem' }}>
-                  Rates are tried against several providers in turn. Test them if a rate isn't
-                  showing, to see which one is at fault.
-                </span>
-              )}
-
-              {diagnosis?.results.map((r) => (
-                <div key={r.base} className="stack-sm" style={{ gap: 2 }}>
-                  <span style={{ fontSize: '0.85rem' }}>
-                    <strong>
-                      {r.base} → {r.target}
-                    </strong>
-                  </span>
-                  {r.providers.map((p) => (
-                    <div key={p.provider} className="spread" style={{ fontSize: '0.8rem' }}>
-                      <span className="muted">{p.provider}</span>
-                      <span className={p.ok ? '' : 'muted'}>
-                        {p.ok ? `${p.rate} · ${p.ms}ms` : p.reason}
-                      </span>
-                    </div>
-                  ))}
+      {otherCurrencies.length > 0 && (
+        <SettingsSection
+          icon={<Pulse />}
+          title="Rate sources"
+          subtitle="Rates are tried against several providers in turn."
+          defaultOpen={false}
+          state={diagnosis ? 'Tested' : 'Not tested'}
+        >
+          <div className="set-actions-row">
+            <button type="button" className="pill-outline" onClick={runDiagnosis} disabled={busy}>
+              Test connection
+            </button>
+            {!diagnosis && <span className="muted">If a rate isn’t showing, this shows which one is at fault.</span>}
+          </div>
+          {diagnosis?.results.map((r) => (
+            <div key={r.base} className="stack-sm" style={{ gap: 2 }}>
+              <strong style={{ fontSize: '0.85rem' }}>
+                {r.base} → {r.target}
+              </strong>
+              {r.providers.map((p) => (
+                <div key={p.provider} className="spread" style={{ fontSize: '0.8rem' }}>
+                  <span className="muted">{p.provider}</span>
+                  <span className={p.ok ? '' : 'muted'}>{p.ok ? `${p.rate} · ${p.ms}ms` : p.reason}</span>
                 </div>
               ))}
-            </>
-          )}
-        </div>
+            </div>
+          ))}
+        </SettingsSection>
+      )}
 
-        {note && <div className="secondary" style={{ fontSize: '0.85rem' }}>{note}</div>}
-        {error && <div className="error-text">{error}</div>}
+      {error && <div className="error-text">{error}</div>}
 
-        <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="primary" disabled={busy || readOnly}>
-            Save
-          </button>
-        </div>
+      <div className="set-footer">
+        <button type="button" onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <button type="submit" className="primary" disabled={busy || readOnly}>
+          Save
+        </button>
+      </div>
     </form>
   );
 
@@ -248,11 +248,32 @@ export default function SettingsModal({
   return (
     <Modal
       title="Settings"
+      side
+      icon={<Gear />}
+      className="settings"
       onClose={onClose}
       initialTab={initialTab}
       tabs={[
-        ['money', 'Money', moneyTab],
-        ['account', 'Account', accountTab],
+        [
+          'money',
+          'Money',
+          moneyTab,
+          {
+            icon: <Wallet size={20} />,
+            heading: 'Money Settings',
+            subtitle: 'Your household’s currency and exchange rates.',
+          },
+        ],
+        [
+          'account',
+          'Account',
+          accountTab,
+          {
+            icon: <User />,
+            heading: 'Account Settings',
+            subtitle: 'Manage your account, sign-in and preferences.',
+          },
+        ],
       ]}
     />
   );

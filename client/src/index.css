@@ -6033,80 +6033,401 @@ hr.rule {
   }
 }
 
-/* ── Settings sections ───────────────────────────────────────────── */
-/* One job to a row: what it is, where it stands, and the controls once you
-   ask for them. See SettingsSection.jsx for why the Account tab stopped being
-   three of these stacked open. */
+/* ── Settings ────────────────────────────────────────────────────── */
+/* A wide dialog in two columns: the tabs down a soft column on the left under
+   the dialog's own title, and the open tab on the right with a header of its
+   own and its jobs as cards. Each card is an icon tile, a title with a line
+   under it, and its controls; a switch or picker that belongs on the card's top
+   line sits there, beside the fold. */
+.modal.modal-side {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  max-width: 940px;
+  padding: 0;
+  overflow: hidden;
+  max-height: calc(100dvh - 32px);
+}
+.modal-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 22px 16px;
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+  border-right: 1px solid var(--line-soft);
+}
+.modal-side-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px;
+}
+.modal-side-title h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+}
+.modal-side-nav .modal-tabs {
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  background: none;
+}
+.modal-side-nav .modal-tabs button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--r-row);
+  font-size: 0.95rem;
+  font-weight: 560;
+  color: var(--ink-2);
+  text-align: left;
+}
+.modal-side-nav .modal-tabs button:hover:not(.active) {
+  background: color-mix(in srgb, var(--ink-3) 8%, transparent);
+  color: var(--ink);
+}
+.modal-side-nav .modal-tabs button.active {
+  background: color-mix(in srgb, var(--brand) 16%, var(--surface));
+  color: var(--brand-deep);
+  box-shadow: none;
+}
+.modal-side-nav .modal-tabs button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: var(--brand-deep);
+}
+.modal-side-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.modal-side-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 22px 14px;
+}
+.modal-side-heading {
+  flex: 1;
+  min-width: 0;
+}
+.modal-side-heading h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+.modal-side-heading p {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  color: var(--ink-3);
+}
+.modal-close {
+  align-self: flex-start;
+  color: var(--ink-3);
+}
+.modal-side-body {
+  padding: 4px 22px 22px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* The soft square an icon sits in: the brand at low strength, so a column of
+   them reads as one family whatever the accent. */
+.icon-tile {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand) 14%, var(--surface));
+  color: var(--brand-deep);
+}
+.icon-tile.big {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+.icon-tile.big svg {
+  width: 24px;
+  height: 24px;
+}
+.icon-tile.soft {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.icon-tile.round {
+  border-radius: var(--r-pill);
+}
+
 .set-sections {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
-
+.set-card {
+  position: relative;
+}
 .set-section {
   border: 1px solid var(--line);
-  border-radius: var(--r-row);
+  border-radius: var(--r-card);
   background: var(--surface);
-  overflow: hidden;
+  box-shadow: var(--shadow);
 }
-/* The whole closed row is the target, not the word in the middle of it. */
-.set-section > summary {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+.set-top {
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 13px 14px;
-  cursor: pointer;
+  gap: 14px;
+  padding: 14px 16px;
   list-style: none;
-  user-select: none;
 }
-/* Safari draws its own triangle through ::-webkit-details-marker, which
-   list-style alone does not remove. */
-.set-section > summary::-webkit-details-marker {
+summary.set-top {
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--r-card);
+}
+/* Room for the switch or picker laid over the top line: beside the fold
+   arrow on a card that folds, at the far end on one that does not. */
+.set-card.has-action summary.set-top > svg {
+  margin-left: 62px;
+}
+.set-card.has-action .set-section.static .set-top {
+  padding-right: 190px;
+}
+summary.set-top::-webkit-details-marker {
   display: none;
 }
-.set-section > summary:hover {
-  background: color-mix(in srgb, var(--ink-3) 6%, transparent);
-}
-.set-section > summary:focus-visible {
+summary.set-top:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
+.set-head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .set-section-title {
-  font-size: 0.92rem;
-  font-weight: 620;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+.set-sub {
+  font-size: 0.82rem;
+  color: var(--ink-3);
 }
 .set-section-state {
   font-size: 0.8rem;
   color: var(--ink-3);
   text-align: right;
   min-width: 0;
+  max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.set-section > summary svg {
+/* The state is for the folded card; open, the card shows the thing itself. */
+.set-section[open] .set-top > .set-section-state {
+  display: none;
+}
+summary.set-top > svg {
+  flex: none;
   color: var(--ink-3);
   transition: transform 0.18s ease;
-  flex: none;
 }
-.set-section[open] > summary svg {
+.set-section[open] summary.set-top > svg {
   transform: rotate(180deg);
 }
-/* The rule appears only when there is something under it to separate. */
-.set-section[open] > summary {
-  border-bottom: 1px solid var(--line);
+.set-action {
+  position: absolute;
+  top: 22px;
+  right: 44px;
+  display: flex;
+  align-items: center;
 }
+.set-card .set-section.static + .set-action {
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* Indented to the title, past the icon tile. */
 .set-section-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 14px;
+  padding: 2px 16px 18px 70px;
+}
+.set-section-body .muted {
+  font-size: 0.8rem;
+}
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.set-grid .set-span {
+  grid-column: 1 / -1;
+}
+.set-field-narrow {
+  max-width: 260px;
+}
+.input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.input-with-action input {
+  flex: 1;
+  min-width: 0;
+}
+.set-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.set-divided {
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.set-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
 }
 
-/* Three dots where the state will be, while it is being fetched. The row
-   cannot say "Off" before anything has been asked — that is a real answer to
-   the question somebody opened this to ask, and the one they would act on. */
+/* An outlined pill in the brand colour: the secondary action of a card. */
+.pill-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--brand) 55%, var(--line));
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--brand-deep);
+  font-size: 0.86rem;
+  font-weight: 620;
+}
+.pill-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 9%, var(--surface));
+  border-color: var(--brand);
+}
+
+/* A device that holds a passkey: its own small card. */
+.passkey-rows.rows {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.passkey-row.device-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  padding: 10px 12px;
+}
+.passkey-row.device-card:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.lock-amounts input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand-deep);
+}
+.lock-amounts b {
+  font-size: 0.92rem;
+}
+
+/* Notifications: the devices side by side, then the preview at the end. */
+.device-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.device-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border-right: 1px solid var(--line);
+}
+.device-chip:first-child {
+  padding-left: 0;
+}
+.device-chip .what b {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.device-chip .what small {
+  font-size: 0.76rem;
+  color: var(--ink-3);
+}
+.device-strip-action {
+  margin-left: auto;
+}
+.device-strip:not(:has(.device-chip)) .device-strip-action {
+  margin-left: 0;
+}
+
+/* A switch: a real button with role="switch", the knob a pseudo-element. */
+.switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ink-3) 35%, var(--surface-2));
+  transition: background 0.18s ease;
+  flex: none;
+}
+.switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.18s ease;
+}
+.switch[aria-checked='true'] {
+  background: var(--brand-deep);
+}
+.switch[aria-checked='true'] i {
+  transform: translateX(20px);
+}
+.switch:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.switch:disabled {
+  opacity: 0.5;
+}
+
+/* Three dots where a state will be, while it is being fetched. */
 .set-section-dots {
   display: inline-block;
   width: 26px;
@@ -6132,46 +6453,110 @@ hr.rule {
   }
 }
 
+/* Exchange rates: the live figure on the left, the fallback beside it. */
+.rate-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: end;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.rate-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.rate-pair b {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.rate-pair small {
+  font-size: 0.78rem;
+}
+
 /* ── Colour (Settings → Account) ─────────────────────────────────── */
-/* The current colour on the closed row: a dot of the accent itself, because
-   the word "Plum" says less than plum does. */
-.accent-state {
+/* A picker on the card's top line: the current colour as a dot beside its
+   name, the list dropping from it. */
+.accent-dropdown {
+  position: relative;
+}
+.accent-select {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  min-width: 150px;
+  padding: 8px 12px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.9rem;
 }
-.accent-state i {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--r-pill);
-  background: var(--gradient);
+.accent-select .set-section-state {
+  flex: 1;
+  max-width: none;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.accent-select svg {
+  color: var(--ink-3);
+}
+.accent-select[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.accent-dot {
+  width: 20px;
+  height: 20px;
   flex: none;
+  border-radius: var(--r-pill);
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
-.accent-picker {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 8px;
+.accent-menu {
+  position: absolute;
+  right: 0;
+  /* Upwards: Colour is the last card, and a list dropping below it would be
+     cut off by the bottom of the dialog. */
+  bottom: calc(100% + 6px);
+  z-index: 5;
+  width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .accent-swatch {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  padding: 12px 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-row);
-  background: var(--surface);
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 550;
+  font-size: 0.88rem;
+  font-weight: 520;
   color: var(--ink-2);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
 }
 .accent-swatch:hover {
-  border-color: var(--ink-3);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.accent-swatch .accent-name {
+  flex: 1;
+}
+.accent-swatch svg {
+  color: var(--brand-deep);
 }
 /* The radio is still there for the keyboard and the screen reader; it just
    is not what anyone looks at. */
@@ -6183,28 +6568,97 @@ hr.rule {
   margin: 0;
   pointer-events: none;
 }
-.accent-dot {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-pill);
-  background: var(--swatch);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
-}
 .accent-swatch:has(input:checked) {
-  border-color: var(--brand);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--brand);
-}
-.accent-swatch:has(input:checked) .accent-dot {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 4px var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface));
 }
 .accent-swatch:has(input:focus-visible) {
   outline: 2px solid var(--brand);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
+/* A phone: the dialog takes the screen, the tabs fold back into a row across
+   the top, and cards stop indenting past their icon. */
+@media (max-width: 700px) {
+  .modal.modal-side {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    max-width: none;
+  }
+  .modal-side-nav {
+    gap: 12px;
+    padding: 14px 14px 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .modal-side-title h2 {
+    font-size: 1.1rem;
+  }
+  .modal-side-title .icon-tile {
+    width: 34px;
+    height: 34px;
+  }
+  .modal-side-nav .modal-tabs {
+    flex-direction: row;
+  }
+  .modal-side-nav .modal-tabs button {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 10px;
+  }
+  .modal-side-nav .modal-tabs button.active::before {
+    display: none;
+  }
+  .modal-side-head {
+    padding: 14px 14px 8px;
+  }
+  .modal-side-head .icon-tile.big {
+    display: none;
+  }
+  .modal-side-heading h3 {
+    font-size: 1.05rem;
+  }
+  .modal-side-body {
+    padding: 4px 14px 16px;
+  }
+  .set-top {
+    gap: 12px;
+    padding: 12px;
+  }
+  .set-top .icon-tile {
+    width: 34px;
+    height: 34px;
+  }
+  .set-section-body {
+    padding: 2px 12px 14px;
+  }
+  .set-grid {
+    grid-template-columns: 1fr;
+  }
+  .set-card.has-action .set-section.static .set-top {
+    padding-right: 150px;
+  }
+  .set-action {
+    top: 18px;
+    right: 38px;
+  }
+  .accent-select {
+    min-width: 0;
+  }
+  .set-sub {
+    font-size: 0.78rem;
+  }
+  .device-chip {
+    border-right: 0;
+    padding: 0 18px 0 0;
+  }
+  .device-strip-action {
+    margin-left: 0;
+  }
+  .rate-row {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ── Month card: what each figure is made of ─────────────────────── */
 .flow-card {

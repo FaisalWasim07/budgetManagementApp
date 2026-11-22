@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../utils/scrollLock';
+import { Cross } from './icons';
 
 // A dialog, optionally in tabs.
 //
@@ -15,6 +16,12 @@ import { useScrollLock } from '../utils/scrollLock';
 // its own right and brings its own header — a document has a filename and its
 // own actions across the top, not a dialog title with an ✕ parked beside it.
 // Escape still closes, and the child is expected to offer a way out of its own.
+//
+// `side` lays the tabs out as a column down the left with the dialog's title
+// over it, and gives the open tab a header of its own: an icon, a heading and
+// a line saying what it is for. Settings uses it; a tab entry may then carry a
+// fourth element, { icon, heading, subtitle }. On a phone the column folds back
+// into a row of tabs across the top.
 export default function Modal({
   title,
   onClose,
@@ -22,6 +29,8 @@ export default function Modal({
   initialTab,
   className = '',
   bare = false,
+  side = false,
+  icon = null,
   children,
 }) {
   // Whichever tab the opener asked for, so something that exists to send you to
@@ -85,6 +94,19 @@ export default function Modal({
 
   const current = tabs?.find(([key]) => key === active);
 
+  const tabButtons = tabs?.map(([key, label, , meta]) => (
+    <button
+      key={key}
+      role="tab"
+      aria-selected={key === active}
+      className={key === active ? 'active' : ''}
+      onClick={() => setActive(key)}
+    >
+      {side && meta?.icon}
+      <span>{label}</span>
+    </button>
+  ));
+
   // Rendered into <body> rather than where it was called from. `position:
   // fixed` is relative to the nearest ancestor with a filter, transform or
   // backdrop-filter — and the top bar has one — so a dialog opened from up
@@ -92,7 +114,7 @@ export default function Modal({
   return createPortal(
     <div className="backdrop" onClick={onClose}>
       <div
-        className={`modal stack ${className}`.trim()}
+        className={`modal ${side && tabs ? 'modal-side' : 'stack'} ${className}`.trim()}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
         ref={boxRef}
@@ -102,32 +124,53 @@ export default function Modal({
            it, without ever becoming a Tab stop of its own. */
         tabIndex={-1}
       >
-        {!bare && (
-          <div className="spread">
-            <h2>{title}</h2>
-            <button className="subtle" onClick={onClose} aria-label="Close">
-              ✕
-            </button>
-          </div>
-        )}
+        {side && tabs ? (
+          <>
+            <aside className="modal-side-nav">
+              <div className="modal-side-title">
+                {icon && <span className="icon-tile">{icon}</span>}
+                <h2>{title}</h2>
+              </div>
+              <div className="modal-tabs" role="tablist" aria-orientation="vertical">
+                {tabButtons}
+              </div>
+            </aside>
+            <section className="modal-side-main">
+              <header className="modal-side-head">
+                {current?.[3]?.icon && <span className="icon-tile big">{current[3].icon}</span>}
+                <div className="modal-side-heading">
+                  <h3>{current?.[3]?.heading ?? current?.[1]}</h3>
+                  {current?.[3]?.subtitle && <p>{current[3].subtitle}</p>}
+                </div>
+                <button className="icon-button modal-close" onClick={onClose} aria-label="Close">
+                  <Cross size={18} />
+                </button>
+              </header>
+              <div className="modal-side-body" role="tabpanel">
+                {current ? current[2]() : children}
+              </div>
+            </section>
+          </>
+        ) : (
+          <>
+            {!bare && (
+              <div className="spread">
+                <h2>{title}</h2>
+                <button className="subtle" onClick={onClose} aria-label="Close">
+                  ✕
+                </button>
+              </div>
+            )}
 
-        {tabs && (
-          <div className="modal-tabs" role="tablist">
-            {tabs.map(([key, label]) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={key === active}
-                className={key === active ? 'active' : ''}
-                onClick={() => setActive(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+            {tabs && (
+              <div className="modal-tabs" role="tablist">
+                {tabButtons}
+              </div>
+            )}
 
-        {current ? current[2]() : children}
+            {current ? current[2]() : children}
+          </>
+        )}
       </div>
     </div>,
     document.body

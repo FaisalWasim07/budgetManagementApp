@@ -395,3 +395,84 @@ export const Cross = ({ size = 18 }) => (
     <path d="M17.5 6.5 6.5 17.5M6.5 6.5l11 11" {...solid} />
   </svg>
 );
+
+// Settings: one icon per section, drawn on the same grid and stroke as the rest.
+export const Gear = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="12" r="3" {...stroke} strokeWidth="1.7" />
+    <path
+      d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+      {...stroke}
+      strokeWidth="1.6"
+    />
+  </svg>
+);
+
+export const User = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="8" r="4" {...stroke} strokeWidth="1.7" />
+    <path d="M4.5 20.5c.9-3.6 3.9-5.5 7.5-5.5s6.6 1.9 7.5 5.5" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Lock = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <rect x="5" y="10.5" width="14" height="10" rx="2.5" {...stroke} strokeWidth="1.7" />
+    <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Bell = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Palette = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <path
+      d="M12 3.5a8.5 8.5 0 0 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2a4 4 0 0 0 4-4c0-4-3.8-7.2-8.5-7.2z"
+      {...stroke}
+      strokeWidth="1.7"
+    />
+    <circle cx="7.5" cy="12" r="1.1" fill="currentColor" />
+    <circle cx="10" cy="7.8" r="1.1" fill="currentColor" />
+    <circle cx="14.6" cy="7.8" r="1.1" fill="currentColor" />
+  </svg>
+);
+
+export const Key = ({ size = 16 }) => (
+  <svg {...base(size)}>
+    <circle cx="8" cy="15" r="4" {...stroke} strokeWidth="1.8" />
+    <path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2" {...stroke} strokeWidth="1.8" />
+  </svg>
+);
+
+export const Phone = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <rect x="7" y="3" width="10" height="18" rx="2.5" {...stroke} strokeWidth="1.7" />
+    <path d="M11 17.5h2" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Monitor = ({ size = 18 }) => (
+  <svg {...base(size)}>
+    <rect x="3" y="4.5" width="18" height="12" rx="2" {...stroke} strokeWidth="1.7" />
+    <path d="M9 20h6M12 16.5V20" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Coins = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <ellipse cx="9" cy="7" rx="5.5" ry="2.5" {...stroke} strokeWidth="1.7" />
+    <path d="M3.5 7v4c0 1.4 2.5 2.5 5.5 2.5M3.5 11v4c0 1.4 2.5 2.5 5.5 2.5" {...stroke} strokeWidth="1.7" />
+    <ellipse cx="15.5" cy="13" rx="5" ry="2.3" {...stroke} strokeWidth="1.7" />
+    <path d="M10.5 13v4c0 1.3 2.2 2.3 5 2.3s5-1 5-2.3v-4" {...stroke} strokeWidth="1.7" />
+  </svg>
+);
+
+export const Pulse = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <path d="M3 12h4l2.5-6 5 12 2.5-6h4" {...stroke} strokeWidth="1.7" />
+  </svg>
+);

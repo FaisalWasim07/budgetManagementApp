@@ -48,8 +48,10 @@ async function openColour(page) {
   await page.waitForSelector('.modal', { timeout: 8000 });
   await page.click('.modal-tabs button:has-text("Account")');
   await page.waitForTimeout(250);
-  const row = page.locator('.set-section:has(.set-section-title:text-is("Colour"))');
-  if (!(await row.evaluate((el) => el.open))) await row.locator('summary').click();
+  // The colour is a picker on the Colour card's top line; the list of
+  // colours drops from it.
+  const row = page.locator('.set-card:has(.set-section-title:text-is("Colour"))');
+  await row.locator('.accent-select').click();
   await page.waitForTimeout(250);
   return row;
 }
@@ -73,7 +75,7 @@ async function openColour(page) {
 
   // --- choosing one -------------------------------------------------------
   const row = await openColour(page);
-  check('the closed row says which colour is on',
+  check('the picker says which colour is on',
     (await row.locator('.set-section-state').textContent()).trim() === 'Mint',
     await row.locator('.set-section-state').textContent());
   check('all seven colours are offered', (await row.locator('.accent-swatch').count()) === 7,
@@ -85,7 +87,7 @@ async function openColour(page) {
     await accentOf(page));
   check('and the colour really changes, not just the attribute', (await brandOf(page)) !== mintBrand,
     await brandOf(page));
-  check('the row follows', (await row.locator('.set-section-state').textContent()).trim() === 'Ocean',
+  check('the picker follows', (await row.locator('.set-section-state').textContent()).trim() === 'Ocean',
     await row.locator('.set-section-state').textContent());
 
   // Arrow keys, because they are real radios underneath.

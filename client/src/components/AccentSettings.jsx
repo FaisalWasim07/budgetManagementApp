@@ -1,22 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SettingsSection from './SettingsSection';
 import { ACCENTS, accentLabel, resolveAccent } from '../utils/accent';
 import { setAccent } from '../api/auth';
+import { Check, ChevronDown, Palette } from './icons';
 
-// Which colour the app is in, for this person.
+const swatchOf = (key) => {
+  const a = ACCENTS.find((x) => x.key === key) ?? ACCENTS[0];
+  return `linear-gradient(135deg, ${a.swatch[0]}, ${a.swatch[1]})`;
+};
+
+// Which colour the app is in, for this person: a picker on the card's own top
+// line, the current colour as a dot beside its name.
 //
-// The change is applied the instant a swatch is pressed and saved behind it,
-// because the whole point is to see it: a picker that waits on the network
-// before showing you the colour you tapped is a worse way of finding out what
-// it looks like. If the save fails the screen goes back to what was stored, so
-// what you see is never a colour the next device will not agree with.
+// The change is applied the instant one is picked and saved behind it, because
+// the whole point is to see it: a picker that waits on the network before
+// showing you the colour you chose is a worse way of finding out what it looks
+// like. If the save fails the screen goes back to what was stored, so what you
+// see is never a colour the next device will not agree with.
 //
-// Real radio inputs under the swatches, so the arrow keys move between them and
-// a screen reader hears "Ocean, 2 of 7, selected" without anything here having
-// to reimplement that.
+// The list is real radio inputs, so the arrow keys move between them and a
+// screen reader hears "Ocean, 2 of 7, selected" without anything here having
+// to reimplement that. Escape closes the list without closing Settings.
 export default function AccentSettings({ accent, onChange }) {
   const [error, setError] = useState(null);
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
   const current = resolveAccent(accent);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = (e) => {
+      if (!box.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
 
   async function pick(key) {
     if (key === current) return;
@@ -31,40 +49,58 @@ export default function AccentSettings({ accent, onChange }) {
     }
   }
 
-  return (
-    <SettingsSection
-      title="Colour"
-      state={
-        <span className="accent-state">
-          <i aria-hidden="true" />
-          {accentLabel(accent)}
-        </span>
-      }
+  const picker = (
+    <div
+      className="accent-dropdown"
+      ref={box}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
     >
-      <div className="accent-picker" role="radiogroup" aria-label="Colour">
-        {ACCENTS.map((a) => (
-          <label
-            key={a.key}
-            className="accent-swatch"
-            style={{ '--swatch': `linear-gradient(135deg, ${a.swatch[0]}, ${a.swatch[1]})` }}
-          >
-            <input
-              type="radio"
-              name="accent"
-              value={a.key}
-              checked={a.key === current}
-              onChange={() => pick(a.key)}
-            />
-            <span className="accent-dot" aria-hidden="true" />
-            <span className="accent-name">{a.label}</span>
-          </label>
-        ))}
-      </div>
-      <span className="muted" style={{ fontSize: '0.8rem' }}>
-        Yours only. Everyone in the household picks their own, and it follows you to any device you
-        sign in on. Spent, recurring, moved and left keep their own colours in all of them.
-      </span>
+      <button
+        type="button"
+        className="accent-select"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="accent-dot" style={{ '--swatch': swatchOf(current) }} aria-hidden="true" />
+        <span className="set-section-state">{accentLabel(accent)}</span>
+        <ChevronDown size={13} />
+      </button>
+      {open && (
+        <div className="accent-menu" role="radiogroup" aria-label="Colour">
+          {ACCENTS.map((a) => (
+            <label key={a.key} className="accent-swatch" style={{ '--swatch': swatchOf(a.key) }}>
+              <input
+                type="radio"
+                name="accent"
+                value={a.key}
+                checked={a.key === current}
+                onChange={() => pick(a.key)}
+              />
+              <span className="accent-dot" aria-hidden="true" />
+              <span className="accent-name">{a.label}</span>
+              {a.key === current && <Check size={14} />}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <SettingsSection
+        icon={<Palette />}
+        title="Colour"
+        subtitle="Yours only. It follows you to every device you sign in on."
+        action={picker}
+      />
       {error && <div className="error-text">{error}</div>}
-    </SettingsSection>
+    </>
   );
 }

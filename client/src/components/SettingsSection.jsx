@@ -1,41 +1,78 @@
 import { ChevronDown } from './icons';
 
-// One job in the settings dialog: what it is, where it stands, and the
-// controls for it once you ask.
+// One job in the settings dialog, as a card: an icon tile, what it is and a
+// line saying what it is for, then its controls underneath.
 //
-// The Account tab used to be three of these stacked open, separated by
-// hairlines, every one carrying several lines of explanation. It came to
-// nearly a thousand pixels — most of a laptop screen, inside a dialog — and
-// none of it was scannable, because the three headings were the same weight
-// as each other and as everything under them. Whatever you had opened Settings
-// to do, you read the whole thing to find it.
+// Open by default now. The cards used to arrive closed, each a single line
+// with its state on the right, because three of them stacked open with long
+// paragraphs came to most of a laptop screen. The paragraphs are what made
+// them long; with those cut to a hint each, open fits, and opening Settings to
+// change one thing no longer starts with finding which row to open. They still
+// fold, and folded they still say where they stand.
 //
-// Closed, each is a line that answers the question people actually arrive
-// with: am I signed in, do I have a passkey, are notifications on. Open, it is
-// exactly what it was. The prose did not need deleting — it needed to stop
-// being the first thing on screen.
+// `<details>` rather than a div and a piece of state: disclosure is a thing
+// browsers already do, with the keyboard behaviour, focus handling and
+// screen-reader announcement already right.
 //
-// `<details>` rather than a div and a piece of state: it is disclosure, which
-// is a thing browsers already do, with the keyboard behaviour, the focus
-// handling and the screen-reader announcement already correct. A div with an
-// onClick would be a worse version of this that we would then have to
-// maintain.
-export default function SettingsSection({ title, state, loading = false, defaultOpen = false, children }) {
-  return (
-    <details className="set-section" open={defaultOpen}>
-      <summary>
+// `action` is a control that belongs on the card's top line whether it is open
+// or not: the notifications switch, the colour picker. It sits beside the
+// summary rather than inside it, because a button inside a <summary> is a
+// button inside another button, and pressing it would also fold the card.
+// A card with no children is just that top line, and does not fold.
+export default function SettingsSection({
+  icon,
+  title,
+  subtitle,
+  state,
+  loading = false,
+  defaultOpen = true,
+  action,
+  children,
+}) {
+  const head = (
+    <>
+      {icon && (
+        <span className="icon-tile" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <span className="set-head">
         <span className="set-section-title">{title}</span>
-        {/* Where it stands, said on the closed row so the tab can be read
-            without opening anything. While it is still being fetched this says
-            so rather than showing a default that happens to look like an
-            answer — "Off" before anything has been asked is a lie about your
-            settings, and the one a person would act on. */}
+        {subtitle && <span className="set-sub">{subtitle}</span>}
+      </span>
+      {/* Where it stands, for the folded card. While it is still being fetched
+          this says so rather than showing a default that happens to look like
+          an answer: "Off" before anything has been asked is a lie about your
+          settings, and the one a person would act on. */}
+      {state != null && (
         <span className={`set-section-state${loading ? ' is-loading' : ''}`}>
           {loading ? <span className="set-section-dots" aria-label="Loading" /> : state}
         </span>
-        <ChevronDown size={13} />
-      </summary>
-      <div className="set-section-body">{children}</div>
-    </details>
+      )}
+    </>
+  );
+
+  if (!children) {
+    return (
+      <div className={`set-card${action ? ' has-action' : ''}`}>
+        <div className="set-section static">
+          <div className="set-top">{head}</div>
+        </div>
+        {action && <div className="set-action">{action}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`set-card${action ? ' has-action' : ''}`}>
+      <details className="set-section" open={defaultOpen}>
+        <summary className="set-top">
+          {head}
+          <ChevronDown size={14} />
+        </summary>
+        <div className="set-section-body">{children}</div>
+      </details>
+      {action && <div className="set-action">{action}</div>}
+    </div>
   );
 }

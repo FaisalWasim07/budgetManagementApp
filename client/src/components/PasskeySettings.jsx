@@ -6,7 +6,7 @@ import {
   removePasskey,
   newRecoveryCodes,
 } from '../api/auth';
-import { Shield, Trash } from './icons';
+import { Lock, Monitor, Phone, Plus, Shield, Trash } from './icons';
 import SettingsSection from './SettingsSection';
 import { createPasskey, passkeysSupported, wasCancelled } from '../utils/passkey';
 import { setLockAmounts } from '../api/auth';
@@ -47,6 +47,14 @@ function whereItLives(transports) {
 
 // A sensible default label, so nobody has to name their own phone before they
 // can use it. It is only a hint from the browser, and it is editable after.
+// A phone or a computer, going by the name it was saved under, for the icon
+// beside it. A shield when the name gives nothing away.
+export function deviceIcon(label = '') {
+  if (/iphone|ipad|android|phone|pixel|galaxy|mobile/i.test(label)) return <Phone />;
+  if (/mac|windows|pc|linux|chrome ?os|laptop|desktop|computer/i.test(label)) return <Monitor />;
+  return <Shield />;
+}
+
 function guessDeviceName() {
   const ua = navigator.userAgent;
   if (/iPhone/.test(ua)) return 'iPhone';
@@ -181,7 +189,9 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
     // "Signing in" rather than "Passkeys": the row says what it is for, so
     // somebody who has never met the word still knows whether to open it.
     <SettingsSection
+      icon={<Lock />}
       title="Signing in"
+      subtitle="Password, passkeys and the devices that hold them."
       defaultOpen={defaultOpen}
       loading={passkeys === null}
       // Symmetrical, and an answer to the question the row asks. The count of
@@ -191,11 +201,14 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
       // passkey at all.
       state={on ? 'Password + passkey' : 'Password only'}
     >
-      <span className="muted" style={{ fontSize: '0.8rem' }}>
-        {on
-          ? 'Signing in asks for your password, then your face, fingerprint or device PIN. A passkey only works on this site, so it can’t be given away to a copy of it.'
-          : 'Add one and signing in will ask for your face, fingerprint or device PIN after your password. Nothing to type, and nothing to install.'}
-      </span>
+      {/* Only before the first one: once there is a passkey, the list of
+          devices below says what this would have explained. */}
+      {!on && (
+        <span className="muted">
+          Add a passkey and signing in asks for your face, fingerprint or device PIN after your
+          password. Nothing to type, nothing to install.
+        </span>
+      )}
 
       {!passkeysSupported() && (
         <div className="warn-banner">
@@ -229,11 +242,8 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
           <span>
             <b>Ask before showing my amounts</b>
             <small>
-              On by default now that you have a passkey. The eye asks for your face, fingerprint or
-              device PIN before any figure appears, and hides them again after {UNLOCK_MINUTES}{' '}
-              minutes. It follows your account, so it applies wherever you sign in. Turn it off here
-              if you would rather it didn’t ask — everyone else in the household answers for
-              themselves.
+              Your face, fingerprint or device PIN before any figure appears, hidden again after{' '}
+              {UNLOCK_MINUTES} minutes. Follows your account to every device.
             </small>
           </span>
         </label>
@@ -242,16 +252,14 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
       {passkeys && passkeys.length > 0 && (
         <div className="rows passkey-rows">
           {passkeys.map((key) => (
-            <div className="passkey-row" key={key.id}>
-              <span className="tile">
-                <Shield />
-              </span>
+            <div className="passkey-row device-card" key={key.id}>
+              <span className="icon-tile soft">{deviceIcon(key.label)}</span>
               <span className="what">
                 <b>{key.label}</b>
                 <small>
                   {[
-                    when(key.created_at) && `added ${when(key.created_at)}`,
-                    key.last_used_at ? `last used ${when(key.last_used_at)}` : 'not used yet',
+                    when(key.created_at) && `Added ${when(key.created_at)}`,
+                    key.last_used_at ? `Last used ${when(key.last_used_at)}` : 'Not used yet',
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -317,9 +325,10 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
       )}
 
       {!confirming && (
-        <div className="row-tight">
+        <div className="set-actions-row">
           {passkeysSupported() && (
-            <button type="button" className="tiny" onClick={add} disabled={busy}>
+            <button type="button" className="pill-outline" onClick={add} disabled={busy}>
+              <Plus size={14} />
               {busy ? 'Waiting for your device…' : on ? 'Add another device' : 'Add a passkey'}
             </button>
           )}
@@ -333,7 +342,7 @@ export default function PasskeySettings({ locked, onLockedChange, onPasskeysChan
                   and quietly stopped being shown at all. Recovery codes are
                   the way back in when the passkey is on a phone at the bottom
                   of a canal, so how many remain is worth a line. */}
-              <span className="muted" style={{ fontSize: '0.8rem' }}>
+              <span className="muted set-divided">
                 {codesLeft} recovery code{codesLeft === 1 ? '' : 's'} left
               </span>
               <button
