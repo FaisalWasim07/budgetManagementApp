@@ -216,7 +216,7 @@ function convert(amount, rateInfo) {
 //
 // A viewer not linked to anyone here sees the order unchanged.
 async function getSummary(householdId, month, viewerUserId = null) {
-  const [primary, persons, allAccounts, ledger] = await Promise.all([
+  const [primary, persons, allAccounts, ledger, entryRows] = await Promise.all([
     settingsService.primaryCurrency(householdId),
     db.all(
       // `IS TRUE` rather than a plain boolean: comparing against null yields
@@ -233,6 +233,18 @@ async function getSummary(householdId, month, viewerUserId = null) {
       [householdId]
     ),
     loadLedger(householdId),
+    // The month's entries by category, for the breakdown behind each figure on
+    // Home's month card. Grouped by account too, because each account converts
+    // at its own currency's rate before anything is added together.
+    db.all(
+      `SELECT t.account_id, t.kind, t.category,
+              COALESCE(SUM(t.amount), 0) AS total, COUNT(*)::int AS n
+       FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE a.household_id = ? AND t.month = ? AND t.kind IN ('income', 'expense')
+       GROUP BY t.account_id, t.kind, t.category`,
+      [householdId, month]
+    ),
   ]);
 
   // Converted at the rate for the month being viewed: live while the month is
@@ -320,7 +332,74 @@ async function getSummary(householdId, month, viewerUserId = null) {
       leftover: household.income - household.expenses - household.subscriptions,
       byCurrency,
     },
+    flow: monthFlow({ allAccounts, persons, ledger, entryRows, rates, month }),
     rates,
+  };
+}
+
+// What each figure on Home's month card is made of.
+//
+// Built from exactly the rows the household totals above are built from — the
+// same active accounts, the same rates, the same "skip what cannot be
+// converted" — so every list adds up to the figure it explains. That is the
+// whole requirement: a breakdown that lands a few dirhams off its own headline
+// is worse than none, because it tells you one of the two numbers is wrong and
+// not which.
+//
+// Not reused from getCategoryBreakdown, which folds recurring items into
+// their categories. That suits the Stats donut (where the money went, however
+// it went) and is wrong here, where spent and subscriptions are separate
+// figures side by side and a list under one must not quietly contain the other.
+function monthFlow({ allAccounts, persons, ledger, entryRows, rates, month }) {
+  const accountById = new Map(allAccounts.map((a) => [a.id, a]));
+  const personName = new Map(persons.map((p) => [p.id, p.name]));
+
+  const grouped = { income: new Map(), expense: new Map() };
+  for (const row of entryRows) {
+    // An account that has been closed is not in the totals, so it is not in
+    // the breakdown either.
+    const account = accountById.get(row.account_id);
+    if (!account) continue;
+    const value = convert(row.total, rates[account.currency]);
+    if (value == null) continue;
+    const label = row.category || (row.kind === 'income' ? 'Other income' : 'Uncategorised');
+    const into = grouped[row.kind];
+    const held = into.get(label) ?? { label, amount: 0, count: 0, recurring: false };
+    held.amount += value;
+    held.count += row.n;
+    into.set(label, held);
+  }
+
+  const recurringOut = [];
+  for (const account of allAccounts) {
+    for (const sub of ledger.subscriptionsFor(account.id)) {
+      if (!subscriptionDueIn(sub, month)) continue;
+      const value = convert(sub.amount, rates[account.currency]);
+      if (value == null) continue;
+      const item = {
+        id: sub.id,
+        label: sub.name,
+        amount: value,
+        // The amount in the account's own currency, so a rupee bill can say
+        // what it actually was and not only what it came to.
+        original: sub.amount,
+        currency: account.currency,
+        account: account.name,
+        person: personName.get(account.person_id) ?? null,
+        recurring: true,
+      };
+      // Recurring income is income: it goes in with what came in, marked so
+      // salary reads as salary rather than as one more entry.
+      if (sub.direction === 'income') grouped.income.set(`recurring:${sub.id}`, item);
+      else recurringOut.push(item);
+    }
+  }
+
+  const biggestFirst = (rows) => [...rows].sort((a, b) => b.amount - a.amount);
+  return {
+    cameIn: biggestFirst(grouped.income.values()),
+    spent: biggestFirst(grouped.expense.values()),
+    recurring: biggestFirst(recurringOut),
   };
 }
 

@@ -1073,11 +1073,24 @@ h3 {
 }
 
 .bar {
+  position: relative;
   height: 12px;
   border-radius: var(--r-pill);
   margin-top: 15px;
   background: var(--surface-2);
   overflow: hidden;
+}
+/* Pointer targets over each segment. While one is open the others are washed
+   back, so the bar says which part the panel below is about. */
+.bar .zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.bar.has-open .zone:not(.on) {
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
 }
 .bar .track {
   height: 100%;
@@ -1099,6 +1112,30 @@ h3 {
   gap: 6px;
   font-size: 0.82rem;
   color: var(--ink-2);
+}
+
+/* The keys and the "came in" figure are buttons now — each opens what it is
+   made of — but they keep looking like the labels they were, with a soft pill
+   only on hover and while open, so the card does not turn into a toolbar. */
+.flow-opener {
+  border: 0;
+  background: none;
+  font: inherit;
+  margin: -3px -7px;
+  padding: 3px 7px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.flow-opener:hover:not(:disabled),
+.flow-opener[aria-expanded='true'] {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.flow-opener[aria-expanded='true'] {
+  color: var(--ink);
+}
+.flow-top .flow-opener {
+  font-size: 0.85rem;
 }
 .breakdown .k i {
   width: 9px;
@@ -6151,4 +6188,168 @@ hr.rule {
 .accent-swatch:has(input:focus-visible) {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+
+/* ── Month card: what each figure is made of ─────────────────────── */
+.flow-card {
+  position: relative;
+}
+/* Hangs from the card's bottom edge and floats over whatever is below it, so
+   opening it on hover never moves the page under the pointer. The padding is
+   the bridge between card and panel: a pointer crossing it is still inside. */
+.flow-detail {
+  position: absolute;
+  z-index: 25;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 8px;
+}
+.flow-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-lift);
+  padding: 15px 16px 13px;
+  animation: flow-in 0.16s ease-out both;
+  /* Clear of the floating tab bar when it is scrolled into view on a phone. */
+  scroll-margin-bottom: calc(100px + env(safe-area-inset-bottom));
+}
+@keyframes flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.flow-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.flow-head i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.flow-head b {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 640;
+}
+.flow-head span {
+  font-size: 1rem;
+  font-weight: 660;
+  letter-spacing: -0.01em;
+}
+.flow-head .neg {
+  color: var(--neg);
+}
+.flow-note {
+  margin: 3px 0 10px 18px;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+.flow-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.flow-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.flow-rows .what {
+  min-width: 0;
+}
+.flow-rows .what b,
+.flow-rows .what small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flow-rows .what b {
+  font-size: 0.86rem;
+  font-weight: 560;
+}
+.flow-rows .what small {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+.flow-rows .meter {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.flow-rows .meter i {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+}
+.flow-rows .more .meter {
+  background: none;
+}
+.flow-rows .more .what b {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.flow-rows .amt {
+  font-size: 0.86rem;
+  font-weight: 620;
+  text-align: right;
+  white-space: nowrap;
+}
+.flow-empty {
+  margin: 4px 0 2px;
+  font-size: 0.84rem;
+  color: var(--ink-3);
+}
+.flow-people {
+  margin: 8px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+/* The sum written out, with the answer under a rule the way it would be on
+   paper. */
+.flow-sum {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.flow-sum div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.86rem;
+}
+.flow-sum dt {
+  color: var(--ink-2);
+}
+.flow-sum dd {
+  margin: 0;
+  font-weight: 600;
+}
+.flow-sum .total {
+  border-top: 1.5px solid var(--ink-3);
+  font-weight: 660;
+}
+.flow-sum .total dt {
+  color: var(--ink);
+  font-weight: 640;
+}
+.flow-sum .neg {
+  color: var(--neg);
 }

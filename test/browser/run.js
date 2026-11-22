@@ -19,6 +19,7 @@ const SUITES = [
   'lock.test.js',
   'statements.test.js',
   'accent.test.js',
+  'flow.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {
