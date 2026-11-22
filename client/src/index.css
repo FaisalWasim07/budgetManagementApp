@@ -350,6 +350,7 @@ main.stack {
   grid-template-columns: 216px minmax(0, 1fr);
   align-items: start;
   padding: var(--inset);
+  transition: grid-template-columns 0.22s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
 .pane {
   min-width: 0;
@@ -6352,4 +6353,105 @@ hr.rule {
 }
 .flow-sum .neg {
   color: var(--neg);
+}
+
+
+/* ── Folding the sidebar ──────────────────────────────────────────── */
+/* The round button on the seam between the sidebar and the page. Present for
+   the keyboard always, drawn for the eye only while the pointer is over the
+   navigation — it is a control you want exactly when you are already reaching
+   for the sidebar, and a stray circle on the page edge the rest of the time. */
+.side-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 20px;
+  right: -13px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink-2);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.sidebar:hover .side-toggle,
+.side-toggle:focus-visible {
+  opacity: 1;
+}
+.side-toggle:hover:not(:disabled) {
+  color: var(--brand-deep);
+  border-color: var(--ink-3);
+}
+.side-toggle svg {
+  transition: transform 0.22s ease;
+}
+/* Pointing the other way once folded: the same button opens it again. */
+.nav-collapsed .side-toggle svg {
+  transform: rotate(180deg);
+}
+/* A touch screen has no hover to reveal it with, so there it simply stays. */
+@media (hover: none) {
+  .side-toggle {
+    opacity: 1;
+  }
+}
+
+/* Folded: a rail of icons. What stays is everything you can still recognise
+   without a word — the mark, the household's initial, the icons, your
+   initial — and the words go. */
+.nav-collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+.nav-collapsed .sidebar {
+  padding-left: 4px;
+  padding-right: 10px;
+}
+.nav-collapsed .sidebar .brand {
+  justify-content: center;
+  padding: 4px 0 14px;
+}
+.nav-collapsed .wordmark,
+.nav-collapsed .sidebar .household-name,
+.nav-collapsed .sidebar .household-trigger > svg,
+.nav-collapsed .sidebar .household-trigger .badge,
+.nav-collapsed .side-you-name {
+  display: none;
+}
+/* Every target in the rail is the same 42px square on one centre line, so
+   the column reads as a column rather than as leftovers of the wide one. */
+.nav-collapsed .sidebar .household-trigger,
+.nav-collapsed .side-nav button {
+  width: 42px;
+  height: 42px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0;
+  justify-content: center;
+}
+.nav-collapsed .sidebar .household-trigger {
+  margin-bottom: 13px;
+}
+/* Out of sight, not out of the page: a screen reader still hears "Stats"
+   rather than an unlabelled button. */
+.nav-collapsed .side-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.nav-collapsed .side-you {
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
 }

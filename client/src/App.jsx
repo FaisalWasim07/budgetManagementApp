@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Stats from './pages/Stats';
 import Recurring from './pages/Recurring';
@@ -41,6 +41,7 @@ const PAGES = [
 ];
 
 const LAST_HOUSEHOLD = 'budget.householdId';
+const NAV_COLLAPSED = 'budget.navCollapsed';
 
 const PHONE = '(max-width: 700px)';
 
@@ -107,6 +108,32 @@ export default function App({ user, onSignedOut, onUserChange }) {
   // go back to being just an eye, rather than stranding somebody outside their
   // own figures.
   const [wantsLock, setWantsLock] = useState(Boolean(user.lock_amounts));
+  // The sidebar folded to a rail of icons. Per device, like light and dark: a
+  // laptop screen and a wide monitor want different answers, and neither is
+  // something the account should carry to the other.
+  const [navCollapsed, setNavCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(NAV_COLLAPSED) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_COLLAPSED, navCollapsed ? '1' : '0');
+    } catch {
+      // Private browsing: it still folds, it just is not remembered.
+    }
+  }, [navCollapsed]);
+
+  // Who this login is in the household being looked at: the person it is
+  // linked to, by name. Held across the moment a household switch empties the
+  // summary, so the sidebar does not blink to the username and back. A login
+  // linked to nobody here — a viewer, say — falls back to the username.
+  const lastName = useRef(null);
+  const linkedName = summary?.persons?.find((p) => p.userId === user.id)?.name ?? null;
+  if (summary) lastName.current = linkedName;
+  const myName = summary ? linkedName : lastName.current;
   const [hasPasskeys, setHasPasskeys] = useState(Boolean(user.has_passkeys));
   const locked = wantsLock && hasPasskeys;
   const [theme, setTheme] = useState(loadTheme);
@@ -268,7 +295,7 @@ export default function App({ user, onSignedOut, onUserChange }) {
 
   return (
     <DisplayContext.Provider value={{ amountsHidden, instant: instantHide }}>
-      <div className="shell">
+      <div className={navCollapsed && !phone ? 'shell nav-collapsed' : 'shell'}>
         {/* Follows the finger down from the top edge, and spins once the pull
             is far enough to have meant it. Never rendered on a desktop, where
             the bar has room for a real button. */}
@@ -300,7 +327,10 @@ export default function App({ user, onSignedOut, onUserChange }) {
           onManageHousehold={() => setShowHousehold(true)}
           theme={theme}
           username={user.username}
+          displayName={myName}
           role={household?.role ?? ''}
+          collapsed={navCollapsed}
+          onToggleCollapsed={() => setNavCollapsed((c) => !c)}
           onCycleTheme={() => setTheme(nextTheme)}
           onSettings={() => setShowSettings(true)}
           onSharing={() => setShowHousehold(true)}
