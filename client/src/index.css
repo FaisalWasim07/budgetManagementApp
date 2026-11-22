@@ -6488,3 +6488,87 @@ hr.rule {
   color: var(--ink-3);
   opacity: 0.8;
 }
+
+/* A row that opens to its entries. Looks like the row it was, plus a small
+   chevron after the count, so it reads as more of the same rather than as a
+   button bolted on. */
+.flow-row-toggle {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.flow-row-toggle:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.flow-row-toggle small {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+  line-height: inherit;
+}
+.flow-row-toggle small svg {
+  transition: transform 0.15s ease;
+}
+.flow-row-toggle[aria-expanded='true'] small svg {
+  transform: rotate(180deg);
+}
+.flow-rows .more .flow-row-toggle b {
+  color: var(--brand-deep);
+  font-weight: 560;
+}
+/* The entries hang under their row across its full width, indented and on a
+   tinted ground so they read as inside it rather than as more categories. */
+.flow-rows li.is-open {
+  row-gap: 8px;
+}
+.flow-entries {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.flow-entries li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.flow-entries li:first-child {
+  border-top: 0;
+}
+.flow-entries .what {
+  min-width: 0;
+}
+.flow-entries .what b,
+.flow-entries .what small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flow-entries .what b {
+  font-size: 0.82rem;
+  font-weight: 540;
+}
+.flow-entries .what small {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+.flow-entries .amt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

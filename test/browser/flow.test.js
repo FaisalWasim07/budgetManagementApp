@@ -56,7 +56,7 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
     const [main] = await (await fetch('/api/accounts', { headers: H })).json();
     const post = (url, body) => fetch(url, { method: 'POST', headers: H, body: JSON.stringify(body) });
     await post('/api/transactions', { account_id: main.id, month: M, kind: 'income', amount: 5000, category: 'Salary' });
-    await post('/api/transactions', { account_id: main.id, month: M, kind: 'expense', amount: 300, category: 'Groceries' });
+    await post('/api/transactions', { account_id: main.id, month: M, kind: 'expense', amount: 300, category: 'Groceries', description: 'Weekly shop' });
     await post('/api/transactions', { account_id: main.id, month: M, kind: 'expense', amount: 120, category: 'Fuel' });
     await post('/api/subscriptions', { account_id: main.id, name: 'Netflix', amount: 56, cycle: 'monthly', start_month: M });
   }, month);
@@ -122,6 +122,24 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   await page.keyboard.press('Enter');
   await page.waitForTimeout(200);
   check('and again closes it', !(await panelOpen(page)));
+
+  // --- a row opens to the entries in it -----------------------------------
+  // "3 entries" was a count of things you could not see.
+  await page.locator('.breakdown .k', { hasText: 'Spent' }).hover();
+  await page.waitForTimeout(250);
+  await page.locator('.flow-row-toggle', { hasText: 'Groceries' }).click();
+  await page.waitForTimeout(250);
+  const inside = await page.locator('.flow-entries li .what b').allTextContents();
+  check('a category opens to the entries in it, by their description',
+    inside.length === 1 && inside[0] === 'Weekly shop', inside.join(' | '));
+  await page.mouse.move(5, 890);
+  await page.waitForTimeout(400);
+  check('reaching in to open one pins the panel, so it stays while you read', await panelOpen(page));
+  await page.locator('.flow-row-toggle', { hasText: 'Groceries' }).click();
+  await page.waitForTimeout(200);
+  check('and pressing the row again folds it', (await page.locator('.flow-entries').count()) === 0);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
 
   // --- a phone ------------------------------------------------------------
   const cookies = await context.cookies();

@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Money } from '../utils/display';
 import { formatMonth } from '../utils/month';
+import { useLive } from '../utils/live';
+import { listTransactions } from '../api/transactions';
+import { ChevronDown } from './icons';
 
 // One gradient across the whole bar rather than four blocks butted together.
 // Each colour holds solid through the middle of its share and cross-fades over
@@ -74,20 +77,82 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 // cannot see the size of is a list that doesn't.
 const LIMIT = 6;
 
-function Rows({ rows, colour, currency, empty }) {
+const shortDate = (entry) =>
+  new Date(entry.entry_date || entry.created_at).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
+
+// The entries behind one row, opened in place. "3 entries" was a count of
+// things you could not see; this is the three things.
+function Entries({ entries, personName }) {
+  if (!entries.length) return null;
+  return (
+    <ul className="flow-entries">
+      {[...entries]
+        .sort((a, b) => b.amount - a.amount)
+        .map((entry) => (
+          <li key={entry.id}>
+            <span className="what">
+              {/* Your words if you wrote any; otherwise the account it went
+                  through, which is the next best thing to recognise it by. */}
+              <b>{entry.description || entry.account_name}</b>
+              <small>
+                {[
+                  shortDate(entry),
+                  entry.description ? entry.account_name : null,
+                  personName(entry.person_id),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </small>
+            </span>
+            <span className="amt num">
+              <Money amount={entry.amount} currency={entry.currency} compact />
+            </span>
+          </li>
+        ))}
+    </ul>
+  );
+}
+
+function Rows({ rows, colour, currency, empty, entriesFor, personName }) {
+  // One row open at a time: the panel is a summary first, and two long lists
+  // open at once is a page, not a summary.
+  const [expanded, setExpanded] = useState(null);
+  const [everything, setEverything] = useState(false);
   if (rows.length === 0) return <p className="flow-empty">{empty}</p>;
-  const shown = rows.slice(0, LIMIT);
-  const rest = rows.slice(LIMIT);
+  const shown = everything ? rows : rows.slice(0, LIMIT);
+  const rest = everything ? [] : rows.slice(LIMIT);
   const largest = Math.max(...rows.map((row) => Math.abs(row.amount)), 1);
 
   return (
     <ul className="flow-rows">
-      {shown.map((row) => (
-        <li key={row.key ?? row.label}>
-          <span className="what">
-            <b>{row.label}</b>
-            {row.sub && <small>{row.sub}</small>}
-          </span>
+      {shown.map((row) => {
+        const key = row.key ?? row.label;
+        const entries = entriesFor ? entriesFor(row) : [];
+        const open = expanded === key;
+        return (
+        <li key={key} className={open ? 'is-open' : undefined}>
+          {entries.length > 0 ? (
+            <button
+              type="button"
+              className="what flow-row-toggle"
+              aria-expanded={open}
+              onClick={() => setExpanded(open ? null : key)}
+            >
+              <b>{row.label}</b>
+              <small>
+                {row.sub}
+                <ChevronDown size={10} />
+              </small>
+            </button>
+          ) : (
+            <span className="what">
+              <b>{row.label}</b>
+              {row.sub && <small>{row.sub}</small>}
+            </span>
+          )}
           {/* Against the largest row, not the total: with one big category
               and five small ones, shares of the total leave five bars nobody
               can tell apart. */}
@@ -102,13 +167,17 @@ function Rows({ rows, colour, currency, empty }) {
               prefix={row.amount < 0 ? '−' : ''}
             />
           </span>
+          {open && <Entries entries={entries} personName={personName} />}
         </li>
-      ))}
+        );
+      })}
       {rest.length > 0 && (
         <li className="more">
-          <span className="what">
-            <b>{plural(rest.length, 'more')}</b>
-          </span>
+          {/* Still carrying its sum, so the list adds up while folded; and now
+              a way to see what is in it. */}
+          <button type="button" className="what flow-row-toggle" onClick={() => setEverything(true)}>
+            <b>Show {rest.length} more</b>
+          </button>
           <span className="meter" aria-hidden="true" />
           <span className="amt num">
             <Money amount={sum(rest)} currency={currency} compact />
@@ -251,6 +320,26 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
     onClick: () => press(key),
   });
 
+  // The month's entries, for opening a row to what is in it. The same list
+  // under the same key as Home's latest entries, so it is already loaded and
+  // costs nothing. Only accounts still open, because only those are in the
+  // totals — a closed account's entry under "Groceries" would be a line the
+  // row's own figure does not include.
+  const { data: monthEntries } = useLive(`transactions:${month}`, () => listTransactions({ month }));
+  const openAccounts = new Set(persons.flatMap((p) => p.accounts.map((a) => a.id)));
+  const personName = (id) => persons.find((p) => p.id === id)?.name ?? null;
+  // Matched the way the server grouped them: the category exactly as stored,
+  // with the same word standing in for none.
+  const entriesOf = (kind, fallback) => (row) =>
+    row.recurring
+      ? []
+      : (monthEntries ?? []).filter(
+          (entry) =>
+            entry.kind === kind &&
+            openAccounts.has(entry.account_id) &&
+            (entry.category || fallback) === row.label
+        );
+
   const recurringIn = sum(flow.cameIn.filter((row) => row.recurring));
   const entries = (rows) => rows.reduce((n, row) => n + (row.count ?? 0), 0);
 
@@ -279,6 +368,8 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           colour="var(--pos)"
           currency={primaryCurrency}
           empty={`Nothing has come in for ${monthName} yet.`}
+          entriesFor={entriesOf('income', 'Other income')}
+          personName={personName}
         />
       ),
       people: (p) => p.income,
@@ -296,6 +387,8 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           colour="var(--neg)"
           currency={primaryCurrency}
           empty={`Nothing spent in ${monthName} yet.`}
+          entriesFor={entriesOf('expense', 'Uncategorised')}
+          personName={personName}
         />
       ),
       people: (p) => p.expenses,
@@ -493,7 +586,19 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           bridge, so travelling from a key down into the panel never crosses a
           gap that counts as leaving. */}
       {detail && (
-        <div className="flow-detail" id={panelId} role="region" aria-label={`${detail.title} in ${monthName}`}>
+        <div
+          // Keyed by which figure, so a row opened under Spent is not still
+          // open when the pointer moves to Came in.
+          key={open}
+          className="flow-detail"
+          id={panelId}
+          role="region"
+          aria-label={`${detail.title} in ${monthName}`}
+          // Pressing anything inside a panel that opened on hover pins it:
+          // reaching in to open a row is a sign you mean to read it, and
+          // it would be maddening for it to vanish as the pointer drifts.
+          onClick={() => setPinned(true)}
+        >
           <div className="flow-panel" ref={panel}>
             <div className="flow-head">
               <i style={{ background: detail.colour }} aria-hidden="true" />
