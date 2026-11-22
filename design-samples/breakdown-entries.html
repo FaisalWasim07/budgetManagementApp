@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Breakdown Entry Designs</title>
+<style>
+  :root {
+    --acc: #14b8a6;
+    --paper: color-mix(in srgb, var(--acc) 7%, #f3f6f8);
+    --surface: color-mix(in srgb, var(--acc) 2%, #ffffff);
+    --surface-2: color-mix(in srgb, var(--acc) 7%, #f2f5f7);
+    --line: color-mix(in srgb, var(--acc) 13%, #e2e8ec);
+    --line-soft: color-mix(in srgb, var(--acc) 7%, #edf1f4);
+    --ink: color-mix(in srgb, var(--acc) 10%, #101723);
+    --ink-2: color-mix(in srgb, var(--acc) 14%, #4b5768);
+    --ink-3: color-mix(in srgb, var(--acc) 16%, #8d9aab);
+    --brand-deep: #0d9488;
+    --neg: #be123c;
+    --p1: #0d9488;
+    --p2: #2563eb;
+    --shadow-pane: 0 1px 2px rgba(15, 23, 42, 0.05), 0 16px 44px rgba(15, 23, 42, 0.08);
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.045);
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --acc: #22c58e;
+      --paper: color-mix(in srgb, var(--acc) 6%, #060c13);
+      --surface: color-mix(in srgb, var(--acc) 7%, #111a26);
+      --surface-2: color-mix(in srgb, var(--acc) 10%, #1a2433);
+      --line: color-mix(in srgb, var(--acc) 12%, #233040);
+      --line-soft: color-mix(in srgb, var(--acc) 9%, #1b2634);
+      --ink: color-mix(in srgb, var(--acc) 6%, #f6f9fb);
+      --ink-2: color-mix(in srgb, var(--acc) 16%, #9bacbf);
+      --ink-3: color-mix(in srgb, var(--acc) 18%, #64768a);
+      --brand-deep: #14b8a6;
+      --neg: #fb7185;
+      --p1: #2dd4bf;
+      --p2: #7da6ff;
+      --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.6), 0 24px 56px rgba(0, 0, 0, 0.5);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 22px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme='dark'] {
+    --acc: #22c58e;
+    --paper: color-mix(in srgb, var(--acc) 6%, #060c13);
+    --surface: color-mix(in srgb, var(--acc) 7%, #111a26);
+    --surface-2: color-mix(in srgb, var(--acc) 10%, #1a2433);
+    --line: color-mix(in srgb, var(--acc) 12%, #233040);
+    --line-soft: color-mix(in srgb, var(--acc) 9%, #1b2634);
+    --ink: color-mix(in srgb, var(--acc) 6%, #f6f9fb);
+    --ink-2: color-mix(in srgb, var(--acc) 16%, #9bacbf);
+    --ink-3: color-mix(in srgb, var(--acc) 18%, #64768a);
+    --brand-deep: #14b8a6;
+    --neg: #fb7185;
+    --p1: #2dd4bf;
+    --p2: #7da6ff;
+    --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.6), 0 24px 56px rgba(0, 0, 0, 0.5);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 22px rgba(0, 0, 0, 0.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.45 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  header.page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 32px 16px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  header.page h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
+  header.page p { margin: 4px 0 0; color: var(--ink-2); max-width: 620px; }
+  .theme {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  .theme button {
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .theme button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 16px 16px 48px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+    gap: 22px;
+  }
+  .sample h2 {
+    margin: 0 0 2px;
+    font-size: 0.98rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sample h2 .tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--brand-deep);
+    background: color-mix(in srgb, var(--brand-deep) 12%, transparent);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .sample > p { margin: 0 0 12px; font-size: 0.84rem; color: var(--ink-2); min-height: 2.9em; }
+
+  /* ---- the panel every sample shares ---- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: var(--shadow-pane);
+    padding: 16px 18px 10px;
+  }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .head b { font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+  .head b::before { content: ''; width: 10px; height: 10px; border-radius: 3px; background: var(--neg); }
+  .head .total { font-weight: 700; font-size: 1.05rem; }
+  .sub { color: var(--ink-3); font-size: 0.78rem; margin: 2px 0 10px 18px; }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows > li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 6.4em;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .what b { display: block; font-size: 0.86rem; font-weight: 560; }
+  .what small { display: flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--ink-3); }
+  .what small svg { width: 10px; height: 10px; }
+  li.open .what small svg { transform: rotate(180deg); }
+  .meter { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 999px; background: var(--neg); }
+  .amt { text-align: right; font-weight: 620; font-size: 0.86rem; white-space: nowrap; }
+  .nest { grid-column: 1 / -1; }
+  .muted { color: var(--ink-3); }
+
+  /* 1 — thread (live) */
+  .s-thread .nest { list-style: none; margin: -2px 0 4px 2px; padding: 0 0 0 12px; border-left: 2px solid color-mix(in srgb, var(--neg) 40%, transparent); }
+  .s-thread .nest li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; line-height: 1.25; }
+  .s-thread .nest b { display: block; font-size: 0.8rem; font-weight: 500; color: var(--ink-2); }
+  .s-thread .nest small { display: block; font-size: 0.7rem; color: var(--ink-3); }
+  .s-thread .nest .r { text-align: right; flex: none; }
+
+  /* 2 — timeline */
+  .s-time .nest { list-style: none; margin: 2px 0 4px; padding: 0; position: relative; }
+  .s-time .nest::before { content: ''; position: absolute; left: 37px; top: 10px; bottom: 10px; width: 1px; background: var(--line); }
+  .s-time .nest li { display: grid; grid-template-columns: 30px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 5px 0; line-height: 1.25; }
+  .s-time .day { text-align: center; font-size: 0.66rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.03em; }
+  .s-time .day strong { display: block; font-size: 0.92rem; color: var(--ink-2); letter-spacing: 0; }
+  .s-time .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--surface); border: 2px solid var(--neg); justify-self: center; position: relative; }
+  .s-time .nest b { display: block; font-size: 0.8rem; font-weight: 520; }
+  .s-time .nest small { display: block; font-size: 0.7rem; color: var(--ink-3); }
+  .s-time .r { text-align: right; }
+
+  /* 3 — split bar */
+  .s-split .segs { display: flex; gap: 2px; height: 100%; }
+  .s-split .segs i { border-radius: 2px; min-width: 3px; }
+  .s-split .segs i:first-child { border-radius: 999px 2px 2px 999px; }
+  .s-split .segs i:last-child { border-radius: 2px 999px 999px 2px; }
+  .s-split .nest { list-style: none; margin: 0 0 4px; padding: 0; }
+  .s-split .nest li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 5px 0; line-height: 1.25; }
+  .s-split .sw { width: 10px; height: 10px; border-radius: 3px; }
+  .s-split .nest b { display: block; font-size: 0.8rem; font-weight: 520; }
+  .s-split .nest small { display: block; font-size: 0.7rem; color: var(--ink-3); }
+  .s-split .pct { font-size: 0.72rem; color: var(--ink-3); min-width: 2.6em; text-align: right; }
+  .s-split .r { text-align: right; min-width: 6.4em; }
+
+  /* 4 — by person */
+  .s-people .nest { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 8px; }
+  .s-people .who { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--ink-3); margin-bottom: 2px; }
+  .s-people .av { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 0.66rem; font-weight: 700; color: #fff; }
+  .s-people .who span:last-child { margin-left: auto; font-weight: 600; color: var(--ink-2); }
+  .s-people .item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 3px 0 3px 28px; line-height: 1.25; }
+  .s-people .item b { display: block; font-size: 0.8rem; font-weight: 520; }
+  .s-people .item small { display: block; font-size: 0.7rem; color: var(--ink-3); }
+  .s-people .r { text-align: right; flex: none; }
+
+  /* 5 — inset card with currency pill */
+  .s-card .nest { list-style: none; margin: 2px 0 4px; padding: 4px; border-radius: 16px; background: var(--surface-2); }
+  .s-card .nest li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface); line-height: 1.25; }
+  .s-card .nest li + li { margin-top: 4px; }
+  .s-card .nest b { display: block; font-size: 0.8rem; font-weight: 540; }
+  .s-card .nest small { display: block; font-size: 0.7rem; color: var(--ink-3); }
+  .s-card .grow { flex: 1; min-width: 0; }
+  .s-card .pill { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, var(--p2) 14%, transparent); color: var(--p2); }
+  .s-card .r { text-align: right; flex: none; }
+
+  /* 6 — ledger table */
+  .s-table table { grid-column: 1 / -1; width: 100%; border-collapse: collapse; margin: 0 0 4px; font-size: 0.76rem; }
+  .s-table th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 6px; border-bottom: 1px solid var(--line-soft); }
+  .s-table td { padding: 6px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .s-table tr:last-child td { border-bottom: 0; }
+  .s-table td.w { white-space: nowrap; font-weight: 520; color: var(--ink); }
+  .s-table th.n, .s-table td.n { text-align: right; }
+  .s-table td.o { color: var(--ink-3); }
+  .s-table tbody { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+
+  /* shared bits inside entries */
+  .r b { font-weight: 580 !important; }
+  .r small { color: var(--ink-3); }
+
+  footer { max-width: 1240px; margin: 0 auto; padding: 0 16px 40px; color: var(--ink-3); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<header class="page">
+  <div>
+    <h1>Breakdown entries: six options</h1>
+    <p>The same Spent panel each time, with your Expense category opened. Rupee entries are shown in AED first at the account's rate (0.01329), with the original underneath where it applies.</p>
+  </div>
+  <div class="theme" role="group" aria-label="Theme">
+    <button type="button" data-t="light">Light</button>
+    <button type="button" data-t="dark">Dark</button>
+  </div>
+</header>
+
+<main>
+  <!-- 1 THREAD -->
+  <section class="sample s-thread">
+    <h2>1 · Thread <span class="tag">Live now</span></h2>
+    <p>Entries hang off the row on a thin rule in the panel's colour. The quietest option, and it keeps the panel short.</p>
+    <div class="panel" data-sample></div>
+  </section>
+
+  <!-- 2 TIMELINE -->
+  <section class="sample s-time">
+    <h2>2 · Timeline</h2>
+    <p>Each entry sits on its day. Good for spotting when the money went, e.g. two SC payments weeks apart.</p>
+    <div class="panel" data-sample></div>
+  </section>
+
+  <!-- 3 SPLIT BAR -->
+  <section class="sample s-split">
+    <h2>3 · Split bar</h2>
+    <p>The category's bar breaks into one segment per entry, with matching swatches and shares. You see straight away that one entry is most of it.</p>
+    <div class="panel" data-sample></div>
+  </section>
+
+  <!-- 4 BY PERSON -->
+  <section class="sample s-people">
+    <h2>4 · By person</h2>
+    <p>Entries grouped under who spent them, each with a subtotal. Handy for a shared household.</p>
+    <div class="panel" data-sample></div>
+  </section>
+
+  <!-- 5 CARD -->
+  <section class="sample s-card">
+    <h2>5 · Inset cards</h2>
+    <p>Each entry is its own small rounded card, with a currency tag on foreign ones. Matches the rounded look and is the easiest to tap on a phone.</p>
+    <div class="panel" data-sample></div>
+  </section>
+
+  <!-- 6 TABLE -->
+  <section class="sample s-table">
+    <h2>6 · Mini ledger</h2>
+    <p>A small table with a column each for date, who, AED and the original. Densest, and the easiest to scan by column.</p>
+    <div class="panel" data-sample></div>
+  </section>
+</main>
+
+<footer>Sample data matches your screenshot: SC PKR 52,728 (Wife), SC PKR 25,000 (Husband) and Main Account AED 6,339, totalling AED 7,372.</footer>
+
+<script>
+  const RATE = 0.01329;
+  const entries = [
+    { title: 'Main Account', day: 5, who: 'Wife', cur: 'AED', amt: 6339 },
+    { title: 'SC', day: 5, who: 'Wife', cur: 'PKR', amt: 52728, acct: 'SC' },
+    { title: 'SC', day: 22, who: 'Husband', cur: 'PKR', amt: 25000, acct: 'SC' },
+  ].map((e) => ({ ...e, aed: e.cur === 'AED' ? e.amt : e.amt * RATE }))
+   .sort((a, b) => b.aed - a.aed);
+  const total = entries.reduce((s, e) => s + e.aed, 0);
+
+  const fmt = (n, c, cents = true) =>
+    `${c} ${n.toLocaleString('en-US', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: cents ? 2 : 0 })}`;
+  const aed = (e) => fmt(e.aed, 'AED');
+  const orig = (e) => (e.cur === 'AED' ? '' : fmt(e.amt, e.cur, false));
+  const date = (e) => `Nov ${e.day}`;
+  const chev = '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5 5 6.5 8 3.5"/></svg>';
+  const shades = ['var(--neg)', 'color-mix(in srgb, var(--neg) 62%, var(--surface))', 'color-mix(in srgb, var(--neg) 34%, var(--surface))'];
+  const personColour = { Wife: 'var(--p1)', Husband: 'var(--p2)' };
+
+  const cats = [
+    { label: 'Rent', n: 1, amt: 12500 },
+    { label: 'Expense', n: 3, amt: total, open: true },
+    { label: 'Groceries', n: 4, amt: 3940 },
+    { label: 'Eating out', n: 5, amt: 1610 },
+    { label: 'Fuel', n: 2, amt: 26610 - 12500 - total - 3940 - 1610 },
+  ];
+  const largest = Math.max(...cats.map((c) => c.amt));
+
+  const right = (e) => `<span class="r num"><b>${aed(e)}</b>${orig(e) ? `<small>${orig(e)}</small>` : ''}</span>`;
+
+  const nested = {
+    thread: () => `<ul class="nest">${entries.map((e) => `
+      <li><span><b>${e.title}</b><small>${date(e)} · ${e.who}</small></span>${right(e)}</li>`).join('')}</ul>`,
+
+    time: () => `<ul class="nest">${[...entries].sort((a, b) => a.day - b.day).map((e) => `
+      <li><span class="day">Nov<strong>${e.day}</strong></span><span class="dot"></span>
+        <span><b>${e.title}</b><small>${e.who}${e.cur !== 'AED' ? ' · paid in ' + e.cur : ''}</small></span>${right(e)}</li>`).join('')}</ul>`,
+
+    split: () => `<ul class="nest">${entries.map((e, i) => `
+      <li><span class="sw" style="background:${shades[i]}"></span>
+        <span><b>${e.title}</b><small>${date(e)} · ${e.who}</small></span>
+        <span class="pct num">${Math.round((e.aed / total) * 100)}%</span>${right(e)}</li>`).join('')}</ul>`,
+
+    people: () => {
+      const groups = {};
+      entries.forEach((e) => (groups[e.who] ??= []).push(e));
+      return `<div class="nest">${Object.entries(groups).map(([who, list]) => `
+        <div><div class="who"><span class="av" style="background:${personColour[who]}">${who[0]}</span><span>${who}</span>
+          <span class="num">${fmt(list.reduce((s, e) => s + e.aed, 0), 'AED')}</span></div>
+          ${list.map((e) => `<div class="item"><span><b>${e.title}</b><small>${date(e)}</small></span>${right(e)}</div>`).join('')}
+        </div>`).join('')}</div>`;
+    },
+
+    card: () => `<ul class="nest">${entries.map((e) => `
+      <li><span class="grow"><b>${e.title}</b><small>${date(e)} · ${e.who}</small></span>
+        ${e.cur !== 'AED' ? `<span class="pill">${e.cur}</span>` : ''}${right(e)}</li>`).join('')}</ul>`,
+
+    table: () => `<table><thead><tr><th>Date</th><th>What</th><th>Who</th><th class="n">AED</th><th class="n">Paid</th></tr></thead><tbody>
+      ${entries.map((e) => `<tr><td class="muted">${date(e)}</td><td class="w">${e.title}</td><td class="muted">${e.who}</td>
+        <td class="n num">${e.aed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="n num o">${orig(e) || '—'}</td></tr>`).join('')}</tbody></table>`,
+  };
+
+  const meter = (kind, c) => {
+    if (kind === 'split' && c.open) {
+      return `<span class="meter" aria-hidden="true"><span class="segs" style="width:${(c.amt / largest) * 100}%">${entries
+        .map((e, i) => `<i style="flex:${e.aed};background:${shades[i]}"></i>`).join('')}</span></span>`;
+    }
+    return `<span class="meter" aria-hidden="true"><i style="width:${(c.amt / largest) * 100}%"></i></span>`;
+  };
+
+  document.querySelectorAll('.sample').forEach((sample) => {
+    const kind = [...sample.classList].find((c) => c.startsWith('s-')).slice(2);
+    sample.querySelector('[data-sample]').innerHTML = `
+      <div class="head"><b>Spent</b><span class="total num">AED 26,610</span></div>
+      <div class="sub">66% of what came in · 15 entries</div>
+      <ul class="rows">${cats.map((c) => `
+        <li class="${c.open ? 'open' : ''}">
+          <span class="what"><b>${c.label}</b><small>${c.n} ${c.n === 1 ? 'entry' : 'entries'} ${chev}</small></span>
+          ${meter(kind, c)}
+          <span class="amt num">${fmt(c.amt, 'AED', false)}</span>
+          ${c.open ? nested[kind]() : ''}
+        </li>`).join('')}
+      </ul>`;
+  });
+
+  // Theme switch: follows the system until a button is pressed.
+  const buttons = document.querySelectorAll('.theme button');
+  const mark = () => {
+    const forced = document.documentElement.dataset.theme;
+    const dark = forced ? forced === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.t === 'dark') === dark)));
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => { document.documentElement.dataset.theme = b.dataset.t; mark(); }));
+  mark();
+</script>
+</body>
+</html>
