@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney } = require('./helpers');
+const { addMoney, openActivity } = require('./helpers');
 
 // The phone shell, driven at the width it is actually used at. Everything the
 // other suites check is checked at a desk, where there is room for a sidebar
@@ -66,7 +66,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await addMoney(page, { amount: '900', kind: 'Received', category: 'Salary' });
 
   // --- an entry can be edited by tapping its row --------------------------
-  await page.locator('.tabbar button', { hasText: /^Activity$/ }).click();
+  await openActivity(page);
   await page.waitForTimeout(900);
   check('rows carry no buttons at this width', (await page.locator('.txn-acts:visible').count()) === 0);
   await page.locator('.txn.tappable').first().tap();
@@ -309,7 +309,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(300);
 
   // --- a sheet holds the page still ---------------------------------------
-  await page.locator('.tabbar button', { hasText: /^Activity$/ }).click();
+  await openActivity(page);
   await page.waitForTimeout(900);
   await page.evaluate(() => window.scrollTo(0, 40));
   await page.locator('.tabbar button.add').tap();

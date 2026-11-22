@@ -42,6 +42,7 @@ const SUITES = [
   'api/accent.test.js',
   'api/flow.test.js',
   'api/description.test.js',
+  'api/category-list.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney } = require('./helpers');
+const { addMoney, openActivity } = require('./helpers');
 
 // CHROMIUM_PATH covers machines with a browser already installed elsewhere;
 // otherwise Playwright uses the one it downloaded.
@@ -64,7 +64,7 @@ async function signUp(page, username, password) {
   // Money is recorded through the sheet the + opens, on either shell.
   await addMoney(a, { amount: '9000', kind: 'Received', category: 'Salary' });
 
-  await a.click('.side-nav button:has-text("Activity")');
+  await openActivity(a);
   await a.waitForTimeout(600);
   const listText = await a.locator('.txn-list').textContent();
   check('the entry appears in the activity list', listText.includes('Salary'), listText.slice(0, 120));
@@ -114,7 +114,7 @@ async function signUp(page, username, password) {
   check('the invitee lands in the household', (await b.locator('.household-name').textContent()) === 'Faisal Home');
   const banner = await b.locator('.warn-banner').count();
   check('a viewer is told they are read-only', banner === 1);
-  await b.click('.side-nav button:has-text("Activity")');
+  await openActivity(b);
   await b.waitForTimeout(600);
   check('a viewer sees the money', (await b.locator('.txn-list').textContent()).includes('Salary'));
   check('a viewer gets no way to add money', await b.locator('.add-top').count() === 0);
@@ -149,7 +149,7 @@ async function signUp(page, username, password) {
   await b.waitForTimeout(1500);
 
   check('the second household becomes current', (await b.locator('.household-name').textContent()) === 'Bob Home');
-  await b.click('.side-nav button:has-text("Activity")');
+  await openActivity(b);
   await b.waitForTimeout(600);
   check('the new household has none of the other one’s money',
     !(await b.locator('.txn-list').textContent()).includes('Salary'));

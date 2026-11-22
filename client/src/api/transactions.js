@@ -8,6 +8,9 @@ export function listTransactions({ accountId, month, personId } = {}) {
   return get(`/transactions?${params.toString()}`);
 }
 
+// Every category used before, per kind, most used first.
+export const listCategories = () => get('/transactions/categories');
+
 export const createTransaction = (tx) => post('/transactions', tx);
 export const createTransfer = (transfer) => post('/transactions/transfer', transfer);
 export const deleteTransaction = (id) => del(`/transactions/${id}`);

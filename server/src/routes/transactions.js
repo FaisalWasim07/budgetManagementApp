@@ -20,6 +20,37 @@ function cleanDescription(value) {
   return text || null;
 }
 
+// Every category this household has used, for the add sheet's dropdown, most
+// used first. Per kind, because "Salary" in a list of places you spend money
+// is noise. Counted over entries and recurring items both, so a category that
+// only a subscription carries is still offered.
+router.get(
+  '/categories',
+  h(async (req, res) => {
+    const rows = await db.all(
+      `SELECT kind, category, SUM(uses)::int AS uses, MAX(last_used) AS last_used FROM (
+         SELECT t.kind, TRIM(t.category) AS category, COUNT(*) AS uses, MAX(t.month) AS last_used
+           FROM transactions t JOIN accounts a ON a.id = t.account_id
+          WHERE a.household_id = ? AND t.kind IN ('income', 'expense')
+            AND t.category IS NOT NULL AND TRIM(t.category) <> ''
+          GROUP BY t.kind, TRIM(t.category)
+         UNION ALL
+         SELECT CASE WHEN s.direction = 'income' THEN 'income' ELSE 'expense' END, TRIM(s.category), COUNT(*), MAX(s.start_month)
+           FROM subscriptions s JOIN accounts a ON a.id = s.account_id
+          WHERE a.household_id = ? AND s.category IS NOT NULL AND TRIM(s.category) <> ''
+          GROUP BY 1, 2
+       ) used
+       GROUP BY kind, category
+       ORDER BY uses DESC, last_used DESC, category`,
+      [req.household.id, req.household.id]
+    );
+    res.json({
+      expense: rows.filter((r) => r.kind === 'expense').map((r) => r.category),
+      income: rows.filter((r) => r.kind === 'income').map((r) => r.category),
+    });
+  })
+);
+
 router.get(
   '/',
   h(async (req, res) => {

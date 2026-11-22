@@ -47,7 +47,10 @@ export default function RecurringYear({ items, rateFor, currency, month }) {
                 only answers "which month is worst", not "by how much". The
                 same text is the title, so it is reachable without a mouse. */}
             <i title={`${formatMonth(m)} · ${money(totals[i], currency, { compact: true })}`}>
-              <b style={{ height: `${Math.max(4, (totals[i] / peak) * 100)}%` }} />
+              <b
+                className={totals[i] >= peak ? 'full' : undefined}
+                style={{ height: `${Math.max(4, (totals[i] / peak) * 100)}%` }}
+              />
               <em>
                 <Money amount={totals[i]} currency={currency} compact />
               </em>

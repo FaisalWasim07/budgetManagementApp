@@ -3,7 +3,7 @@ import { Money } from '../utils/display';
 import { formatMonth } from '../utils/month';
 import { useLive } from '../utils/live';
 import { listTransactions } from '../api/transactions';
-import { ChevronDown } from './icons';
+import { ChevronDown, ChevronRight, List } from './icons';
 
 // One gradient across the whole bar rather than four blocks butted together.
 // Each colour holds solid through the middle of its share and cross-fades over
@@ -260,7 +260,7 @@ function People({ persons, value, currency }) {
   );
 }
 
-export default function MonthFlow({ summary, month, subscriptionCount }) {
+export default function MonthFlow({ summary, month, subscriptionCount, onSeeActivity }) {
   const { household, primaryCurrency, persons } = summary;
   const flow = summary.flow ?? { cameIn: [], spent: [], recurring: [] };
   const monthName = formatMonth(month).split(' ')[0];
@@ -628,6 +628,17 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           </b>
         </button>
       </div>
+
+      {/* Every entry behind these figures, one press away. Activity used to be
+          a destination in the navigation; it is the detail of this card, so
+          it opens from here. */}
+      {onSeeActivity && (
+        <button type="button" className="flow-activity" onClick={onSeeActivity}>
+          <List size={15} />
+          <span>All activity in {monthName}</span>
+          <ChevronRight size={14} />
+        </button>
+      )}
 
       {household.unconvertedCurrencies?.length > 0 && (
         <div className="warn-banner" style={{ marginTop: 14 }}>

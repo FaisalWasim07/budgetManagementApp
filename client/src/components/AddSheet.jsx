@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { createTransaction } from '../api/transactions';
+import { createTransaction, listCategories } from '../api/transactions';
+import { useLive } from '../utils/live';
 import { Exchange } from './icons';
 import { useScrollLock } from '../utils/scrollLock';
 import { useToast } from '../utils/toast';
@@ -11,7 +12,6 @@ import { useDisplay } from '../utils/display';
 export default function AddSheet({
   open,
   accounts,
-  categories,
   month,
   defaultAccountId,
   onClose,
@@ -22,6 +22,12 @@ export default function AddSheet({
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [category, setCategory] = useState('');
+  // True once "New category…" is picked: the dropdown then stands aside for a
+  // box to type one into.
+  const [typing, setTyping] = useState(false);
+  // Every category used before, most used first, per kind. Live, so one
+  // typed into this sheet is in the list the next time it opens.
+  const { data: used } = useLive('categories', listCategories);
   const [description, setDescription] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -30,6 +36,7 @@ export default function AddSheet({
   // out a figure the eye is currently hiding.
   const { money } = useDisplay();
   const amountField = useRef(null);
+  const newCategoryField = useRef(null);
   const sheetRef = useRef(null);
   // The sheet slides over the page; the page must not slide with it.
   useScrollLock(open);
@@ -39,6 +46,7 @@ export default function AddSheet({
     if (!open) return;
     setAmount('');
     setCategory('');
+    setTyping(false);
     setDescription('');
     setError(null);
     setAccountId(String(defaultAccountId ?? accounts[0]?.id ?? ''));
@@ -86,7 +94,27 @@ export default function AddSheet({
   }, [open, onClose]);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0];
-  const suggestions = categories.slice(0, 6);
+  const NEW = '__new';
+  const choices = used?.[kind] ?? [];
+
+  // Switching between spent and received swaps the list, so a category picked
+  // from one is not left selected against the other.
+  const switchKind = (next) => {
+    if (next === kind) return;
+    setKind(next);
+    if (!typing) setCategory('');
+  };
+
+  const pickCategory = (value) => {
+    if (value === NEW) {
+      setTyping(true);
+      setCategory('');
+      setTimeout(() => newCategoryField.current?.focus(), 0);
+    } else {
+      setTyping(false);
+      setCategory(value);
+    }
+  };
 
   async function save() {
     setError(null);
@@ -150,14 +178,14 @@ export default function AddSheet({
           <button
             className={kind === 'expense' ? 'active' : ''}
             aria-pressed={kind === 'expense'}
-            onClick={() => setKind('expense')}
+            onClick={() => switchKind('expense')}
           >
             Spent
           </button>
           <button
             className={kind === 'income' ? 'active' : ''}
             aria-pressed={kind === 'income'}
-            onClick={() => setKind('income')}
+            onClick={() => switchKind('income')}
           >
             Received
           </button>
@@ -189,29 +217,50 @@ export default function AddSheet({
           </select>
         </label>
 
-        <div className="field" style={{ marginTop: 14 }}>
+        {/* A dropdown, the same shape as the account above it, rather than a
+            row of six chips and a box: the chips only ever held this month's
+            top six, and anything older had to be typed again from memory.
+            Typing a new one is the last choice in the list. */}
+        <label className="field" style={{ marginTop: 14 }}>
           <span className="label">Category</span>
-          <div className="chips">
-            {suggestions.map((c) => (
-              <button
-                key={c}
-                className={category === c ? 'active' : ''}
-                aria-pressed={category === c}
-                onClick={() => setCategory(category === c ? '' : c)}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
-            placeholder={kind === 'income' ? 'e.g. Salary' : 'or type one'}
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+          <select
+            value={typing ? NEW : category}
+            onChange={(e) => pickCategory(e.target.value)}
             aria-label="Category"
-            style={{ marginTop: 8 }}
-          />
-        </div>
+          >
+            <option value="">No category</option>
+            {choices.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            <option value={NEW}>New category…</option>
+          </select>
+        </label>
+        {typing && (
+          <div className="new-category">
+            <input
+              ref={newCategoryField}
+              type="text"
+              placeholder={kind === 'income' ? 'e.g. Salary' : 'e.g. Groceries'}
+              value={category}
+              maxLength={60}
+              onChange={(e) => setCategory(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+              aria-label="New category"
+            />
+            <button
+              type="button"
+              className="subtle tiny"
+              onClick={() => {
+                setTyping(false);
+                setCategory('');
+              }}
+            >
+              Back to list
+            </button>
+          </div>
+        )}
 
         {/* What it was, in your words. The category groups it; this is how you
             recognise it again in Activity a month from now, so it is what

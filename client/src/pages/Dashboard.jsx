@@ -51,6 +51,7 @@ export default function Dashboard({
           summary={summary}
           month={month}
           subscriptionCount={subscriptions.filter((s) => s.direction !== 'income').length}
+          onSeeActivity={onSeeActivity}
         />
       </div>
 

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney, openTransfer } = require('./helpers');
+const { addMoney, openTransfer, openActivity, pickCategory } = require('./helpers');
 
 // The redesigned dashboard, driven the way a person drives it: type an amount
 // into the strip, correct it, delete it, open an account, add from inside it.
@@ -94,7 +94,8 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // Entries are recorded on Home and read on Activity, so the test walks
   // between the two rather than expecting both on one screen.
   const go = async (label) => {
-    await page.click(`.side-nav button:has-text("${label}")`);
+    if (label === 'Activity') await openActivity(page);
+    else await page.click(`.side-nav button:has-text("${label}")`);
     await page.waitForTimeout(500);
   };
 
@@ -232,8 +233,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await go('Activity');
   const seen = await page.locator('.txn-table .txn').count();
   check('Activity loads its entries', seen > 0, String(seen));
-  await go('Home');
-  await page.locator('.side-nav button', { hasText: /^Activity$/ }).click();
+  await openActivity(page);
   // No wait at all: this is the first frame after the click.
   check(
     'and they are still there on the way back, with no empty flash',
@@ -331,11 +331,11 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   check('"add to this account" opens the sheet', (await page.locator('.sheet.open').count()) === 1);
   check(
     'and it is preset to that account',
-    Boolean(await page.locator('.sheet select').inputValue()),
+    Boolean(await page.locator('.sheet select').first().inputValue()),
   );
 
   await page.locator('.sheet input[aria-label="Amount"]').fill('60');
-  await page.locator('.sheet input[aria-label="Category"]').fill('Fuel');
+  await pickCategory(page, 'Fuel');
   await page.click('.sheet button:has-text("Save")');
   await page.waitForTimeout(1600);
   check('the sheet saves and closes', (await page.locator('.sheet.open').count()) === 0);

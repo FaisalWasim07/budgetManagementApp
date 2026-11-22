@@ -2039,9 +2039,15 @@ h3 {
 }
 .strip i b {
   width: 100%;
-  border-radius: 10px;
+  /* Flat on top while it is part of the way up the track, so it reads as a
+     level filling the track rather than a pill floating in it; rounded all
+     round only when it reaches the top and the track's own corners. */
+  border-radius: 0 0 10px 10px;
   background: color-mix(in srgb, var(--brand) 50%, transparent);
   transition: height 0.7s cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.strip i b.full {
+  border-radius: 10px;
 }
 .strip > div.now i b {
   background: var(--brand-deep);
@@ -4238,27 +4244,6 @@ th.num {
 }
 .sheet .move-alt:hover:not(:disabled) {
   color: var(--ink);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-.chips button {
-  font: inherit;
-  font-size: 0.85rem;
-  padding: 8px 13px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-}
-.chips button.active {
-  background: var(--action);
-  border-color: transparent;
-  color: var(--action-in);
-  font-weight: 550;
 }
 
 /* ── Bottom bar (phone) ──────────────────────────────────────────── */
@@ -6617,4 +6602,62 @@ hr.rule {
   font-size: 0.7rem;
   font-weight: 400;
   color: var(--ink-3);
+}
+
+/* The way into Activity, at the foot of the month card: a full-width row under
+   a hairline, quiet until pointed at, with the chevron pushed to the far edge
+   so it reads as "this card continues over there". */
+.flow-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% + 16px);
+  margin: 14px -8px -6px;
+  padding: 10px 8px;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--r-row) var(--r-row);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 560;
+  text-align: left;
+  cursor: pointer;
+}
+.flow-activity span {
+  flex: 1;
+}
+.flow-activity svg:last-child {
+  color: var(--ink-3);
+  transition: transform 0.15s ease;
+}
+.flow-activity:hover {
+  color: var(--brand-deep);
+  background: var(--surface-2);
+}
+.flow-activity:hover svg:last-child {
+  color: var(--brand-deep);
+  transform: translateX(2px);
+}
+.flow-activity:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Typing a category the list does not have yet: the box, with a way back to
+   the list beside it. */
+.new-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.new-category input {
+  flex: 1;
+  min-width: 0;
+}
+.new-category button {
+  flex: none;
+  white-space: nowrap;
 }

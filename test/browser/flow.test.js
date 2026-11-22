@@ -182,6 +182,40 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
 
+  // --- Activity opens from the card, not the navigation ----------------------
+  check('Activity is no longer in the sidebar',
+    (await page.locator('.side-nav button', { hasText: /^Activity$/ }).count()) === 0);
+  const link = page.locator('.flow-activity');
+  check('the month card carries the way into it', (await link.count()) === 1 && /All activity in/.test(await link.textContent()),
+    await link.textContent().catch(() => ''));
+  await link.click();
+  await page.waitForSelector('.txn-table .txn', { timeout: 10000 });
+  check('which opens this month’s entries', (await page.locator('.txn-table .txn').count()) >= 5,
+    String(await page.locator('.txn-table .txn').count()));
+  check('with Home still lit in the sidebar, since Activity is part of it',
+    (await page.locator('.side-nav button.active').textContent())?.trim() === 'Home');
+  await page.locator('.topbar .crumb', { hasText: 'Home' }).click();
+  await page.waitForSelector('.flow-card');
+  check('and the crumb in the top bar goes back', (await page.locator('.flow-activity').count()) === 1);
+
+  // --- the add sheet's category is a dropdown of the ones used before -------
+  await page.click('.add-top');
+  await page.waitForSelector('.sheet.open');
+  const options = () => page.locator('.sheet select[aria-label="Category"] option').allTextContents();
+  const spentOptions = await options();
+  check('spending categories are offered, most used first',
+    spentOptions.join(',') === 'No category,Groceries,Fuel,New category…', spentOptions.join(','));
+  await page.locator('.sheet button', { hasText: 'Received' }).click();
+  const inOptions = await options();
+  check('and money in has its own list', inOptions.join(',') === 'No category,Salary,New category…', inOptions.join(','));
+  await page.locator('.sheet select[aria-label="Category"]').selectOption('__new');
+  check('"New category…" opens a box to type one, ready to type into',
+    await page.locator('.sheet input[aria-label="New category"]').evaluate((el) => el === document.activeElement));
+  await page.locator('.sheet button', { hasText: 'Back to list' }).click();
+  check('and the list comes back', (await page.locator('.sheet input[aria-label="New category"]').count()) === 0);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
   // --- a phone ------------------------------------------------------------
   const cookies = await context.cookies();
   const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

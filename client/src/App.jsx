@@ -39,6 +39,12 @@ const PAGES = [
   ['recurring', 'Recurring', Repeat],
   ['statements', 'Statements', Doc],
 ];
+// Activity is still a page, but it is reached from the month card on Home
+// (and Latest's "See all") rather than the navigation: it is the detail behind
+// the month's figures, so it opens from them, and while it is open Home stays
+// the lit destination.
+const NAV = PAGES.filter(([key]) => key !== 'activity');
+const navKey = (page) => (page === 'activity' ? 'dashboard' : page);
 
 const LAST_HOUSEHOLD = 'budget.householdId';
 const NAV_COLLAPSED = 'budget.navCollapsed';
@@ -313,8 +319,8 @@ export default function App({ user, onSignedOut, onUserChange }) {
             bar, because there is no width for a column. */}
         {!phone && (
         <Sidebar
-          pages={PAGES}
-          page={page}
+          pages={NAV}
+          page={navKey(page)}
           onPage={goTo}
           households={households}
           household={household}
@@ -378,6 +384,16 @@ export default function App({ user, onSignedOut, onUserChange }) {
                         ›
                       </span>
                       {openAccount.name}
+                    </>
+                  ) : page === 'activity' ? (
+                    <>
+                      <button className="crumb" onClick={() => goTo('dashboard')}>
+                        Home
+                      </button>
+                      <span className="crumb-sep" aria-hidden="true">
+                        ›
+                      </span>
+                      Activity
                     </>
                   ) : (
                     PAGES.find(([key]) => key === page)?.[1]
@@ -600,11 +616,11 @@ export default function App({ user, onSignedOut, onUserChange }) {
           one thing you do standing at a till, and the two destinations either
           side of it are the two you open most. */}
       <nav className="tabbar" aria-label="Sections">
-        {PAGES.slice(0, 2).map(([key, label, Icon]) => (
+        {NAV.slice(0, 2).map(([key, label, Icon]) => (
           <button
             key={key}
-            className={page === key ? 'active' : ''}
-            aria-current={page === key ? 'page' : undefined}
+            className={navKey(page) === key ? 'active' : ''}
+            aria-current={navKey(page) === key ? 'page' : undefined}
             onClick={() => goTo(key)}
           >
             <Icon />
@@ -621,11 +637,11 @@ export default function App({ user, onSignedOut, onUserChange }) {
             <Plus />
           </button>
         )}
-        {PAGES.slice(2).map(([key, label, Icon]) => (
+        {NAV.slice(2).map(([key, label, Icon]) => (
           <button
             key={key}
-            className={page === key ? 'active' : ''}
-            aria-current={page === key ? 'page' : undefined}
+            className={navKey(page) === key ? 'active' : ''}
+            aria-current={navKey(page) === key ? 'page' : undefined}
             onClick={() => goTo(key)}
           >
             <Icon />
@@ -638,7 +654,6 @@ export default function App({ user, onSignedOut, onUserChange }) {
         <AddSheet
           open={Boolean(sheet)}
           accounts={accounts}
-          categories={categories.map((c) => c.category)}
           month={month}
           defaultAccountId={sheet?.accountId}
           onClose={() => setSheet(null)}

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney, openTransfer } = require('./helpers');
+const { addMoney, openTransfer, openActivity } = require('./helpers');
 
 // A description typed when money is entered or moved, and seen again where
 // you look for it: Activity, Home's latest entries, and the edit dialog.
@@ -94,7 +94,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
     (await shopRow.locator('small').textContent()).includes('Groceries'), await shopRow.locator('small').textContent());
 
   // --- Activity -----------------------------------------------------------
-  await page.locator('nav.side-nav button:has-text("Activity")').click();
+  await openActivity(page);
   await page.waitForSelector('.txn-table', { timeout: 10000 });
   await page.waitForTimeout(800);
   const titles = await page.locator('.txn-table .txn .what-text b').allTextContents();
@@ -146,7 +146,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await phone.goto(URL, { waitUntil: 'networkidle' });
   await phone.waitForSelector('.tabbar', { timeout: 15000 });
   await phone.click('button[aria-label="Show amounts"]').catch(() => {});
-  await phone.locator('.tabbar button:has-text("Activity")').tap();
+  await openActivity(phone);
   await phone.waitForTimeout(1200);
   const phoneShop = phone.locator('.txn', { hasText: 'Weekly shop at Carrefour' }).first();
   check('on a phone, Activity names it by its description too', (await phoneShop.count()) === 1);

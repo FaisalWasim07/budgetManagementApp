@@ -62,7 +62,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(450);
   check('pressing it folds the sidebar to a rail', (await width()) < wide && (await width()) <= 64,
     `${wide} → ${await width()}`);
-  const stats = page.locator('.side-nav button').nth(2);
+  const stats = page.locator('.side-nav button').nth(1);
   check('the icons keep their names for a screen reader', (await stats.innerText()).includes('Stats'),
     await stats.innerText());
   check('and show them as a tooltip', (await stats.getAttribute('title')) === 'Stats', await stats.getAttribute('title'));
