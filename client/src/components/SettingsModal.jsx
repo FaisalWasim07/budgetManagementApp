@@ -3,6 +3,7 @@ import Modal from './Modal';
 import LoginSettings from './LoginSettings';
 import PasskeySettings from './PasskeySettings';
 import NotificationSettings from './NotificationSettings';
+import AccentSettings from './AccentSettings';
 import { useToast } from '../utils/toast';
 import { getSettings, updateSettings } from '../api/settings';
 import { refreshRates, diagnoseRates } from '../api/exchangeRates';
@@ -27,6 +28,8 @@ export default function SettingsModal({
   locked,
   onLockedChange,
   onPasskeysChange,
+  accent,
+  onAccentChange,
   initialTab,
   // Which section to arrive with already open. Something that sends you
   // here for one specific job — the passkey nudge's own button — should not
@@ -238,6 +241,7 @@ export default function SettingsModal({
         onPasskeysChange={onPasskeysChange}
       />
       <NotificationSettings />
+      <AccentSettings accent={accent} onChange={onAccentChange} />
     </div>
   );
 

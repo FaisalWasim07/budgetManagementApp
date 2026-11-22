@@ -18,6 +18,7 @@ const SUITES = [
   'phone.test.js',
   'lock.test.js',
   'statements.test.js',
+  'accent.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {

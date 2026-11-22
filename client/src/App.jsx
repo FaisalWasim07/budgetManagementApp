@@ -60,7 +60,7 @@ function usePhone() {
   return phone;
 }
 
-export default function App({ user, onSignedOut }) {
+export default function App({ user, onSignedOut, onUserChange }) {
   const [page, setPage] = useState('dashboard');
   // Which account's screen is open. Held as an id rather than the account
   // itself so it survives a reload of the summary — balances change under it.
@@ -630,6 +630,8 @@ export default function App({ user, onSignedOut }) {
         <SettingsModal
           locked={wantsLock}
           onLockedChange={setWantsLock}
+          accent={user.accent}
+          onAccentChange={(accent) => onUserChange({ accent })}
           onPasskeysChange={setHasPasskeys}
           initialTab={settingsTab}
           openSection={settingsSection}

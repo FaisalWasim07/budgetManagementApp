@@ -5,6 +5,7 @@ import Splash from './components/Splash';
 import { getAuthStatus } from './api/auth';
 import { UNAUTHORIZED_EVENT } from './api/client';
 import { LiveDataProvider } from './utils/live';
+import { applyAccent, saveAccent } from './utils/accent';
 
 // Decides which of the two things the app can be: the login screen, or the
 // budget. Nothing inside App has to think about signing in, and no data
@@ -33,6 +34,18 @@ export default function AuthGate() {
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
+
+  // The colour belongs to whoever is signed in. Signed out — or a session that
+  // ran out — goes back to mint and forgets the cache, so the login screen on
+  // a shared phone is not wearing the last person's colour, and nobody else's
+  // first frame starts in it.
+  const user = status?.user;
+  const accent = user?.accent ?? null;
+  useEffect(() => {
+    if (!status) return;
+    applyAccent(user ? accent : null);
+    saveAccent(user ? accent : null);
+  }, [status, user, accent]);
 
   if (error) {
     return (
@@ -64,7 +77,13 @@ export default function AuthGate() {
   // refresh — and so the cache outlives every screen inside it.
   return (
     <LiveDataProvider>
-      <App user={status.user} onSignedOut={() => setStatus({ ...status, user: null })} />
+      <App
+        user={status.user}
+        onSignedOut={() => setStatus({ ...status, user: null })}
+        // Settings that live on the account and change what this screen looks
+        // like: the user object is the one copy, so they are patched here.
+        onUserChange={(patch) => setStatus((s) => ({ ...s, user: { ...s.user, ...patch } }))}
+      />
     </LiveDataProvider>
   );
 }

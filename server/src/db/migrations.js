@@ -167,6 +167,12 @@ async function run() {
     notes.push('amounts can be kept behind a passkey');
   }
 
+  // Each person's own colour for the app.
+  if ((await tableExists('users')) && !(await columnExists('users', 'accent'))) {
+    await db.exec('ALTER TABLE users ADD COLUMN accent text');
+    notes.push('each person can choose their own colour');
+  }
+
   // It shipped defaulting to off, which meant it protected only the people who
   // went looking for it. On is the better default now that it is dormant
   // without a passkey — nobody can be locked out by it, so there is nothing to

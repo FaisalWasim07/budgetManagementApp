@@ -48,3 +48,6 @@ export const finishVerify = (challengeId, response) =>
   post('/auth/verify/finish', { challengeId, response });
 
 export const setLockAmounts = (on) => post('/auth/lock-amounts', { on });
+
+// This person's colour. Theirs only; nobody else in the household sees it.
+export const setAccent = (accent) => post('/auth/accent', { accent });

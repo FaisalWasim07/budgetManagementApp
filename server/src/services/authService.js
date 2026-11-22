@@ -82,7 +82,7 @@ async function createSession(userId) {
 async function getSessionUser(token) {
   if (!token) return null;
   const row = await db.get(
-    `SELECT s.token, s.expires_at, u.id, u.username, u.lock_amounts,
+    `SELECT s.token, s.expires_at, u.id, u.username, u.lock_amounts, u.accent,
             EXISTS (SELECT 1 FROM credentials c WHERE c.user_id = u.id) AS has_passkeys
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ?`,
@@ -101,6 +101,9 @@ async function getSessionUser(token) {
     id: row.id,
     username: row.username,
     lock_amounts: row.lock_amounts,
+    // Here for the same reason: the first frame should already be in this
+    // person's colour, not mint for a beat and then theirs.
+    accent: row.accent,
     has_passkeys: Boolean(row.has_passkeys),
   };
 }

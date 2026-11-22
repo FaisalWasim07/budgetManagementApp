@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS users (
   -- no passkey registered there is nothing to ask, so it lies dormant and the
   -- eye behaves as it always did. Adding a passkey is what wakes it.
   lock_amounts  boolean NOT NULL DEFAULT true,
+  -- The colour this person sees the app in. Theirs rather than the
+  -- household's, so two people sharing one can each have their own. NULL is
+  -- "never chose" and renders as mint. Checked against a fixed list in
+  -- services/accents.js rather than with a CHECK here, so adding a colour is a
+  -- code change and not a migration.
+  accent        text,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 

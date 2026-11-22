@@ -4,6 +4,7 @@ import AuthGate from './AuthGate.jsx';
 import { ToastProvider } from './utils/toast';
 import { refresh, registerWorker } from './utils/push';
 import { applyTheme, loadTheme } from './utils/theme';
+import { applyAccent, loadAccent } from './utils/accent';
 import './index.css';
 // Utility classes only, scoped to client/src/vendor/bklit — see that file's
 // own comment for why this is safe to import globally despite living beside
@@ -14,6 +15,9 @@ import './vendor/bklit/tailwind.css';
 // Applied before the first render so the login screen honours the saved theme
 // too — App keeps it in sync from there.
 applyTheme(loadTheme());
+// Likewise the colour, from the device's cache of whoever was last signed in
+// here. AuthGate corrects it the moment the session is known.
+applyAccent(loadAccent());
 
 // Registered on every load, not only when notifications are switched on: the
 // worker is what receives a push, and a browser that already agreed to them

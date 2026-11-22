@@ -294,6 +294,22 @@ Accounts can hold an **optional email address**. Nothing is ever sent to it — 
 is a second name to sign in with, and a head start if self-service reset is ever
 added, rather than having to collect addresses from everyone first.
 
+### Your colour
+
+**Settings → Account → Colour** picks the colour the app is drawn in: Mint
+(the default), Ocean, Indigo, Plum, Clay, Moss or Graphite. It is saved on
+your account rather than on the household, so two people sharing a budget can
+each have their own, and it follows you to any device you sign in on. Viewers
+can choose one too — it changes nothing anyone else sees.
+
+The colours that carry meaning stay the same whichever you pick: spent,
+recurring, moved and left on Home, and the series on every chart.
+
+Adding a colour means adding its name in three places — `ACCENTS` in
+`server/src/services/accents.js`, `ACCENTS` in `client/src/utils/accent.js`,
+and a `[data-accent]` block at the top of `client/src/index.css` — and
+`test/api/accent.test.js` fails until all three agree.
+
 ## Database
 
 The app keeps everything in PostgreSQL, pointed at by one environment variable:

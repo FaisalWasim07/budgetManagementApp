@@ -9,6 +9,7 @@ const {
   readSessionToken,
 } = require('../middleware/auth');
 const { h } = require('../util/route');
+const { isAccent } = require('../services/accents');
 
 const router = express.Router();
 
@@ -57,12 +58,13 @@ async function signIn(res, user) {
   // in and they select different columns; one of them selecting id and username
   // alone is exactly how a freshly signed-in client was told the amounts were
   // not locked when they were.
-  const prefs = await db.get('SELECT lock_amounts FROM users WHERE id = ?', [user.id]);
+  const prefs = await db.get('SELECT lock_amounts, accent FROM users WHERE id = ?', [user.id]);
   res.json({
     user: {
       id: user.id,
       username: user.username,
       lock_amounts: Boolean(prefs?.lock_amounts),
+      accent: prefs?.accent ?? null,
       has_passkeys: await webauthnService.hasPasskeys(user.id),
     },
   });
@@ -129,7 +131,9 @@ async function register(req, res) {
   const user = await authService.createUser(username, password, email);
   const { token, expiresAt } = await authService.createSession(user.id);
   setSessionCookie(res, token, expiresAt);
-  res.status(201).json({ user: { id: user.id, username: user.username, email: user.email } });
+  res.status(201).json({
+    user: { id: user.id, username: user.username, email: user.email, accent: null },
+  });
 }
 
 router.post('/signup', h(register));
@@ -238,7 +242,7 @@ router.get(
   requireAuth,
   h(async (req, res) => {
     const row = await db.get(
-      'SELECT id, username, email, lock_amounts FROM users WHERE id = ?',
+      'SELECT id, username, email, lock_amounts, accent FROM users WHERE id = ?',
       [req.user.id]
     );
     res.json({ user: { ...row, has_passkeys: await webauthnService.hasPasskeys(req.user.id) } });
@@ -363,6 +367,23 @@ router.post(
     const on = Boolean(req.body?.on);
     await db.run('UPDATE users SET lock_amounts = ? WHERE id = ?', [on, req.user.id]);
     res.json({ lock_amounts: on });
+  })
+);
+
+// Which colour this person sees the app in. Their own row and nobody else's —
+// there is no id in the path to point at someone else with. Open to viewers
+// too: it changes how the app looks to them, not anything in the household,
+// which is also why this lives under /auth and above blockViewerWrites.
+router.post(
+  '/accent',
+  requireAuth,
+  h(async (req, res) => {
+    const accent = req.body?.accent;
+    if (!isAccent(accent)) {
+      return res.status(400).json({ error: 'That is not one of the colours.' });
+    }
+    await db.run('UPDATE users SET accent = ? WHERE id = ?', [accent, req.user.id]);
+    res.json({ accent });
   })
 );
 

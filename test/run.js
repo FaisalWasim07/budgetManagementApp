@@ -39,6 +39,7 @@ const SUITES = [
   'api/identity.test.js',
   'api/households.test.js',
   'api/reset.test.js',
+  'api/accent.test.js',
 ];
 
 if (!process.env.TEST_DATABASE_URL) {

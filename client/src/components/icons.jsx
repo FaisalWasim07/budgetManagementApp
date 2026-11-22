@@ -325,14 +325,18 @@ export const Mark = ({ size = 26 }) => (
     aria-hidden="true"
   >
     <defs>
+      {/* The stops follow the person's accent. They are set through `style`
+          because a var() in the stop-color attribute is not CSS and is never
+          resolved; the mint values in index.css are the original artwork's,
+          so with no accent chosen this draws exactly what it always did. */}
       <linearGradient id="bayt-mint" x1="0" y1="0.1" x2="0.85" y2="1">
-        <stop offset="0" stopColor="#4FD3A0" />
-        <stop offset=".55" stopColor="#22B492" />
-        <stop offset="1" stopColor="#06998C" />
+        <stop offset="0" style={{ stopColor: 'var(--mark-1)' }} />
+        <stop offset=".55" style={{ stopColor: 'var(--mark-2)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--mark-3)' }} />
       </linearGradient>
       <linearGradient id="bayt-teal" x1="0.1" y1="0" x2="0.5" y2="1">
-        <stop offset="0" stopColor="#3E9089" />
-        <stop offset="1" stopColor="#0E5C67" />
+        <stop offset="0" style={{ stopColor: 'var(--mark-4)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--mark-5)' }} />
       </linearGradient>
     </defs>
     <path d="M195.5 366 H63.5 V176.5 L207 64" stroke="url(#bayt-mint)" {...RIBBON} />

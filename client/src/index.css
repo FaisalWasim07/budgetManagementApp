@@ -1,146 +1,230 @@
 /* ── Tokens ────────────────────────────────────────────────────────
-   The Bayt palette: navy ink on a cool off-white, one mint→teal gradient
-   reserved for the primary action, the brand mark and the balance card.
-   The brief's own words — "quiet confidence, generous whitespace,
+   Navy ink on a cool off-white, and one accent: the primary action, the
+   brand mark and the balance card. "Quiet confidence, generous whitespace,
    rounded geometry, restrained use of the gradient" — which mostly means
-   knowing where *not* to put it.
+   knowing where *not* to put the accent.
 
-   Chart colours are separate from brand colours and were run through the
-   colour-blindness validator rather than chosen by eye. Deep teal and
-   amber separate at ΔE 12.5 for the commonest deficiency against a floor
-   of 8, and 24.3 for normal vision; the same two values clear the
-   lightness, chroma and contrast checks against both the white surface
-   and the dark navy one, which is why the charts need one palette
-   instead of two. */
+   The accent is chosen per person (Settings → Account → Colour) and lives on
+   their account, so two people in one household can each see their own. A
+   colour is five values below and nothing else: the gradient's light end, the
+   accent and its deep shade for a light screen, and the two for a dark one.
+   Every neutral — paper, surfaces, hairlines, ink — is the accent mixed into a
+   grey, so the greys lean towards whichever colour is on rather than sitting
+   under it untouched. Mint is the default and the brand; with no choice made,
+   nothing below changes from it.
+
+   What does *not* follow the accent: the four meanings (spent, recurring,
+   moved, left) and the chart series. Those were run through the
+   colour-blindness validator rather than chosen by eye — deep teal and amber
+   separate at ΔE 12.5 for the commonest deficiency against a floor of 8 — and
+   they carry information, so changing them with taste would change what a
+   chart says. The accents that sit nearest one of them (Ocean and Indigo by
+   "moved", Clay by "recurring") are allowed anyway: the bar labels its own
+   segments, and the person chose it. */
+
+/* The accents. Kept in this order to match ACCENTS in utils/accent.js and on
+   the server, which is the list a saved name is checked against. */
+:root,
+:root[data-accent='mint'] {
+  --acc-hi: #22c58e;
+  --acc-l: #14b8a6;
+  --acc-deep-l: #0d9488;
+  --acc-d: #22c58e;
+  --acc-deep-d: #14b8a6;
+  /* The mark's own five stops, exactly as drawn. Every other accent derives
+     them below; mint is the logo, so it keeps the original. */
+  --mark-1: #4fd3a0;
+  --mark-2: #22b492;
+  --mark-3: #06998c;
+  --mark-4: #3e9089;
+  --mark-5: #0e5c67;
+}
+:root[data-accent='ocean'] {
+  --acc-hi: #38bdf8;
+  --acc-l: #0284c7;
+  --acc-deep-l: #0369a1;
+  --acc-d: #38bdf8;
+  --acc-deep-d: #0ea5e9;
+}
+:root[data-accent='indigo'] {
+  --acc-hi: #818cf8;
+  --acc-l: #4f46e5;
+  --acc-deep-l: #4338ca;
+  --acc-d: #818cf8;
+  --acc-deep-d: #6366f1;
+}
+:root[data-accent='plum'] {
+  --acc-hi: #c084fc;
+  --acc-l: #9333ea;
+  --acc-deep-l: #7e22ce;
+  --acc-d: #c084fc;
+  --acc-deep-d: #a855f7;
+}
+:root[data-accent='clay'] {
+  --acc-hi: #fb923c;
+  --acc-l: #c2410c;
+  --acc-deep-l: #9a3412;
+  --acc-d: #fb923c;
+  --acc-deep-d: #f97316;
+}
+:root[data-accent='moss'] {
+  --acc-hi: #84cc16;
+  --acc-l: #4d7c0f;
+  --acc-deep-l: #3f6212;
+  --acc-d: #a3e635;
+  --acc-deep-d: #84cc16;
+}
+:root[data-accent='graphite'] {
+  --acc-hi: #94a3b8;
+  --acc-l: #475569;
+  --acc-deep-l: #334155;
+  --acc-d: #cbd5e1;
+  --acc-deep-d: #94a3b8;
+}
+:root:not([data-accent='mint'])[data-accent] {
+  --mark-1: color-mix(in srgb, var(--acc-hi) 78%, #ffffff);
+  --mark-2: var(--acc-l);
+  --mark-3: var(--acc-deep-l);
+  --mark-4: color-mix(in srgb, var(--acc-deep-l) 72%, #64748b);
+  --mark-5: color-mix(in srgb, var(--acc-deep-l) 62%, #0f172a);
+}
+
 :root {
   color-scheme: light;
-  --paper: #f6f9f9;
-  --surface: #ffffff;
-  --surface-2: #eff4f4;
-  --line: #e5e7eb;
-  --line-soft: #f0f3f4;
-  --ink: #0f172a;
-  --ink-2: #475569;
-  --ink-3: #94a3b8;
+  --acc: var(--acc-l);
 
-  --brand: #14b8a6;
-  --brand-deep: #0d9488;
-  --brand-mint: #22c58e;
-  --brand-aqua: #6ee7d2;
-  --gradient: linear-gradient(135deg, #22c58e 0%, #14b8a6 55%, #0d9488 100%);
-  /* A single soft brand light behind the balance card, and nowhere else. */
+  --paper: color-mix(in srgb, var(--acc) 7%, #f3f6f8);
+  --surface: color-mix(in srgb, var(--acc) 2%, #ffffff);
+  --surface-2: color-mix(in srgb, var(--acc) 7%, #f2f5f7);
+  --line: color-mix(in srgb, var(--acc) 13%, #e2e8ec);
+  --line-soft: color-mix(in srgb, var(--acc) 7%, #edf1f4);
+  --ink: color-mix(in srgb, var(--acc) 10%, #101723);
+  --ink-2: color-mix(in srgb, var(--acc) 14%, #4b5768);
+  --ink-3: color-mix(in srgb, var(--acc) 16%, #8d9aab);
+
+  --brand: var(--acc-l);
+  --brand-deep: var(--acc-deep-l);
+  --brand-mint: var(--acc-hi);
+  --brand-aqua: color-mix(in srgb, var(--acc-hi) 60%, #ffffff);
+  --gradient: linear-gradient(135deg, var(--acc-hi) 0%, var(--acc-l) 55%, var(--acc-deep-l) 100%);
+  /* A single soft light behind the balance card, and nowhere else. */
   --glow: radial-gradient(
     120% 140% at 88% 0%,
-    rgba(34, 197, 142, 0.14) 0%,
-    rgba(34, 197, 142, 0) 60%
+    color-mix(in srgb, var(--acc-hi) 14%, transparent) 0%,
+    transparent 60%
   );
   --tint: color-mix(in srgb, var(--brand) 14%, transparent);
 
-  --action: #0d9488;
+  --action: var(--acc-deep-l);
   --action-in: #ffffff;
   --pos: #0f766e;
   --neg: #be123c;
   --warn: #b45309;
   --moved: #2563eb;
 
-  /* Chart series. Same values in both themes — they were picked to pass
-     against either surface. */
+  /* Chart series. Same values in both themes and every accent — they were
+     picked to pass against either surface. */
   --series-in: #0d9488;
   --series-out: #d97706;
   --series-3: #2563eb;
   --series-4: #be123c;
-  --grid: #e9efef;
+  --grid: color-mix(in srgb, var(--acc) 8%, #e9eef1);
 
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 22px rgba(15, 23, 42, 0.05);
+  /* Lighter than they were, because cards now sit inside a raised page rather
+     than on the bare canvas, and a full shadow on top of the page's own read
+     as a stack of paper. */
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.045);
   --shadow-lift: 0 2px 8px rgba(15, 23, 42, 0.08), 0 20px 44px rgba(15, 23, 42, 0.1);
-  --shadow-brand: 0 2px 10px rgba(20, 184, 166, 0.28);
+  --shadow-pane: 0 1px 2px rgba(15, 23, 42, 0.05), 0 16px 44px rgba(15, 23, 42, 0.08);
+  --shadow-brand: 0 2px 10px color-mix(in srgb, var(--brand) 28%, transparent);
+
+  /* ── Shape ────────────────────────────────────────────────────────
+     The inset shell: the page is a rounded surface held --inset clear of
+     every edge of the window, with the sidebar sitting on the canvas beside
+     it. Three radii and a pill, growing with the size of the thing — the page
+     reads as a sheet and the rows inside it stay crisp. */
+  --r-pane: 30px;
+  --r-card: 20px;
+  --r-row: 14px;
+  --r-pill: 999px;
+  --inset: 9px;
+  --pad-pane: 18px;
 }
 
-/* Dark is chosen, not inverted: the handoff's own canvas, surface and
-   raised-surface values, with the brand going brighter because a deep
-   teal disappears against navy. */
+/* Dark is chosen, not inverted: a deep canvas, the page a step lighter, and
+   the accent going brighter, because a deep shade disappears against navy. */
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --paper: #07131f;
-    --surface: #0f1c2e;
-    --surface-2: #182839;
-    --line: #203047;
-    --line-soft: #1a2939;
-    --ink: #f8fafc;
-    --ink-2: #9fb0c3;
-    --ink-3: #64798f;
+    --acc: var(--acc-d);
 
-    --brand: #22c58e;
-    --brand-deep: #14b8a6;
-    --brand-mint: #22c58e;
-    --brand-aqua: #6ee7d2;
-    --gradient: linear-gradient(135deg, #22c58e 0%, #14b8a6 60%, #0d9488 100%);
+    --paper: color-mix(in srgb, var(--acc) 6%, #060c13);
+    --surface: color-mix(in srgb, var(--acc) 7%, #111a26);
+    --surface-2: color-mix(in srgb, var(--acc) 10%, #1a2433);
+    --line: color-mix(in srgb, var(--acc) 12%, #233040);
+    --line-soft: color-mix(in srgb, var(--acc) 9%, #1b2634);
+    --ink: color-mix(in srgb, var(--acc) 6%, #f6f9fb);
+    --ink-2: color-mix(in srgb, var(--acc) 16%, #9bacbf);
+    --ink-3: color-mix(in srgb, var(--acc) 18%, #64768a);
+
+    --brand: var(--acc-d);
+    --brand-deep: var(--acc-deep-d);
+    --tint: color-mix(in srgb, var(--brand) 16%, transparent);
     --glow: radial-gradient(
       120% 140% at 88% 0%,
-      rgba(34, 197, 142, 0.16) 0%,
-      rgba(34, 197, 142, 0) 60%
+      color-mix(in srgb, var(--acc-hi) 16%, transparent) 0%,
+      transparent 60%
     );
-    --tint: color-mix(in srgb, var(--brand) 16%, transparent);
 
-    --action: #22c58e;
-    --action-in: #06251c;
+    --action: var(--acc-d);
+    --action-in: color-mix(in srgb, var(--acc-d) 18%, #03080c);
     --pos: #34d399;
     --neg: #fb7185;
     --warn: #fbbf24;
     --moved: #7da6ff;
+    --grid: color-mix(in srgb, var(--acc) 9%, #1d2a3a);
 
-    --series-in: #0d9488;
-    --series-out: #d97706;
-    --series-3: #2563eb;
-    --series-4: #be123c;
-    --grid: #1e2c3e;
-
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 26px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 22px rgba(0, 0, 0, 0.3);
     --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.6), 0 22px 48px rgba(0, 0, 0, 0.5);
-    --shadow-brand: 0 4px 14px rgba(34, 197, 142, 0.32);
+    --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.6), 0 24px 56px rgba(0, 0, 0, 0.5);
+    --shadow-brand: 0 4px 14px color-mix(in srgb, var(--brand) 32%, transparent);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --paper: #07131f;
-  --surface: #0f1c2e;
-  --surface-2: #182839;
-  --line: #203047;
-  --line-soft: #1a2939;
-  --ink: #f8fafc;
-  --ink-2: #9fb0c3;
-  --ink-3: #64798f;
+  --acc: var(--acc-d);
 
-  --brand: #22c58e;
-  --brand-deep: #14b8a6;
-  --brand-mint: #22c58e;
-  --brand-aqua: #6ee7d2;
-  --gradient: linear-gradient(135deg, #22c58e 0%, #14b8a6 60%, #0d9488 100%);
+  --paper: color-mix(in srgb, var(--acc) 6%, #060c13);
+  --surface: color-mix(in srgb, var(--acc) 7%, #111a26);
+  --surface-2: color-mix(in srgb, var(--acc) 10%, #1a2433);
+  --line: color-mix(in srgb, var(--acc) 12%, #233040);
+  --line-soft: color-mix(in srgb, var(--acc) 9%, #1b2634);
+  --ink: color-mix(in srgb, var(--acc) 6%, #f6f9fb);
+  --ink-2: color-mix(in srgb, var(--acc) 16%, #9bacbf);
+  --ink-3: color-mix(in srgb, var(--acc) 18%, #64768a);
+
+  --brand: var(--acc-d);
+  --brand-deep: var(--acc-deep-d);
+  --tint: color-mix(in srgb, var(--brand) 16%, transparent);
   --glow: radial-gradient(
     120% 140% at 88% 0%,
-    rgba(34, 197, 142, 0.16) 0%,
-    rgba(34, 197, 142, 0) 60%
+    color-mix(in srgb, var(--acc-hi) 16%, transparent) 0%,
+    transparent 60%
   );
-  --tint: color-mix(in srgb, var(--brand) 16%, transparent);
 
-  --action: #22c58e;
-  --action-in: #06251c;
+  --action: var(--acc-d);
+  --action-in: color-mix(in srgb, var(--acc-d) 18%, #03080c);
   --pos: #34d399;
   --neg: #fb7185;
   --warn: #fbbf24;
   --moved: #7da6ff;
+  --grid: color-mix(in srgb, var(--acc) 9%, #1d2a3a);
 
-  --series-in: #0d9488;
-  --series-out: #d97706;
-  --series-3: #2563eb;
-  --series-4: #be123c;
-  --grid: #1e2c3e;
-
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 26px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 22px rgba(0, 0, 0, 0.3);
   --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.6), 0 22px 48px rgba(0, 0, 0, 0.5);
-  --shadow-brand: 0 4px 14px rgba(34, 197, 142, 0.32);
+  --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.6), 0 24px 56px rgba(0, 0, 0, 0.5);
+  --shadow-brand: 0 4px 14px color-mix(in srgb, var(--brand) 32%, transparent);
 }
 
 /* ── bklit chart theming ─────────────────────────────────────────────
@@ -257,14 +341,27 @@ main.stack {
 
 /* Navigation gets a column of its own at a desk. On a phone the sidebar is
    gone and this collapses to the single column it has always been. */
+/* The inset shell. The window is canvas; the sidebar sits straight on it, and
+   the page is one rounded surface held --inset clear of all four edges. It is
+   the only raised thing on screen, which is what lets the cards inside it drop
+   most of their shadow and still read as separate. */
 .shell {
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
   align-items: start;
+  padding: var(--inset);
 }
 .pane {
   min-width: 0;
-  padding: 0 26px;
+  /* Down to the bottom of the window even on a short page, so the sheet's
+     lower edge is the window's inset and not wherever the content stopped. */
+  min-height: calc(100vh - 2 * var(--inset));
+  min-height: calc(100dvh - 2 * var(--inset));
+  padding: 0 calc(var(--pad-pane) + 4px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pane);
+  box-shadow: var(--shadow-pane);
 }
 .pane .topbar {
   position: static;
@@ -275,37 +372,42 @@ main.stack {
   border-bottom: 0;
 }
 .pane .topbar-inner {
-  padding: 18px 0 4px;
+  padding: var(--pad-pane) 0 4px;
   gap: 9px;
 }
 
+/* On the canvas, not on a surface of its own: in the inset shell the page is
+   the object and the navigation is what it sits beside. Sticky inside the
+   inset, so it neither touches the window's edge nor scrolls away. */
 .sidebar {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: var(--inset);
+  height: calc(100vh - 2 * var(--inset));
+  height: calc(100dvh - 2 * var(--inset));
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px 12px 14px;
-  background: var(--surface);
-  border-right: 1px solid var(--line);
+  padding: 10px 12px 8px 4px;
+  background: none;
 }
 .sidebar .brand {
   padding: 4px 8px 14px;
 }
 .sidebar .household-trigger {
   max-width: none;
-  margin: 0 2px 13px;
-  padding: 7px 9px;
+  margin: 0 0 13px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--surface-2);
+  border-radius: var(--r-row);
+  background: var(--surface);
+  box-shadow: var(--shadow);
   font-size: 0.84rem;
   gap: 8px;
 }
 .sidebar .household-trigger:hover {
-  background: var(--line-soft);
+  background: var(--surface);
+  border-color: var(--ink-3);
 }
 .sidebar .household-trigger .household-name {
   flex: 1;
@@ -340,17 +442,21 @@ main.stack {
   font-size: 0.9rem;
   font-weight: 550;
   color: var(--ink-2);
-  padding: 9px 11px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-row);
   cursor: pointer;
 }
+/* These sit on the canvas now, where --surface-2 is nearly the canvas itself,
+   so hover is half a step towards the page and the current page is the page:
+   a raised white pill in the accent, the same object as the sheet beside it. */
 .side-nav button:hover {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
   color: var(--ink);
 }
 .side-nav button.active {
-  background: var(--surface-2);
-  color: var(--ink);
+  background: var(--surface);
+  color: var(--brand-deep);
+  box-shadow: var(--shadow);
 }
 .side-nav svg {
   flex: none;
@@ -359,9 +465,9 @@ main.stack {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 2px;
-  padding: 8px 9px;
-  border-radius: 11px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-row);
   font-size: 0.84rem;
 }
 .side-you .avatar {
@@ -426,7 +532,7 @@ main.stack {
   height: 38px;
   padding: 0 11px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
@@ -536,7 +642,7 @@ h3 {
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 18px 20px;
   box-shadow: var(--shadow);
 }
@@ -592,7 +698,7 @@ h3 {
   font-weight: 600;
   padding: 6px 8px;
   margin-left: -8px;
-  border-radius: 9px;
+  border-radius: 10px;
   cursor: pointer;
   max-width: 260px;
 }
@@ -614,7 +720,7 @@ h3 {
   gap: 3px;
   background: var(--surface-2);
   padding: 3px;
-  border-radius: 11px;
+  border-radius: var(--r-pill);
 }
 .nav button {
   border: 0;
@@ -624,7 +730,7 @@ h3 {
   font-weight: 550;
   color: var(--ink-2);
   padding: 7px 15px;
-  border-radius: 8px;
+  border-radius: var(--r-pill);
   cursor: pointer;
 }
 .nav button.active {
@@ -643,7 +749,7 @@ h3 {
   border: 1px solid transparent;
   background: none;
   color: var(--ink-2);
-  border-radius: 10px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   padding: 0;
 }
@@ -659,7 +765,7 @@ h3 {
 .icon-button.small {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 .icon-button.danger {
   color: var(--neg);
@@ -681,7 +787,7 @@ h3 {
   font-weight: 600;
   color: var(--ink);
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -729,7 +835,7 @@ h3 {
 .month-grid button {
   padding: 13px 4px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   background: var(--surface);
   font-size: 0.88rem;
   font-weight: 550;
@@ -778,7 +884,7 @@ h3 {
   box-shadow: var(--shadow-lift);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-card);
 }
 .menu.right {
   left: auto;
@@ -798,7 +904,7 @@ h3 {
   border: 0;
   background: transparent;
   padding: 9px 11px;
-  border-radius: 9px;
+  border-radius: 10px;
   font: inherit;
   color: var(--ink);
   cursor: pointer;
@@ -825,7 +931,7 @@ h3 {
   background: var(--surface);
   background-image: var(--glow);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--r-card);
   padding: 22px 24px;
   box-shadow: var(--shadow);
 }
@@ -900,7 +1006,7 @@ h3 {
   gap: 2px;
   background: var(--surface-2);
   padding: 3px;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 .quick .seg-mini button {
   border: 0;
@@ -968,14 +1074,14 @@ h3 {
 
 .bar {
   height: 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   margin-top: 15px;
   background: var(--surface-2);
   overflow: hidden;
 }
 .bar .track {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.9s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
 
@@ -1080,7 +1186,7 @@ h3 {
 .person {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -1268,7 +1374,7 @@ h3 {
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface-2);
   color: var(--ink-2);
 }
@@ -1435,7 +1541,7 @@ h3 {
 .txn-list {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -1515,7 +1621,7 @@ h3 {
   height: 34px;
   padding: 0 11px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink-3);
 }
@@ -1617,7 +1723,7 @@ h3 {
 .account-hero .label .tile {
   width: 30px;
   height: 30px;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 .account-figures {
   display: grid;
@@ -1702,7 +1808,7 @@ h3 {
 .ledger-table .txn .what .tile {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 /* The running balance is context, not the figure you came for. */
 .ledger-table .txn .amt.running {
@@ -1784,7 +1890,7 @@ h3 {
 .txn-table .txn .what .tile {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 .txn-table .txn .col {
   color: var(--ink-2);
@@ -1867,14 +1973,14 @@ h3 {
 .strip i {
   width: 100%;
   height: 64px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-2);
   display: flex;
   align-items: flex-end;
 }
 .strip i b {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--brand) 50%, transparent);
   transition: height 0.7s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
@@ -1893,7 +1999,7 @@ h3 {
   bottom: calc(100% + 6px);
   transform: translateX(-50%);
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   white-space: nowrap;
   background: var(--ink);
   color: var(--paper);
@@ -1952,7 +2058,7 @@ h3 {
   font: inherit;
   font-size: 0.8rem;
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-2);
@@ -2054,7 +2160,7 @@ h3 {
   font-size: 0.8rem;
   color: var(--ink-2);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface);
 }
 .split-total.over .of-basis {
@@ -2101,7 +2207,7 @@ h3 {
   gap: 8px;
   flex-wrap: wrap;
   padding: 11px 13px;
-  border-radius: 12px;
+  border-radius: var(--r-row);
   background: var(--surface-2);
   font-size: 0.88rem;
 }
@@ -2175,7 +2281,7 @@ input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='file'
 select,
 textarea {
   padding: 8px 11px;
-  border-radius: 12px;
+  border-radius: var(--r-row);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
@@ -2208,7 +2314,7 @@ input::placeholder {
 
 button {
   padding: 8px 13px;
-  border-radius: 12px;
+  border-radius: var(--r-row);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
@@ -2218,7 +2324,10 @@ button {
 button:hover:not(:disabled) {
   border-color: var(--ink-3);
 }
+/* Actions are pills. A primary button is the one thing on a screen that should
+   look like it can be pressed; a capsule says so before the colour does. */
 button.primary {
+  border-radius: var(--r-pill);
   background: var(--gradient);
   color: var(--action-in);
   border-color: transparent;
@@ -2229,6 +2338,7 @@ button.primary:hover:not(:disabled) {
   filter: brightness(1.06) saturate(1.05);
 }
 button.subtle {
+  border-radius: var(--r-pill);
   background: transparent;
   border-color: transparent;
   color: var(--ink-2);
@@ -2246,6 +2356,7 @@ button:disabled {
   cursor: default;
 }
 button.tiny {
+  border-radius: var(--r-pill);
   font-size: 0.8rem;
   padding: 5px 10px;
 }
@@ -2309,7 +2420,7 @@ th.num {
 
 .modal {
   background: var(--surface);
-  border-radius: 20px;
+  border-radius: var(--r-card);
   border: 1px solid var(--line);
   padding: 20px;
   width: 100%;
@@ -2436,7 +2547,7 @@ th.num {
   width: 100%;
   padding: 9px 11px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 12px;
   background: none;
   font: inherit;
   font-size: 0.86rem;
@@ -2533,7 +2644,7 @@ th.num {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--ink-3);
   background: var(--surface-2);
   justify-self: end;
@@ -2559,7 +2670,7 @@ th.num {
   gap: 2px;
   padding: 11px 13px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-tile small {
   font-size: 0.68rem;
@@ -2591,7 +2702,7 @@ th.num {
   gap: 5px;
   padding: 13px 15px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
   background: var(--surface-2);
   font-size: 0.8rem;
   color: var(--ink-2);
@@ -2619,7 +2730,7 @@ th.num {
   gap: 3px;
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-callout small {
   font-size: 0.68rem;
@@ -2651,7 +2762,7 @@ th.num {
   min-width: 170px;
   padding: 8px 11px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface);
   color: inherit;
   font: inherit;
@@ -2665,7 +2776,7 @@ th.num {
 .scan-chip {
   padding: 6px 11px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: none;
   font: inherit;
   font-size: 0.76rem;
@@ -2827,7 +2938,7 @@ th.num {
   gap: 6px;
   padding: 34px 20px;
   border: 1.5px dashed var(--line-strong, var(--line));
-  border-radius: 16px;
+  border-radius: var(--r-card);
   background: var(--surface-2);
   text-align: center;
   cursor: pointer;
@@ -2852,7 +2963,7 @@ th.num {
   margin-top: 8px;
   padding: 8px 15px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   font-size: 0.85rem;
@@ -2889,7 +3000,7 @@ th.num {
   gap: 10px;
   padding: 11px 13px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-file-what {
   display: flex;
@@ -2916,7 +3027,7 @@ th.num {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--ink-2);
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -2932,7 +3043,7 @@ th.num {
   gap: 8px;
   padding: 13px 15px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-pages-head {
   display: flex;
@@ -2957,7 +3068,7 @@ th.num {
   gap: 1px;
   padding: 7px 11px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface-2);
   font: inherit;
   color: var(--ink-3);
@@ -3001,7 +3112,7 @@ th.num {
   gap: 8px;
   padding: 13px 15px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-hidden-head {
   display: flex;
@@ -3054,7 +3165,7 @@ th.num {
   gap: 6px;
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--r-row);
 }
 .scan-choice-what {
   font-size: 0.68rem;
@@ -3157,7 +3268,7 @@ th.num {
   overflow: auto;
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.74rem;
@@ -3180,7 +3291,7 @@ th.num {
   width: 100%;
   height: auto;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fff;
 }
 .scan-page figcaption {
@@ -3211,7 +3322,7 @@ th.num {
   gap: 9px;
   flex-wrap: wrap;
   padding: 15px 17px;
-  border-radius: 15px;
+  border-radius: var(--r-card);
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -3380,7 +3491,7 @@ th.num {
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line));
   background: color-mix(in srgb, var(--warn) 8%, var(--surface));
-  border-radius: 12px;
+  border-radius: var(--r-row);
   font-size: 0.82rem;
   line-height: 1.5;
   color: var(--ink-2);
@@ -3826,7 +3937,7 @@ th.num {
     background: var(--surface-2);
     padding-left: 9px;
     padding-right: 9px;
-    border-radius: 10px;
+    border-radius: 12px;
   }
   /* A row that matched nothing is one cell, not a card. */
   .scan-rows tbody tr:has(td[colspan]) {
@@ -3867,7 +3978,7 @@ th.num {
   gap: 3px;
   background: var(--surface-2);
   padding: 3px;
-  border-radius: 12px;
+  border-radius: var(--r-row);
 }
 .modal-tabs button {
   flex: 1;
@@ -3878,7 +3989,7 @@ th.num {
   font-weight: 550;
   color: var(--ink-2);
   padding: 7px 10px;
-  border-radius: 9px;
+  border-radius: 10px;
   cursor: pointer;
 }
 .modal-tabs button.active {
@@ -3892,7 +4003,7 @@ th.num {
    right instead of everything sharing one wrapping flex row. */
 .list {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-row);
   overflow: hidden;
 }
 .list-row {
@@ -3934,7 +4045,7 @@ th.num {
   padding: 5px 7px;
   font-size: 0.8rem;
   width: auto;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 
 /* A panel that belongs to the row above it — a form that opened, a warning
@@ -3975,7 +4086,7 @@ th.num {
   background: var(--surface);
   border: 1px solid var(--line);
   border-bottom: 0;
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
   box-shadow: var(--shadow-lift);
   padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
   max-height: 92vh;
@@ -3988,7 +4099,7 @@ th.num {
 .grabber {
   width: 38px;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--line);
   margin: 6px auto 14px;
 }
@@ -3999,7 +4110,7 @@ th.num {
   gap: 4px;
   background: var(--surface-2);
   padding: 4px;
-  border-radius: 12px;
+  border-radius: var(--r-row);
   margin-bottom: 16px;
 }
 .seg.two {
@@ -4012,7 +4123,7 @@ th.num {
   font-size: 0.88rem;
   font-weight: 550;
   padding: 10px 4px;
-  border-radius: 9px;
+  border-radius: 10px;
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -4079,7 +4190,7 @@ th.num {
   font: inherit;
   font-size: 0.85rem;
   padding: 8px 13px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-2);
@@ -4110,7 +4221,7 @@ th.num {
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-card);
   padding: 14px 16px 0;
   box-shadow: var(--shadow);
   display: flex;
@@ -4164,7 +4275,7 @@ th.num {
   font-weight: 620;
   line-height: 1;
   padding: 3px 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -4212,7 +4323,7 @@ th.num {
 .chart {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 18px 20px;
   box-shadow: var(--shadow);
   min-width: 0;
@@ -4371,13 +4482,13 @@ th.num {
   grid-column: 1 / -1;
   height: 7px;
   background: var(--surface-2);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .hbar .t span {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--series-in);
   transition: width 0.8s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
@@ -4398,7 +4509,7 @@ th.num {
 
 .passkey-rows {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-row);
   overflow: hidden;
 }
 .passkey-row {
@@ -4559,7 +4670,7 @@ th.num {
   background: color-mix(in srgb, var(--warn) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--line));
   color: var(--ink);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   padding: 11px 15px;
   font-size: 0.87rem;
 }
@@ -4738,7 +4849,7 @@ th.num {
   width: 34px;
   height: 34px;
   flex: none;
-  border-radius: 11px;
+  border-radius: 12px;
 }
 .sk-lines {
   display: flex;
@@ -4784,7 +4895,7 @@ th.num {
 }
 .confirm-detail {
   background: var(--surface-2);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   padding: 12px 14px;
   font-size: 0.88rem;
   color: var(--ink-2);
@@ -4844,7 +4955,7 @@ hr.rule {
   flex-direction: column;
   gap: 3px;
   background: var(--surface-2);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   padding: 11px 13px;
 }
 .preview-card b {
@@ -4898,7 +5009,7 @@ hr.rule {
   background: color-mix(in srgb, var(--toast-hue) 10%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--toast-hue) 42%, transparent);
   color: var(--ink);
-  border-radius: 14px;
+  border-radius: var(--r-row);
   padding: 14px 14px 14px 16px;
   box-shadow: var(--shadow-lift);
   animation: toast-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -4989,7 +5100,7 @@ hr.rule {
   color: var(--ink);
   font-weight: 600;
   padding: 6px 13px;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 0.83rem;
 }
 .toast-undo:hover:not(:disabled) {
@@ -5004,7 +5115,7 @@ hr.rule {
   border-color: transparent;
   color: var(--ink-3);
   padding: 5px;
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
 }
@@ -5082,7 +5193,7 @@ hr.rule {
   flex-wrap: wrap;
   background: color-mix(in srgb, var(--brand) 8%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--brand) 26%, var(--line));
-  border-radius: 14px;
+  border-radius: var(--r-row);
   padding: 14px 16px;
 }
 .passkey-nudge .nudge-text {
@@ -5263,14 +5374,23 @@ hr.rule {
   main.stack {
     padding-bottom: 110px;
   }
+  /* No room for a sheet inside a canvas at this width — the inset would cost
+     the content two gutters of nothing. The inset moves to the tab bar
+     instead, which floats clear of both sides and the bottom. */
   .shell {
     grid-template-columns: minmax(0, 1fr);
+    padding: 0;
   }
   .sidebar {
     display: none;
   }
   .pane {
     padding: 0;
+    min-height: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
   .pane .topbar {
     position: sticky;
@@ -5433,18 +5553,21 @@ hr.rule {
        both of those were spelling out the long way. */
     grid-auto-flow: column;
     grid-auto-columns: 1fr;
+    /* Floating, held --inset clear of the sides and the bottom: the phone's
+       version of the inset sheet. The home indicator is cleared by the offset
+       rather than by padding inside the bar, so the bar itself stays one even
+       capsule on every phone. */
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: var(--inset);
+    right: var(--inset);
+    bottom: calc(var(--inset) + env(safe-area-inset-bottom));
     z-index: 40;
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid var(--line);
-    /* Lifted off the very bottom edge: on a phone with a home indicator the
-       icons sat right on top of it, and a thumb reaching the last few pixels
-       of a screen is reaching past the comfortable arc. */
-    padding: 9px 6px calc(14px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pane);
+    box-shadow: var(--shadow-lift);
+    padding: 7px 6px;
     align-items: center;
   }
   .tabbar button {
@@ -5462,14 +5585,14 @@ hr.rule {
     font-weight: 550;
   }
   .tabbar button.active {
-    color: var(--ink);
+    color: var(--brand-deep);
   }
   .tabbar .add {
     background: var(--action);
     color: var(--action-in);
     width: 46px;
     height: 46px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     justify-self: center;
     align-items: center;
     justify-content: center;
@@ -5551,7 +5674,7 @@ hr.rule {
   padding: 3px 6px 3px 0;
   margin: -3px 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: none;
   font: inherit;
   color: inherit;
@@ -5583,7 +5706,7 @@ hr.rule {
   left: 0;
   width: 3px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
 }
 .stmt-list li {
@@ -5712,7 +5835,7 @@ hr.rule {
 .stmt-caveat {
   border: 1px solid color-mix(in srgb, var(--warn, #B45309) 25%, transparent);
   background: color-mix(in srgb, var(--warn, #B45309) 7%, transparent);
-  border-radius: 12px;
+  border-radius: var(--r-row);
   padding: 11px 13px;
   font-size: 0.82rem;
   line-height: 1.5;
@@ -5788,7 +5911,7 @@ hr.rule {
   flex: 0 1 190px;
   height: 3px;
   min-width: 90px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: color-mix(in srgb, var(--ink-3) 18%, transparent);
 }
@@ -5796,7 +5919,7 @@ hr.rule {
   position: absolute;
   inset-block: 0;
   width: 38%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   animation: keeping-sweep 1.15s ease-in-out infinite;
 }
@@ -5870,7 +5993,7 @@ hr.rule {
 
 .set-section {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-row);
   background: var(--surface);
   overflow: hidden;
 }
@@ -5936,7 +6059,7 @@ hr.rule {
   display: inline-block;
   width: 26px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: currentColor;
   opacity: 0.22;
   animation: set-waiting 1.1s ease-in-out infinite;
@@ -5955,4 +6078,77 @@ hr.rule {
   .set-section-dots {
     animation: none;
   }
+}
+
+/* ── Colour (Settings → Account) ─────────────────────────────────── */
+/* The current colour on the closed row: a dot of the accent itself, because
+   the word "Plum" says less than plum does. */
+.accent-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.accent-state i {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--gradient);
+  flex: none;
+}
+.accent-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+.accent-swatch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--ink-2);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.accent-swatch:hover {
+  border-color: var(--ink-3);
+}
+/* The radio is still there for the keyboard and the screen reader; it just
+   is not what anyone looks at. */
+.accent-swatch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.accent-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.accent-swatch:has(input:checked) {
+  border-color: var(--brand);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.accent-swatch:has(input:checked) .accent-dot {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--brand);
+}
+.accent-swatch:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
