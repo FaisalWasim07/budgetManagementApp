@@ -62,6 +62,11 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
     // A rupee account, so an entry has to be converted to sit beside the rest.
     const rupees = await (await post('/api/accounts', { person_id: main.person_id, name: 'HBL', currency: 'PKR', type: 'current', opening_balance: 100000 })).json();
     await post('/api/transactions', { account_id: rupees.id, month: M, kind: 'expense', amount: 7600, category: 'Groceries', description: 'Bazaar' });
+    // A second person, so the opened row has more than one person to group by.
+    const noor = await (await post('/api/persons', { name: 'Noor' })).json();
+    const all = await (await fetch('/api/accounts', { headers: H })).json();
+    const noorAccount = all.find((a) => a.person_id === noor.id);
+    await post('/api/transactions', { account_id: noorAccount.id, month: M, kind: 'expense', amount: 450, category: 'Groceries', description: 'Big shop' });
   }, month);
   // Today's PKR rate, written where the server caches it, so the conversion
   // is a known figure rather than whatever the market says this morning.
@@ -148,7 +153,14 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   await page.waitForTimeout(250);
   const inside = await page.locator('.flow-entries .entry-what b').allTextContents();
   check('a category opens to the entries in it, by their description',
-    inside.join(' | ') === 'Weekly shop | Bazaar', inside.join(' | '));
+    inside.join(' | ') === 'Big shop | Weekly shop | Bazaar', inside.join(' | '));
+  // Grouped under who spent them, the bigger share first: Noor's 450 against
+  // Faisal's 300 + 98.80.
+  const who = await page.locator('.flow-entries .entry-who-name').allTextContents();
+  const shares = await page.locator('.flow-entries .entry-who-total').allTextContents();
+  check('the entries are grouped by person, the bigger share first', who.join(',') === 'Noor,Faisal', who.join(','));
+  check('each person carrying their share of the row',
+    /AED\s450(\.00)?$/.test(shares[0] ?? '') && /398\.80/.test(shares[1] ?? ''), shares.join(' | '));
   // PKR 7,600 at 0.013 is AED 98.80: shown in the household's currency, with
   // the rupees underneath, and ranked by that rather than by the bigger number.
   const bazaar = page.locator('.flow-entries li', { hasText: 'Bazaar' });

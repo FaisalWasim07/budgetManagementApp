@@ -6530,25 +6530,59 @@ hr.rule {
   color: var(--brand-deep);
   font-weight: 560;
 }
-/* The entries hang under their row as a thread off it: indented, smaller, on
-   the card's own ground with a thin rule in the row's colour, so they read as
-   the inside of that row rather than as a box of more categories. */
+/* The entries open under their row grouped by person: a small avatar, the
+   name and that person's share, then their entries indented under it. On the
+   card's own ground, smaller and muted, so they read as the inside of the row
+   rather than as more categories. */
 .flow-rows > li.is-open {
-  row-gap: 4px;
+  row-gap: 6px;
 }
 .flow-entries {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.flow-entries ul {
   list-style: none;
-  margin: 0 0 4px 2px;
-  padding: 0 0 0 12px;
-  border-left: 2px solid color-mix(in srgb, var(--entry-rule, var(--line)) 40%, transparent);
+  margin: 0;
+  padding: 0 0 0 28px;
+}
+.flow-entries.solo ul {
+  padding-left: 0;
+}
+.entry-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1px;
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+.entry-who .avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 0.64rem;
+}
+.entry-who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry-who-total {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
 }
 .flow-entries li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 0;
+  padding: 3px 0;
 }
 .entry-what,
 .entry-amt {
@@ -6567,7 +6601,7 @@ hr.rule {
 .entry-what b {
   font-size: 0.8rem;
   font-weight: 500;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .entry-amt {
   flex: none;
@@ -6575,8 +6609,8 @@ hr.rule {
 }
 .entry-amt b {
   font-size: 0.8rem;
-  font-weight: 560;
-  color: var(--ink-2);
+  font-weight: 580;
+  color: var(--ink);
 }
 .entry-what small,
 .entry-amt small {
