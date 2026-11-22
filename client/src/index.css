@@ -4228,22 +4228,30 @@ th.num {
   outline: none;
 }
 
-/* Under Save, plainly secondary: the same journey as before, without
-   masquerading as a third kind of entry. */
-.sheet .move-alt {
+/* Under Move: the full dialog for splitting one move across several
+   accounts. Quiet, because a move to one account is the usual case. */
+.sheet .move-split {
   width: 100%;
   margin-top: 8px;
-  padding: 11px;
+  padding: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  border: 0;
   background: transparent;
-  border-color: var(--line);
   color: var(--ink-2);
+  font-size: 0.86rem;
 }
-.sheet .move-alt:hover:not(:disabled) {
-  color: var(--ink);
+.sheet .move-split:hover {
+  color: var(--brand-deep);
+}
+.sheet .field .muted.over {
+  color: var(--neg);
+}
+.seg button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Bottom bar (phone) ──────────────────────────────────────────── */
@@ -6372,11 +6380,14 @@ hr.rule {
    the keyboard always, drawn for the eye only while the pointer is over the
    navigation — it is a control you want exactly when you are already reaching
    for the sidebar, and a stray circle on the page edge the rest of the time. */
+.sidebar .brand {
+  position: relative;
+}
 .side-toggle {
   position: absolute;
   z-index: 2;
-  top: 20px;
-  right: -13px;
+  top: 3px;
+  right: 0;
   width: 26px;
   height: 26px;
   padding: 0;
@@ -6405,14 +6416,30 @@ hr.rule {
 .side-toggle svg {
   transition: transform 0.22s ease;
 }
-/* Pointing the other way once folded: the same button opens it again. */
+/* Pointing the other way once folded: the same button opens it again. In the
+   rail it sits where the logo is, and the logo steps aside while it shows. */
 .nav-collapsed .side-toggle svg {
   transform: rotate(180deg);
+}
+.nav-collapsed .side-toggle {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.nav-collapsed .sidebar .brand > svg {
+  transition: opacity 0.15s ease;
+}
+.nav-collapsed .sidebar:hover .brand > svg,
+.nav-collapsed .sidebar:has(.side-toggle:focus-visible) .brand > svg {
+  opacity: 0;
 }
 /* A touch screen has no hover to reveal it with, so there it simply stays. */
 @media (hover: none) {
   .side-toggle {
     opacity: 1;
+  }
+  .nav-collapsed .sidebar .brand > svg {
+    opacity: 0;
   }
 }
 

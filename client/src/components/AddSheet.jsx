@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { createTransaction, listCategories } from '../api/transactions';
+import { createTransaction, createTransfer, listCategories } from '../api/transactions';
+import { convertBetween } from './TransferModal';
 import { useLive } from '../utils/live';
 import { Exchange } from './icons';
 import { useScrollLock } from '../utils/scrollLock';
 import { useToast } from '../utils/toast';
 import { useDisplay } from '../utils/display';
+
+// Money moved between two of your own accounts is the third choice at the top
+// rather than a button under Save. Under Save it came after the whole form,
+// and people filled the form in as "Received" into savings before ever seeing
+// it. A move to one account is done here; splitting across several, or by
+// share of a salary, is the full dialog, a tap away.
+const MOVE = 'transfer';
 
 // The phone half of entering money: thumb at the bottom of the screen, the
 // amount the biggest thing on it, and one tap to save. Also what "Add to this
@@ -29,6 +37,12 @@ export default function AddSheet({
   // typed into this sheet is in the list the next time it opens.
   const { data: used } = useLive('categories', listCategories);
   const [description, setDescription] = useState('');
+  // Moving: where it goes, and, between currencies, what arrives. The arriving
+  // figure follows today's rate until it is typed over, because the bank's
+  // number always wins over the app's guess.
+  const [toId, setToId] = useState('');
+  const [arriving, setArriving] = useState('');
+  const [ownArriving, setOwnArriving] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const { show } = useToast();
@@ -49,6 +63,8 @@ export default function AddSheet({
     setTyping(false);
     setDescription('');
     setError(null);
+    setArriving('');
+    setOwnArriving(false);
     setAccountId(String(defaultAccountId ?? accounts[0]?.id ?? ''));
     // Waited out rather than done immediately: focusing mid-slide makes some
     // browsers scroll to the element and fight the transition.
@@ -97,11 +113,23 @@ export default function AddSheet({
   const NEW = '__new';
   const choices = used?.[kind] ?? [];
 
+  const moving = kind === MOVE;
+  const others = accounts.filter((a) => a.id !== account?.id);
+  // Savings first as the place money goes, since that is where most moves go.
+  const defaultTo = (others.find((a) => a.type === 'savings') ?? others[0])?.id;
+  const to = others.find((a) => a.id === Number(toId)) ?? others.find((a) => a.id === defaultTo);
+  const crossCurrency = Boolean(moving && account && to && account.currency !== to.currency);
+  const estimate = crossCurrency ? convertBetween(Number(amount), account, to) : null;
+  const arrivingValue = crossCurrency ? (ownArriving ? arriving : estimate == null ? '' : String(estimate)) : '';
+  // Cards may go below zero: moving off one is borrowing, not an overdraft.
+  const overdrawn = moving && account && account.type !== 'credit' && Number(amount) > account.balance;
+
   // Switching between spent and received swaps the list, so a category picked
   // from one is not left selected against the other.
   const switchKind = (next) => {
     if (next === kind) return;
     setKind(next);
+    setError(null);
     if (!typing) setCategory('');
   };
 
@@ -125,6 +153,10 @@ export default function AddSheet({
     }
     if (!(value > 0)) {
       setError('Enter an amount greater than zero.');
+      return;
+    }
+    if (moving) {
+      await move(value);
       return;
     }
     setBusy(true);
@@ -158,6 +190,51 @@ export default function AddSheet({
     }
   }
 
+  async function move(value) {
+    if (!to) {
+      setError('Pick the account the money goes to.');
+      return;
+    }
+    if (overdrawn) {
+      setError(
+        `${account.name} has ${money(account.balance, account.currency)}. ` +
+          'Move less, or move money into it first.'
+      );
+      return;
+    }
+    if (crossCurrency && !(Number(arrivingValue) > 0)) {
+      setError(`Enter how much arrives in ${to.name}, in ${to.currency}.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await createTransfer({
+        from_account_id: account.id,
+        month,
+        description: description.trim() || null,
+        to: [
+          {
+            account_id: to.id,
+            amount: value,
+            ...(crossCurrency ? { to_amount: Number(arrivingValue) } : {}),
+          },
+        ],
+      });
+      onClose();
+      onSaved();
+      show('Money moved', {
+        tone: 'success',
+        body: [`${money(value, account.currency)} from ${account.name} to ${to.name}`, description.trim()]
+          .filter(Boolean)
+          .join(' · '),
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       {open && <div className="sheet-scrim" onClick={onClose} />}
@@ -172,9 +249,7 @@ export default function AddSheet({
       >
         <div className="grabber" />
 
-        {/* Two, not three. Moving money is a different form, and it lives
-            below the Save button rather than pretending to be a third mode. */}
-        <div className="seg two" role="group" aria-label="What happened">
+        <div className="seg" role="group" aria-label="What happened">
           <button
             className={kind === 'expense' ? 'active' : ''}
             aria-pressed={kind === 'expense'}
@@ -188,6 +263,15 @@ export default function AddSheet({
             onClick={() => switchKind('income')}
           >
             Received
+          </button>
+          <button
+            className={moving ? 'active' : ''}
+            aria-pressed={moving}
+            onClick={() => switchKind(MOVE)}
+            disabled={accounts.length < 2}
+            title={accounts.length < 2 ? 'Moving money needs a second account.' : undefined}
+          >
+            Moved
           </button>
         </div>
 
@@ -208,19 +292,78 @@ export default function AddSheet({
 
         <label className="field">
           <span className="label">{kind === 'income' ? 'Into' : 'From'}</span>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          <select
+            value={accountId}
+            onChange={(e) => {
+              setAccountId(e.target.value);
+              setOwnArriving(false);
+            }}
+          >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.personName} · {a.name} ({a.currency})
+                {moving ? ` — ${money(a.balance, a.currency, { compact: true })}` : ''}
               </option>
             ))}
           </select>
+          {moving && account && (
+            <span className={overdrawn ? 'muted over' : 'muted'}>
+              {account.type === 'credit'
+                ? 'Credit card: moving off it adds to what you owe.'
+                : overdrawn
+                  ? `More than the ${money(account.balance, account.currency)} it has`
+                  : `Available: ${money(account.balance, account.currency)}`}
+            </span>
+          )}
         </label>
+
+        {moving && (
+          <>
+            <label className="field" style={{ marginTop: 14 }}>
+              <span className="label">To</span>
+              <select
+                value={to?.id ?? ''}
+                onChange={(e) => {
+                  setToId(e.target.value);
+                  setOwnArriving(false);
+                }}
+                aria-label="To account"
+              >
+                {others.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.personName} · {a.name} ({a.currency})
+                  </option>
+                ))}
+              </select>
+            </label>
+            {crossCurrency && (
+              <label className="field" style={{ marginTop: 14 }}>
+                <span className="label">Arriving in {to.currency}</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={arrivingValue}
+                  onChange={(e) => {
+                    setArriving(e.target.value.replace(/[^\d.]/g, ''));
+                    setOwnArriving(true);
+                  }}
+                  aria-label={`Amount arriving in ${to.name}`}
+                />
+                <span className="muted">
+                  {estimate == null && !ownArriving
+                    ? `No ${account.currency}→${to.currency} rate, so enter what actually lands.`
+                    : 'At today’s rate. Change it to what your bank gave you.'}
+                </span>
+              </label>
+            )}
+          </>
+        )}
 
         {/* A dropdown, the same shape as the account above it, rather than a
             row of six chips and a box: the chips only ever held this month's
             top six, and anything older had to be typed again from memory.
             Typing a new one is the last choice in the list. */}
+        {!moving && (
         <label className="field" style={{ marginTop: 14 }}>
           <span className="label">Category</span>
           <select
@@ -237,7 +380,8 @@ export default function AddSheet({
             <option value={NEW}>New category…</option>
           </select>
         </label>
-        {typing && (
+        )}
+        {!moving && typing && (
           <div className="new-category">
             <input
               ref={newCategoryField}
@@ -272,7 +416,9 @@ export default function AddSheet({
           </span>
           <input
             type="text"
-            placeholder={kind === 'income' ? 'e.g. November invoice' : 'e.g. Weekly shop at Carrefour'}
+            placeholder={
+              moving ? 'e.g. November savings' : kind === 'income' ? 'e.g. November invoice' : 'e.g. Weekly shop at Carrefour'
+            }
             value={description}
             maxLength={200}
             onChange={(e) => setDescription(e.target.value)}
@@ -293,22 +439,28 @@ export default function AddSheet({
             <>
               <span className="spinner on-button" aria-hidden="true" /> Saving…
             </>
+          ) : moving ? (
+            'Move'
           ) : (
             'Save'
           )}
         </button>
 
-        <button
-          className="move-alt"
-          onClick={() => {
-            onClose();
-            onMove();
-          }}
-          disabled={accounts.length < 2}
-        >
-          <Exchange />
-          Move money
-        </button>
+        {/* One account at a time here. Several at once, or by share of a
+            salary, is the full dialog. */}
+        {moving && (
+          <button
+            type="button"
+            className="move-split"
+            onClick={() => {
+              onClose();
+              onMove();
+            }}
+          >
+            <Exchange />
+            Split across several accounts
+          </button>
+        )}
       </div>
     </>
   );

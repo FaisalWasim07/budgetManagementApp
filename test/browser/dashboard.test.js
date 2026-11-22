@@ -390,22 +390,24 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.click('.add-top');
   await page.waitForSelector('.sheet.open', { timeout: 8000 });
   check(
-    'the sheet offers two kinds of entry, not three',
-    (await page.locator('.sheet .seg button').count()) === 2,
+    'the sheet offers spent, received and moved, side by side at the top',
+    (await page.locator('.sheet .seg button').allTextContents()).join(',') === 'Spent,Received,Moved',
+    (await page.locator('.sheet .seg button').allTextContents()).join(','),
   );
   check(
-    'and moving money is its own button',
-    (await page.locator('.sheet button:has-text("Move money")').count()) === 1,
+    'and the old button under Save is gone',
+    (await page.locator('.sheet button:has-text("Move money")').count()) === 0,
   );
 
-  await page.click('.sheet button:has-text("Move money")');
-  await page.waitForSelector('.modal');
-  const selects = page.locator('.modal select');
-  await selects.nth(0).selectOption({ index: 0 });
-  await selects.nth(1).selectOption({ index: 1 });
-  await page.locator('.modal input[type="number"]').first().fill('500');
-  await page.click('.modal button:has-text("Transfer")');
+  await page.locator('.sheet .seg button', { hasText: 'Moved' }).click();
+  check('moving swaps the category for where the money goes',
+    (await page.locator('.sheet select[aria-label="Category"]').count()) === 0 &&
+      (await page.locator('.sheet select[aria-label="To account"]').count()) === 1);
+  check('the button says what it will do', (await page.locator('.sheet button.primary').textContent()).trim() === 'Move');
+  await page.locator('.sheet input[aria-label="Amount"]').fill('500');
+  await page.locator('.sheet button.primary').click();
   await page.waitForTimeout(1800);
+  check('a move to one account is done in the sheet', (await page.locator('.sheet.open').count()) === 0);
   await go('Activity');
   check(
     'a transfer records both sides',

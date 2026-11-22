@@ -32,24 +32,24 @@ export default function Sidebar({
 }) {
   return (
     <aside className="sidebar">
-      {/* Only drawn while the pointer is over the sidebar (or it has keyboard
-          focus): a control that matters only when you are already reaching
-          for the navigation, and clutter the rest of the time. On the seam
-          between the sidebar and the page, because that seam is what it moves. */}
-      <button
-        type="button"
-        className="side-toggle"
-        onClick={onToggleCollapsed}
-        aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-        aria-expanded={!collapsed}
-        title={collapsed ? 'Expand' : 'Collapse'}
-      >
-        <ChevronLeft size={14} />
-      </button>
-
+      {/* The fold button lives in the logo row, inside the sidebar, and only
+          shows while the pointer is over the sidebar (or it has keyboard
+          focus): it matters only when you are already reaching for the
+          navigation. Open, it sits at the row's far end; folded, it takes the
+          logo's place, since the rail has no room beside it. */}
       <span className="brand">
         <Mark size={24} />
         <span className="wordmark">Bayt</span>
+        <button
+          type="button"
+          className="side-toggle"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand' : 'Collapse'}
+        >
+          <ChevronLeft size={14} />
+        </button>
       </span>
 
       <HouseholdMenu

@@ -13,7 +13,7 @@ import { Plus, Trash } from './icons';
 // going from one to the other is just via that: AED per PKR divided by AED per
 // whatever you are sending. Null when either side has no rate, which is a real
 // state — a currency the app has never managed to fetch.
-function convertBetween(amount, from, to) {
+export function convertBetween(amount, from, to) {
   const fromRate = from?.rate?.rate;
   const toRate = to?.rate?.rate;
   if (!(amount > 0) || fromRate == null || toRate == null || !toRate) return null;

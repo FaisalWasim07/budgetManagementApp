@@ -46,13 +46,16 @@ async function openActivity(page) {
   await page.locator('.flow-activity').click();
 }
 
-// Moving money is a button inside the sheet rather than a third mode of it,
-// so reaching the transfer form means opening the sheet first.
+// Moving money is the third choice at the top of the sheet. A move to one
+// account is done there; the full dialog (several accounts, shares) is the
+// "Split across several accounts" link under it, which is what this opens.
 async function openTransfer(page) {
   const opener = (await page.locator('.add-top').count()) ? '.add-top' : '.tabbar button.add';
   await page.click(opener);
   await page.waitForSelector('.sheet.open', { timeout: 8000 });
-  await page.locator('.sheet button:has-text("Move money")').click();
+  await page.locator('.sheet .seg button', { hasText: 'Moved' }).click();
+  await page.locator('.sheet button:has-text("Split across several accounts")').click();
+  await page.waitForSelector('.modal', { timeout: 8000 });
 }
 
 module.exports = { addMoney, openTransfer, pickCategory, openActivity };
