@@ -6214,9 +6214,15 @@ hr.rule {
   color: var(--ink-3);
 }
 .modal-side-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 4px 22px 22px;
   overflow-y: auto;
   min-height: 0;
+}
+.modal-side-body > .set-sections {
+  flex: 1 0 auto;
 }
 
 /* The soft square an icon sits in: the brand at low strength, so a column of
@@ -6386,7 +6392,17 @@ summary.set-top > svg {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding-top: 4px;
+}
+/* Save and Cancel at the foot of the dialog rather than straight under the
+   last card: pushed down when the tab is short, and held in view at the
+   bottom while a long one scrolls under them. */
+.modal-side-body > form .set-footer {
+  position: sticky;
+  bottom: -22px;
+  margin: auto -22px -22px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface);
 }
 
 /* An outlined pill in the brand colour: the secondary action of a card. */
@@ -6696,6 +6712,11 @@ summary.set-top > svg {
   }
   .modal-side-body {
     padding: 4px 14px 16px;
+  }
+  .modal-side-body > form .set-footer {
+    bottom: -16px;
+    margin: auto -14px -16px;
+    padding: 12px 14px 14px;
   }
   .set-top {
     gap: 12px;
