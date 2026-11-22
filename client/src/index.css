@@ -6280,7 +6280,7 @@ hr.rule {
   display: flex;
   flex-direction: column;
 }
-.flow-rows li {
+.flow-rows > li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 64px auto;
   align-items: center;
@@ -6329,6 +6329,11 @@ hr.rule {
   font-weight: 620;
   text-align: right;
   white-space: nowrap;
+}
+/* Every row is its own grid, so an "auto" amount column made each bar start
+   wherever its figure let it. A floor on the amount's width lines them up. */
+.flow-rows > li > .amt {
+  min-width: 6.4em;
 }
 .flow-empty {
   margin: 4px 0 2px;
@@ -6525,50 +6530,57 @@ hr.rule {
   color: var(--brand-deep);
   font-weight: 560;
 }
-/* The entries hang under their row across its full width, indented and on a
-   tinted ground so they read as inside it rather than as more categories. */
-.flow-rows li.is-open {
-  row-gap: 8px;
+/* The entries hang under their row as a thread off it: indented, smaller, on
+   the card's own ground with a thin rule in the row's colour, so they read as
+   the inside of that row rather than as a box of more categories. */
+.flow-rows > li.is-open {
+  row-gap: 4px;
 }
 .flow-entries {
   grid-column: 1 / -1;
   list-style: none;
-  margin: 0;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: var(--surface-2);
+  margin: 0 0 4px 2px;
+  padding: 0 0 0 12px;
+  border-left: 2px solid color-mix(in srgb, var(--entry-rule, var(--line)) 40%, transparent);
 }
 .flow-entries li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
-  border-top: 1px solid var(--line-soft);
+  padding: 4px 0;
 }
-.flow-entries li:first-child {
-  border-top: 0;
-}
-.flow-entries .what {
+.entry-what,
+.entry-amt {
   min-width: 0;
+  line-height: 1.25;
 }
-.flow-entries .what b,
-.flow-entries .what small {
+.entry-what b,
+.entry-what small,
+.entry-amt b,
+.entry-amt small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.flow-entries .what b {
-  font-size: 0.82rem;
-  font-weight: 540;
+.entry-what b {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-2);
 }
-.flow-entries .what small {
-  font-size: 0.72rem;
+.entry-amt {
+  flex: none;
+  text-align: right;
+}
+.entry-amt b {
+  font-size: 0.8rem;
+  font-weight: 560;
+  color: var(--ink-2);
+}
+.entry-what small,
+.entry-amt small {
+  font-size: 0.7rem;
+  font-weight: 400;
   color: var(--ink-3);
-}
-.flow-entries .amt {
-  font-size: 0.82rem;
-  font-weight: 600;
-  white-space: nowrap;
 }

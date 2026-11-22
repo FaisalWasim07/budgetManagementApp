@@ -59,7 +59,24 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
     await post('/api/transactions', { account_id: main.id, month: M, kind: 'expense', amount: 300, category: 'Groceries', description: 'Weekly shop' });
     await post('/api/transactions', { account_id: main.id, month: M, kind: 'expense', amount: 120, category: 'Fuel' });
     await post('/api/subscriptions', { account_id: main.id, name: 'Netflix', amount: 56, cycle: 'monthly', start_month: M });
+    // A rupee account, so an entry has to be converted to sit beside the rest.
+    const rupees = await (await post('/api/accounts', { person_id: main.person_id, name: 'HBL', currency: 'PKR', type: 'current', opening_balance: 100000 })).json();
+    await post('/api/transactions', { account_id: rupees.id, month: M, kind: 'expense', amount: 7600, category: 'Groceries', description: 'Bazaar' });
   }, month);
+  // Today's PKR rate, written where the server caches it, so the conversion
+  // is a known figure rather than whatever the market says this morning.
+  {
+    const { Client } = require('pg');
+    const db = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await db.connect();
+    await db.query(
+      `INSERT INTO exchange_rates (base_currency, target_currency, rate, fetched_at) VALUES ('PKR', 'AED', 0.013, $1)
+       ON CONFLICT (base_currency, target_currency) DO UPDATE SET rate = excluded.rate, fetched_at = excluded.fetched_at`,
+      [new Date().toISOString()]
+    );
+    await db.query(`DELETE FROM exchange_rate_history WHERE base_currency = 'PKR'`);
+    await db.end();
+  }
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.flow-card', { timeout: 15000 });
   await page.click('button[aria-label="Show amounts"]').catch(() => {});
@@ -129,9 +146,21 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   await page.waitForTimeout(250);
   await page.locator('.flow-row-toggle', { hasText: 'Groceries' }).click();
   await page.waitForTimeout(250);
-  const inside = await page.locator('.flow-entries li .what b').allTextContents();
+  const inside = await page.locator('.flow-entries .entry-what b').allTextContents();
   check('a category opens to the entries in it, by their description',
-    inside.length === 1 && inside[0] === 'Weekly shop', inside.join(' | '));
+    inside.join(' | ') === 'Weekly shop | Bazaar', inside.join(' | '));
+  // PKR 7,600 at 0.013 is AED 98.80: shown in the household's currency, with
+  // the rupees underneath, and ranked by that rather than by the bigger number.
+  const bazaar = page.locator('.flow-entries li', { hasText: 'Bazaar' });
+  const [inAed, inPkr] = [
+    await bazaar.locator('.entry-amt b').textContent(),
+    await bazaar.locator('.entry-amt small').textContent(),
+  ];
+  check('an entry in another currency shows in the household currency first',
+    /AED/.test(inAed) && /98\.8/.test(inAed), inAed);
+  check('with its own currency underneath', /PKR/.test(inPkr) && /7,600/.test(inPkr), inPkr);
+  check('an entry already in the household currency carries no second figure',
+    (await page.locator('.flow-entries li', { hasText: 'Weekly shop' }).locator('.entry-amt small').count()) === 0);
   await page.mouse.move(5, 890);
   await page.waitForTimeout(400);
   check('reaching in to open one pins the panel, so it stays while you read', await panelOpen(page));

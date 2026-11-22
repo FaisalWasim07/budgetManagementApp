@@ -85,38 +85,53 @@ const shortDate = (entry) =>
 
 // The entries behind one row, opened in place. "3 entries" was a count of
 // things you could not see; this is the three things.
-function Entries({ entries, personName }) {
+//
+// Each in the household's currency first, because that is what the row above
+// adds up; the account's own figure sits underneath when it differs. Sorted
+// by that converted value too: PKR 52,728 is not bigger than AED 6,339.
+function Entries({ entries, personName, currency, rateOf, colour }) {
   if (!entries.length) return null;
+  const rows = entries
+    .map((entry) => {
+      const foreign = entry.currency !== currency;
+      const rate = foreign ? rateOf(entry.account_id) : 1;
+      return { entry, foreign, value: rate == null ? null : entry.amount * rate };
+    })
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+
   return (
-    <ul className="flow-entries">
-      {[...entries]
-        .sort((a, b) => b.amount - a.amount)
-        .map((entry) => (
-          <li key={entry.id}>
-            <span className="what">
-              {/* Your words if you wrote any; otherwise the account it went
-                  through, which is the next best thing to recognise it by. */}
-              <b>{entry.description || entry.account_name}</b>
-              <small>
-                {[
-                  shortDate(entry),
-                  entry.description ? entry.account_name : null,
-                  personName(entry.person_id),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </small>
-            </span>
-            <span className="amt num">
-              <Money amount={entry.amount} currency={entry.currency} compact />
-            </span>
-          </li>
-        ))}
+    <ul className="flow-entries" style={{ '--entry-rule': colour }}>
+      {rows.map(({ entry, foreign, value }) => (
+        <li key={entry.id}>
+          <span className="entry-what">
+            {/* Your words if you wrote any; otherwise the account it went
+                through, which is the next best thing to recognise it by. */}
+            <b>{entry.description || entry.account_name}</b>
+            <small>
+              {[shortDate(entry), entry.description ? entry.account_name : null, personName(entry.person_id)]
+                .filter(Boolean)
+                .join(' · ')}
+            </small>
+          </span>
+          <span className="entry-amt num">
+            {value == null ? (
+              <b><Money amount={entry.amount} currency={entry.currency} /></b>
+            ) : (
+              <>
+                <b><Money amount={value} currency={currency} /></b>
+                {foreign && (
+                  <small><Money amount={entry.amount} currency={entry.currency} /></small>
+                )}
+              </>
+            )}
+          </span>
+        </li>
+      ))}
     </ul>
   );
 }
 
-function Rows({ rows, colour, currency, empty, entriesFor, personName }) {
+function Rows({ rows, colour, currency, empty, entriesFor, personName, rateOf }) {
   // One row open at a time: the panel is a summary first, and two long lists
   // open at once is a page, not a summary.
   const [expanded, setExpanded] = useState(null);
@@ -167,7 +182,15 @@ function Rows({ rows, colour, currency, empty, entriesFor, personName }) {
               prefix={row.amount < 0 ? '−' : ''}
             />
           </span>
-          {open && <Entries entries={entries} personName={personName} />}
+          {open && (
+            <Entries
+              entries={entries}
+              personName={personName}
+              currency={currency}
+              rateOf={rateOf}
+              colour={colour}
+            />
+          )}
         </li>
         );
       })}
@@ -328,6 +351,10 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
   const { data: monthEntries } = useLive(`transactions:${month}`, () => listTransactions({ month }));
   const openAccounts = new Set(persons.flatMap((p) => p.accounts.map((a) => a.id)));
   const personName = (id) => persons.find((p) => p.id === id)?.name ?? null;
+  // The same rate each account's balance is converted at, so an entry's
+  // household-currency figure is the share of the row it actually is.
+  const rates = new Map(persons.flatMap((p) => p.accounts.map((a) => [a.id, a.rate?.rate ?? null])));
+  const rateOf = (accountId) => rates.get(accountId) ?? null;
   // Matched the way the server grouped them: the category exactly as stored,
   // with the same word standing in for none.
   const entriesOf = (kind, fallback) => (row) =>
@@ -370,6 +397,7 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           empty={`Nothing has come in for ${monthName} yet.`}
           entriesFor={entriesOf('income', 'Other income')}
           personName={personName}
+          rateOf={rateOf}
         />
       ),
       people: (p) => p.income,
@@ -389,6 +417,7 @@ export default function MonthFlow({ summary, month, subscriptionCount }) {
           empty={`Nothing spent in ${monthName} yet.`}
           entriesFor={entriesOf('expense', 'Uncategorised')}
           personName={personName}
+          rateOf={rateOf}
         />
       ),
       people: (p) => p.expenses,
