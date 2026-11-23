@@ -2487,7 +2487,7 @@ th.num {
   background: var(--surface);
   border-radius: var(--r-card);
   border: 1px solid var(--line);
-  padding: 20px;
+  padding: 22px;
   width: 100%;
   max-width: 480px;
   flex: none;
@@ -5029,7 +5029,12 @@ th.num {
    Narrower than an editing dialog: it holds a sentence and two buttons, and
    at full modal width the question drifts away from the answer. */
 .modal.confirm {
-  max-width: 420px;
+  max-width: 440px;
+}
+/* A question that ends in deleting something says so with its tile. */
+.modal.confirm.destructive .modal-head .icon-tile {
+  background: color-mix(in srgb, var(--neg) 12%, var(--surface));
+  color: var(--neg);
 }
 .confirm-detail {
   background: var(--surface-2);
@@ -6225,6 +6230,58 @@ hr.rule {
   flex: 1 0 auto;
 }
 
+/* Every dialog's header, the same as Settings': an icon tile, the title with
+   a line saying what the dialog is for, and a round close button. */
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.modal-heading {
+  flex: 1;
+  min-width: 0;
+}
+.modal-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.modal-heading p {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: var(--ink-3);
+}
+/* The dialog's buttons on a bar of their own along its foot, the way the
+   Money tab's Save and Cancel sit: a destructive action on the left when
+   there is one, the answer on the right. */
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px -22px -22px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+}
+.modal-actions:has(> :only-child) {
+  justify-content: flex-end;
+}
+.modal-actions > .row-tight {
+  margin-left: auto;
+}
+.household-initial {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.modal.modal-side.household-dialog {
+  max-width: 860px;
+  height: min(700px, calc(100dvh - 32px));
+}
+
 /* The soft square an icon sits in: the brand at low strength, so a column of
    them reads as one family whatever the accent. */
 .icon-tile {
@@ -6236,6 +6293,10 @@ hr.rule {
   border-radius: 12px;
   background: color-mix(in srgb, var(--brand) 14%, var(--surface));
   color: var(--brand-deep);
+}
+.icon-tile svg {
+  width: 20px;
+  height: 20px;
 }
 .icon-tile.big {
   width: 48px;

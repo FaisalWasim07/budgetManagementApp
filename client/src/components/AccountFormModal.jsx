@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import { Bank, Card, Piggy } from './icons';
 import { createAccount, updateAccount, removeAccount } from '../api/accounts';
 import { CURRENCIES } from '../utils/currency';
 import { useToast } from '../utils/toast';
@@ -64,7 +65,12 @@ export default function AccountFormModal({ account, personId, personName, onClos
   }
 
   return (
-    <Modal title={editing ? `Edit ${account.name}` : `New account for ${personName}`} onClose={onClose}>
+    <Modal
+      title={editing ? `Edit ${account.name}` : `New account for ${personName}`}
+      icon={type === 'savings' ? <Piggy /> : type === 'credit' ? <Card /> : <Bank />}
+      subtitle="Its name, currency, kind and what is in it already."
+      onClose={onClose}
+    >
       <form className="stack" onSubmit={save}>
         <label className="field">
           Account name
@@ -117,7 +123,7 @@ export default function AccountFormModal({ account, personId, personName, onClos
 
         {error && <div className="error-text">{error}</div>}
 
-        <div className="spread">
+        <div className="modal-actions">
           {editing ? (
             <button type="button" className="danger" onClick={handleDelete} disabled={busy}>
               Delete

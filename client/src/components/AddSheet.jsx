@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { createTransaction, createTransfer, listCategories } from '../api/transactions';
+import { createTransaction, createTransfer } from '../api/transactions';
+import CategoryPicker from './CategoryPicker';
 import { convertBetween } from './TransferModal';
-import { useLive } from '../utils/live';
 import { Exchange } from './icons';
 import { useScrollLock } from '../utils/scrollLock';
 import { useToast } from '../utils/toast';
@@ -30,12 +30,9 @@ export default function AddSheet({
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [category, setCategory] = useState('');
-  // True once "New category…" is picked: the dropdown then stands aside for a
-  // box to type one into.
-  const [typing, setTyping] = useState(false);
-  // Every category used before, most used first, per kind. Live, so one
-  // typed into this sheet is in the list the next time it opens.
-  const { data: used } = useLive('categories', listCategories);
+  // Bumped on every opening and every switch of kind, so the category
+  // dropdown starts from its list again rather than from a box left open.
+  const [pickerKey, setPickerKey] = useState(0);
   const [description, setDescription] = useState('');
   // Moving: where it goes, and, between currencies, what arrives. The arriving
   // figure follows today's rate until it is typed over, because the bank's
@@ -50,17 +47,22 @@ export default function AddSheet({
   // out a figure the eye is currently hiding.
   const { money } = useDisplay();
   const amountField = useRef(null);
-  const newCategoryField = useRef(null);
   const sheetRef = useRef(null);
   // The sheet slides over the page; the page must not slide with it.
   useScrollLock(open);
 
+  // Read through a ref, so the reset below is not rerun by the accounts list
+  // being rebuilt: that happens on every render of the app, including a
+  // background refresh while you are typing, and each rerun wiped the form.
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
+
   // Each opening starts clean, on whichever account it was opened from.
   useEffect(() => {
     if (!open) return;
+    const accounts = accountsRef.current;
     setAmount('');
     setCategory('');
-    setTyping(false);
     setDescription('');
     setError(null);
     setArriving('');
@@ -70,7 +72,14 @@ export default function AddSheet({
     // browsers scroll to the element and fight the transition.
     const focus = setTimeout(() => amountField.current?.focus(), 220);
     return () => clearTimeout(focus);
-  }, [open, defaultAccountId, accounts]);
+  }, [open, defaultAccountId]);
+
+  // The category dropdown starts from its list on each opening, and only on
+  // opening. Keyed off anything that changes with a render, it remounted every
+  // time it loaded its categories, which rendered the app again: a loop.
+  useEffect(() => {
+    if (open) setPickerKey((k) => k + 1);
+  }, [open]);
 
   // Whatever opened the sheet gets the keyboard back when it closes — usually
   // the + in the tab bar, which is where you would want to be to add another.
@@ -110,9 +119,6 @@ export default function AddSheet({
   }, [open, onClose]);
 
   const account = accounts.find((a) => a.id === Number(accountId)) ?? accounts[0];
-  const NEW = '__new';
-  const choices = used?.[kind] ?? [];
-
   const moving = kind === MOVE;
   const others = accounts.filter((a) => a.id !== account?.id);
   // Savings first as the place money goes, since that is where most moves go.
@@ -130,18 +136,8 @@ export default function AddSheet({
     if (next === kind) return;
     setKind(next);
     setError(null);
-    if (!typing) setCategory('');
-  };
-
-  const pickCategory = (value) => {
-    if (value === NEW) {
-      setTyping(true);
-      setCategory('');
-      setTimeout(() => newCategoryField.current?.focus(), 0);
-    } else {
-      setTyping(false);
-      setCategory(value);
-    }
+    setCategory('');
+    setPickerKey((k) => k + 1);
   };
 
   async function save() {
@@ -364,46 +360,16 @@ export default function AddSheet({
             top six, and anything older had to be typed again from memory.
             Typing a new one is the last choice in the list. */}
         {!moving && (
-        <label className="field" style={{ marginTop: 14 }}>
-          <span className="label">Category</span>
-          <select
-            value={typing ? NEW : category}
-            onChange={(e) => pickCategory(e.target.value)}
-            aria-label="Category"
-          >
-            <option value="">No category</option>
-            {choices.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-            <option value={NEW}>New category…</option>
-          </select>
-        </label>
-        )}
-        {!moving && typing && (
-          <div className="new-category">
-            <input
-              ref={newCategoryField}
-              type="text"
-              placeholder={kind === 'income' ? 'e.g. Salary' : 'e.g. Groceries'}
+          <label className="field" style={{ marginTop: 14 }}>
+            <span className="label">Category</span>
+            <CategoryPicker
+              key={pickerKey}
+              kind={kind}
               value={category}
-              maxLength={60}
-              onChange={(e) => setCategory(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && save()}
-              aria-label="New category"
+              onChange={setCategory}
+              onEnter={save}
             />
-            <button
-              type="button"
-              className="subtle tiny"
-              onClick={() => {
-                setTyping(false);
-                setCategory('');
-              }}
-            >
-              Back to list
-            </button>
-          </div>
+          </label>
         )}
 
         {/* What it was, in your words. The category groups it; this is how you

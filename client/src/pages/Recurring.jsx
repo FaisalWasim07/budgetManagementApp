@@ -463,7 +463,6 @@ export default function Recurring({ summary, month, onChanged, readOnly = false,
           stopped={Boolean(editing && hasEnded(editing, month))}
           keepsHistory={Boolean(editing && editing.start_month < month)}
           accounts={accounts}
-          categories={[...new Set(items.map((i) => i.category).filter(Boolean))]}
           month={month}
           onClose={() => {
             setAdding(false);

@@ -125,6 +125,11 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   const editBox = page.locator('.modal label:has-text("Description") input');
   check('the edit dialog opens with the description filled in',
     (await editBox.inputValue()) === 'Weekly shop at Carrefour', await editBox.inputValue());
+  // The same category dropdown as adding money, already on the entry's own.
+  const editCategory = page.locator('.modal select[aria-label="Category"]');
+  check('and its category is the same dropdown as adding money, set to the entry’s',
+    (await editCategory.count()) === 1 && (await editCategory.inputValue()) === 'Groceries',
+    await editCategory.inputValue().catch(() => 'none'));
 
   // --- the account's own page --------------------------------------------
   await page.keyboard.press('Escape');

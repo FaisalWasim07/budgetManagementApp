@@ -31,6 +31,7 @@ export default function Modal({
   bare = false,
   side = false,
   icon = null,
+  subtitle = null,
   children,
 }) {
   // Whichever tab the opener asked for, so something that exists to send you to
@@ -153,11 +154,18 @@ export default function Modal({
           </>
         ) : (
           <>
+            {/* The same header as Settings: an icon tile when the dialog has
+                one, the title with a line saying what it is for, and a round
+                close button. */}
             {!bare && (
-              <div className="spread">
-                <h2>{title}</h2>
-                <button className="subtle" onClick={onClose} aria-label="Close">
-                  ✕
+              <div className="modal-head">
+                {icon && <span className="icon-tile">{icon}</span>}
+                <div className="modal-heading">
+                  <h2>{title}</h2>
+                  {subtitle && <p>{subtitle}</p>}
+                </div>
+                <button className="icon-button modal-close" onClick={onClose} aria-label="Close">
+                  <Cross size={18} />
                 </button>
               </div>
             )}

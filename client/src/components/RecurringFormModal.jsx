@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import CategoryPicker from './CategoryPicker';
+import { Repeat } from './icons';
 import MonthPicker from './MonthPicker';
 import { createSubscription, updateSubscription } from '../api/subscriptions';
 import { useDisplay } from '../utils/display';
@@ -17,7 +19,6 @@ const MONTH_NAMES = [
 export default function RecurringFormModal({
   item,
   accounts,
-  categories = [],
   month,
   onClose,
   onSaved,
@@ -137,6 +138,8 @@ export default function RecurringFormModal({
   return (
     <Modal
       title={editing ? `Edit ${item.name}` : 'Add something recurring'}
+      icon={<Repeat />}
+      subtitle="A subscription, a salary or a bill that repeats."
       onClose={onClose}
     >
       <form className="stack" onSubmit={submit}>
@@ -257,18 +260,11 @@ export default function RecurringFormModal({
 
         <label className="field">
           <span className="label">Category</span>
-          <input
-            type="text"
-            list="recurring-categories"
-            placeholder="optional"
+          <CategoryPicker
+            kind={form.direction}
             value={form.category}
-            onChange={set('category')}
+            onChange={(category) => setForm((f) => ({ ...f, category }))}
           />
-          <datalist id="recurring-categories">
-            {categories.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
         </label>
 
         {form.cycle === 'yearly' && Number(form.amount) > 0 && (
@@ -301,7 +297,7 @@ export default function RecurringFormModal({
         {/* Stop and delete live here as well as on the row, because on a phone
             the row carries no buttons — this dialog is the only way to reach
             them. Stop is the one that keeps history; delete says so. */}
-        <div className="row-tight" style={{ justifyContent: 'space-between' }}>
+        <div className="modal-actions">
           <span className="row-tight">
             {editing && onDelete && (
               <button

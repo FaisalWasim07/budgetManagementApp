@@ -1,4 +1,5 @@
 import Modal from './Modal';
+import { Trash } from './icons';
 
 // A question the app asks in its own voice.
 //
@@ -29,10 +30,15 @@ export default function ConfirmDialog({
   onCancel,
 }) {
   return (
-    <Modal className="confirm" title={title} onClose={busy ? () => {} : onCancel}>
+    <Modal
+      className={destructive ? 'confirm destructive' : 'confirm'}
+      title={title}
+      icon={destructive ? <Trash size={19} /> : null}
+      onClose={busy ? () => {} : onCancel}
+    >
       {detail && <div className="confirm-detail">{detail}</div>}
       {error && <div className="error-text">{error}</div>}
-      <div className="confirm-actions">
+      <div className="confirm-actions modal-actions">
         {/* Cancel first in the DOM, so the safe answer is the one a keyboard
             reaches first and the one already focused. */}
         <button type="button" onClick={onCancel} disabled={busy}>

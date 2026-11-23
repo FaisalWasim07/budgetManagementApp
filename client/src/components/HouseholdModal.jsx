@@ -12,7 +12,7 @@ import {
   resetMemberPassword,
 } from '../api/households';
 import { createPerson, deletePerson, setPersonUser } from '../api/persons';
-import { Trash } from './icons';
+import { Lock, Trash, User } from './icons';
 
 const ROLES = [
   ['editor', 'Can edit', 'Add and change money in this household.'],
@@ -92,7 +92,7 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
             <input className="grow" type="text" value={name} onChange={(e) => setName(e.target.value)} />
             <button
               type="button"
-              className="tiny"
+              className="pill-outline"
               disabled={busy || !name.trim() || name === household.name}
               onClick={() =>
                 act(async () => {
@@ -179,7 +179,7 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
             />
             <button
               type="button"
-              className="tiny"
+              className="pill-outline"
               disabled={busy || !newPerson.trim()}
               onClick={() =>
                 act(async () => {
@@ -320,12 +320,12 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
               unreadable. */}
           {!adding ? (
             <div className="row-tight">
-              <button type="button" className="tiny" onClick={() => setAdding(true)}>
+              <button type="button" className="pill-outline" onClick={() => setAdding(true)}>
                 Add someone directly
               </button>
               <button
                 type="button"
-                className="tiny"
+                className="pill-outline"
                 disabled={busy}
                 onClick={() => act(() => createInvite(household.id, inviteRole))}
               >
@@ -458,10 +458,23 @@ export default function HouseholdModal({ household, user, persons, onClose, onCh
   return (
     <Modal
       title={household.name}
+      side
+      icon={<span className="household-initial">{household.name.trim().charAt(0).toUpperCase()}</span>}
+      className="household-dialog"
       onClose={onClose}
       tabs={[
-        ['people', 'People', peopleTab],
-        ['access', 'Access', accessTab],
+        [
+          'people',
+          'People',
+          peopleTab,
+          { icon: <User />, heading: 'People', subtitle: 'Whose money this budget holds.' },
+        ],
+        [
+          'access',
+          'Access',
+          accessTab,
+          { icon: <Lock />, heading: 'Access', subtitle: 'Who can open this household, and what they can do.' },
+        ],
       ]}
     />
   );

@@ -7,7 +7,7 @@ import { useToast } from '../utils/toast';
 import { isRunning, perMonth } from '../utils/recurring';
 import { Money, useDisplay } from '../utils/display';
 import { formatNumber } from '../utils/currency';
-import { Plus, Trash } from './icons';
+import { Exchange, Plus, Trash } from './icons';
 
 // Both accounts carry their own rate into the household's primary currency, so
 // going from one to the other is just via that: AED per PKR divided by AED per
@@ -236,7 +236,12 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
   const label = (a) => `${a.personName} · ${a.name} (${a.currency})`;
 
   return (
-    <Modal title="Move money between accounts" onClose={onClose}>
+    <Modal
+      title="Move money between accounts"
+      icon={<Exchange />}
+      subtitle="Out of one account and into one or several, by amount or by share."
+      onClose={onClose}
+    >
       <form className="stack" onSubmit={submit}>
         <label className="field">
           <span className="label">From</span>
@@ -490,7 +495,9 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
         )}
         {error && <div className="error-text">{error}</div>}
 
-        <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
+        <div className="modal-actions">
+          <span />
+          <span className="row-tight">
           <button type="button" onClick={onClose} disabled={busy}>
             Cancel
           </button>
@@ -503,6 +510,7 @@ export default function TransferModal({ accounts, month, onClose, onSaved }) {
               'Transfer'
             )}
           </button>
+          </span>
         </div>
       </form>
     </Modal>

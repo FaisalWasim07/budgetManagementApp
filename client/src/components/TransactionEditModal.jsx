@@ -3,8 +3,9 @@ import { useToast } from '../utils/toast';
 import Modal from './Modal';
 import MonthPicker from './MonthPicker';
 import { formatMonth } from '../utils/month';
-import { Trash } from './icons';
+import { Exchange, Pencil, Trash } from './icons';
 import { updateTransaction } from '../api/transactions';
+import CategoryPicker from './CategoryPicker';
 
 const KIND_LABELS = { income: 'Income', expense: 'Expense' };
 
@@ -94,14 +95,14 @@ export default function TransactionEditModal({
   // saying so is the whole of the failure. It was a blank page before.
   if (incomplete) {
     return (
-      <Modal title="Edit transfer" onClose={onClose}>
+      <Modal title="Edit transfer" icon={<Exchange />} onClose={onClose}>
         <div className="stack">
           <p className="secondary" style={{ margin: 0 }}>
             The other side of this transfer isn’t loaded, so it can’t be edited safely — changing
             one half on its own would leave the two disagreeing. Open it from Activity, which has
             both.
           </p>
-          <div className="row-tight" style={{ justifyContent: 'flex-end' }}>
+          <div className="modal-actions">
             <button type="button" onClick={onClose}>
               Close
             </button>
@@ -112,13 +113,21 @@ export default function TransactionEditModal({
   }
 
   return (
-    <Modal title={isTransfer ? 'Edit transfer' : 'Edit entry'} onClose={onClose}>
+    <Modal
+      title={isTransfer ? 'Edit transfer' : 'Edit entry'}
+      icon={isTransfer ? <Exchange /> : <Pencil />}
+      subtitle={
+        isTransfer
+          ? `${nameOf(outLeg)} → ${nameOf(inLeg)}`
+          : [accountsById[entry.account_id]?.name ?? entry.account_name, formatMonth(entry.month)]
+              .filter(Boolean)
+              .join(' · ')
+      }
+      onClose={onClose}
+    >
       <form className="stack" onSubmit={save}>
         {isTransfer ? (
           <>
-            <span className="secondary" style={{ fontSize: '0.88rem' }}>
-              <b>{nameOf(outLeg)}</b> → <b>{nameOf(inLeg)}</b>
-            </span>
             <div className="row">
               <label className="field grow">
                 Left ({currencyOf(outLeg)})
@@ -175,9 +184,15 @@ export default function TransactionEditModal({
                   autoFocus
                 />
             </label>
+            {/* The same dropdown as adding money, so correcting a category is
+                picking it from the list rather than retyping it. */}
             <label className="field grow">
               Category
-              <input type="text" value={form.category} onChange={set('category')} />
+              <CategoryPicker
+                kind={form.kind}
+                value={form.category}
+                onChange={(category) => setForm((f) => ({ ...f, category }))}
+              />
             </label>
           </div>
         )}
@@ -210,7 +225,7 @@ export default function TransactionEditModal({
         {/* Delete lives here rather than as a second icon on every row: on a
             phone those icons cost each entry a line of its own, and this is
             the screen you are already on when you want to remove one. */}
-        <div className="row-tight" style={{ justifyContent: 'space-between' }}>
+        <div className="modal-actions">
           {onDelete ? (
             <button type="button" className="danger" disabled={busy} onClick={() => onDelete(entry)}>
               <Trash size={15} /> Delete
