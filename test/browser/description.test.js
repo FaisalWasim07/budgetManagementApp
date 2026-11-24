@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney, openTransfer, openActivity } = require('./helpers');
+const { addMoney, openEntry, openTransfer, openActivity } = require('./helpers');
 
 // A description typed when money is entered or moved, and seen again where
 // you look for it: Activity, Home's latest entries, and the edit dialog.
@@ -55,8 +55,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.waitForTimeout(800);
 
   // --- entering money -----------------------------------------------------
-  await page.click('.add-top');
-  await page.waitForSelector('.sheet.open', { timeout: 8000 });
+  await openEntry(page, 'Spent');
   check('the add sheet has a description box', (await page.locator('.sheet input[aria-label="Description"]').count()) === 1);
   check('marked optional, so leaving it blank is plainly fine',
     (await page.locator('.sheet .label:has-text("Description") .optional').count()) === 1);

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney, openTransfer, openActivity, pickCategory } = require('./helpers');
+const { addMoney, openEntry, openTransfer, openActivity, pickCategory } = require('./helpers');
 
 // The redesigned dashboard, driven the way a person drives it: type an amount
 // into the strip, correct it, delete it, open an account, add from inside it.
@@ -323,12 +323,11 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   // --- adding from inside an account ---------------------------------------
   // In the top bar, not in a row of its own under it.
   check(
-    'the account\u2019s add button is in the top bar',
-    (await page.locator('.topbar button:has-text("Add to this account")').count()) === 1,
+    'the account\u2019s + is in the top bar',
+    (await page.locator('.topbar .gooey-desk').count()) === 1,
   );
-  await page.locator('.topbar button:has-text("Add to this account")').click();
-  await page.waitForTimeout(500);
-  check('"add to this account" opens the sheet', (await page.locator('.sheet.open').count()) === 1);
+  await openEntry(page, 'Spent');
+  check('its Spent ball opens the Spent popup', (await page.locator('.sheet.open').count()) === 1);
   check(
     'and it is preset to that account',
     Boolean(await page.locator('.sheet select').first().inputValue()),
@@ -336,7 +335,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   await page.locator('.sheet input[aria-label="Amount"]').fill('60');
   await pickCategory(page, 'Fuel');
-  await page.click('.sheet button:has-text("Save")');
+  await page.click('.sheet .pop-foot .go');
   await page.waitForTimeout(1600);
   check('the sheet saves and closes', (await page.locator('.sheet.open').count()) === 0);
   await go('Activity');
@@ -387,25 +386,21 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
   // --- moving money between accounts ---------------------------------------
   await go('Home');
-  await page.click('.add-top');
+  await page.hover('.gooey-desk .gooey-main');
+  await page.waitForTimeout(700);
+  check(
+    'the + offers spent, received and moved as three balls',
+    (await page.locator('.gooey-desk.open .gooey-opt').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).join(',') === 'Spent,Received,Moved',
+  );
+  await page.locator('.gooey-desk .gooey-opt[data-kind="transfer"]').click();
   await page.waitForSelector('.sheet.open', { timeout: 8000 });
-  check(
-    'the sheet offers spent, received and moved, side by side at the top',
-    (await page.locator('.sheet .seg button').allTextContents()).join(',') === 'Spent,Received,Moved',
-    (await page.locator('.sheet .seg button').allTextContents()).join(','),
-  );
-  check(
-    'and the old button under Save is gone',
-    (await page.locator('.sheet button:has-text("Move money")').count()) === 0,
-  );
-
-  await page.locator('.sheet .seg button', { hasText: 'Moved' }).click();
-  check('moving swaps the category for where the money goes',
+  check('Moved opens its own popup', (await page.locator('.sheet.open .pop-title b').textContent()).trim() === 'Moved');
+  check('which asks where the money goes instead of a category',
     (await page.locator('.sheet select[aria-label="Category"]').count()) === 0 &&
       (await page.locator('.sheet select[aria-label="To account"]').count()) === 1);
-  check('the button says what it will do', (await page.locator('.sheet button.primary').textContent()).trim() === 'Move');
+  check('the button says what it will do', (await page.locator('.sheet .pop-foot .go').textContent()).trim() === 'Move money');
   await page.locator('.sheet input[aria-label="Amount"]').fill('500');
-  await page.locator('.sheet button.primary').click();
+  await page.locator('.sheet .pop-foot .go').click();
   await page.waitForTimeout(1800);
   check('a move to one account is done in the sheet', (await page.locator('.sheet.open').count()) === 0);
   await go('Activity');

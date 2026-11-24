@@ -3,17 +3,24 @@
 // account, and the + in the top bar and the middle of the phone's bar both
 // open the same sheet instead.
 async function addMoney(page, { amount, kind = 'Spent', category, description }) {
-  const opener = (await page.locator('.add-top').count())
-    ? '.add-top'
-    : '.tabbar button.add';
-  await page.click(opener);
-  await page.waitForSelector('.sheet.open', { timeout: 8000 });
+  await openEntry(page, kind);
   await page.locator('.sheet input[aria-label="Amount"]').fill(String(amount));
-  await page.locator(`.sheet button:has-text("${kind}")`).click();
   if (category) await pickCategory(page, category);
   if (description) await page.locator('.sheet input[aria-label="Description"]').fill(description);
-  await page.locator('.sheet button:has-text("Save")').click();
+  await page.locator('.sheet .pop-foot .go').click();
   await page.waitForTimeout(1500);
+}
+
+// Recording money starts on the gooey +: in the top bar's corner on a desk,
+// in the middle of the tab bar on a phone. It opens to three balls (Spent,
+// Received, Moved) and each opens its own popup. On a desk the pointer moving
+// onto the + opens it, and the click that follows keeps it open.
+const KINDS = { Spent: 'expense', Received: 'income', Moved: 'transfer' };
+async function openEntry(page, kind = 'Spent') {
+  const fab = (await page.locator('.gooey-desk').count()) ? '.gooey-desk' : '.gooey-phone';
+  await page.locator(`${fab} .gooey-main`).first().click();
+  await page.locator(`${fab}.open .gooey-opt[data-kind="${KINDS[kind]}"]`).first().click();
+  await page.waitForSelector('.sheet.open', { timeout: 8000 });
 }
 
 // The category is a dropdown of the ones used before, with "New category…"
@@ -46,16 +53,13 @@ async function openActivity(page) {
   await page.locator('.flow-activity').click();
 }
 
-// Moving money is the third choice at the top of the sheet. A move to one
-// account is done there; the full dialog (several accounts, shares) is the
-// "Split across several accounts" link under it, which is what this opens.
+// Moving money is the third ball on the +. A move to one account is done in
+// its popup; the full dialog (several accounts, shares) is the "Split across
+// several accounts" link in it, which is what this opens.
 async function openTransfer(page) {
-  const opener = (await page.locator('.add-top').count()) ? '.add-top' : '.tabbar button.add';
-  await page.click(opener);
-  await page.waitForSelector('.sheet.open', { timeout: 8000 });
-  await page.locator('.sheet .seg button', { hasText: 'Moved' }).click();
+  await openEntry(page, 'Moved');
   await page.locator('.sheet button:has-text("Split across several accounts")').click();
   await page.waitForSelector('.modal', { timeout: 8000 });
 }
 
-module.exports = { addMoney, openTransfer, pickCategory, openActivity };
+module.exports = { addMoney, openEntry, openTransfer, pickCategory, openActivity };

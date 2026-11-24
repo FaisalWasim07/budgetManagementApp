@@ -7300,3 +7300,373 @@ summary.set-top > svg {
   flex: none;
   white-space: nowrap;
 }
+
+/* ── The gooey + ─────────────────────────────────────────────────── */
+/* The + and its three balls. Every shape is drawn in one layer with the goo
+   filter on it; the icons and labels are a second layer over the first. The
+   layers are larger than the + on every side so the blur has room and the
+   filter never clips a ball. */
+.gooey-add {
+  position: relative;
+  /* Above the backdrop it opens, and above the cards its balls drop over:
+     on a desk the top bar it sits in is not itself raised. */
+  z-index: 30;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  justify-self: center;
+}
+.gooey-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.gooey-layer {
+  position: absolute;
+  pointer-events: none;
+}
+.gooey-layer > * {
+  pointer-events: auto;
+}
+.gooey-shapes {
+  filter: url(#bayt-goo);
+}
+.gooey-blob,
+.gooey-opt,
+.gooey-main {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-pill);
+}
+.gooey-blob {
+  background: var(--action);
+}
+.gooey-blob,
+.gooey-opt {
+  transition:
+    transform 0.52s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.26s ease;
+}
+/* Specific enough to win over the tab bar's own button styles. */
+.gooey-add .gooey-main,
+.gooey-add .gooey-opt {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--action-in);
+  box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  gap: 0;
+}
+.gooey-add .gooey-main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gooey-main svg {
+  transition: transform 0.32s ease;
+}
+.gooey-add.open .gooey-main svg {
+  transform: rotate(135deg);
+}
+.gooey-add .gooey-opt {
+  opacity: 0;
+  pointer-events: none;
+}
+.gooey-add.open .gooey-opt:not(:disabled) {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.14s;
+}
+.gooey-add.open .gooey-opt:disabled {
+  opacity: 0.45;
+}
+.gooey-add .gooey-opt:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--action-in) 16%, transparent);
+}
+.gooey-add .gooey-main:focus-visible,
+.gooey-add .gooey-opt:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 3px;
+}
+.gooey-opt b {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--ink);
+  background: var(--surface);
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.gooey-blob[data-i],
+.gooey-opt[data-i] {
+  transform: translate(0, 0) scale(0.55);
+}
+.gooey-add.open [data-i='2'] {
+  transition-delay: 0.04s;
+}
+.gooey-add.open [data-i='3'] {
+  transition-delay: 0.08s;
+}
+
+/* Desk: in the top bar's corner, the balls out to the left, bottom-left and
+   straight down. Labels where they cannot collide: beside the first two,
+   under the third. */
+.gooey-desk .gooey-layer {
+  top: -30px;
+  right: -30px;
+  width: 260px;
+  height: 200px;
+}
+.gooey-desk .gooey-blob,
+.gooey-desk .gooey-opt,
+.gooey-desk .gooey-main {
+  top: 30px;
+  right: 30px;
+}
+.gooey-desk.open [data-i='1'] {
+  transform: translate(-80px, 0) scale(1);
+}
+.gooey-desk.open [data-i='2'] {
+  transform: translate(-62px, 62px) scale(1);
+}
+.gooey-desk.open [data-i='3'] {
+  transform: translate(0, 82px) scale(1);
+}
+.gooey-desk .gooey-opt[data-i='1'] b,
+.gooey-desk .gooey-opt[data-i='2'] b {
+  top: 50%;
+  right: calc(100% + 6px);
+  transform: translateY(-50%);
+}
+.gooey-desk .gooey-opt[data-i='3'] b {
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Phone: in the middle of the tab bar, fanning up. */
+.gooey-phone .gooey-layer {
+  bottom: -30px;
+  left: 50%;
+  width: 300px;
+  height: 230px;
+  margin-left: -150px;
+}
+.gooey-phone .gooey-blob,
+.gooey-phone .gooey-opt,
+.gooey-phone .gooey-main {
+  bottom: 30px;
+  left: 50%;
+  margin-left: -23px;
+}
+.gooey-phone .gooey-blob.main {
+  box-shadow: var(--shadow-lift);
+}
+.gooey-phone.open [data-i='1'] {
+  transform: translate(-86px, -78px) scale(1);
+}
+.gooey-phone.open [data-i='2'] {
+  transform: translate(0, -118px) scale(1);
+}
+.gooey-phone.open [data-i='3'] {
+  transform: translate(86px, -78px) scale(1);
+}
+.gooey-phone .gooey-opt b {
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* The page behind, faded while the balls are out, the + and its balls above
+   it. On a desk the top bar's other controls are under it too, so the left
+   ball never sits on a bright month button. */
+.gooey-scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--paper) 58%, transparent);
+  animation: fade 0.2s ease both;
+}
+.gooey-scrim-desk {
+  z-index: 25;
+  pointer-events: none;
+}
+.gooey-scrim-phone {
+  z-index: 35;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gooey-blob,
+  .gooey-opt,
+  .gooey-main svg {
+    transition: none !important;
+  }
+}
+
+/* ── The three popups ────────────────────────────────────────────── */
+/* Spent, Received and Moved, each opened from its ball. One shape for all
+   three: a tile and title saying which it is, the amount as the biggest thing,
+   only the fields that choice needs, then the buttons along the foot. Each
+   wears the colour the month card uses for it: the tile, the sign before the
+   amount, and the button. Centred on a desk; a sheet from the bottom on a
+   phone. */
+.entry-pop {
+  --tone: var(--neg);
+}
+.entry-pop[data-kind='income'] {
+  --tone: var(--pos);
+}
+.entry-pop[data-kind='transfer'] {
+  --tone: var(--moved);
+}
+.pop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.pop-tile {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--tone) 14%, var(--surface));
+  color: var(--tone);
+}
+.pop-title {
+  flex: 1;
+  min-width: 0;
+}
+.pop-title b {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.pop-title small {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-3);
+}
+.pop-x {
+  align-self: flex-start;
+  color: var(--ink-3);
+}
+.entry-pop .amount-field {
+  padding: 12px 0 16px;
+}
+.pop-figure {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+.pop-sign {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--tone);
+}
+.entry-pop .amount-field input {
+  min-width: 1.15ch;
+  text-align: left;
+}
+.pop-figure .cur {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+.entry-pop select:focus,
+.entry-pop input:not(.num):focus {
+  outline: 2px solid color-mix(in srgb, var(--tone) 55%, transparent);
+  outline-offset: 1px;
+}
+/* Moved: a round swap button on the seam between From and To. */
+.swap-row {
+  position: relative;
+  height: 0;
+}
+.swap {
+  position: absolute;
+  right: 14px;
+  top: -2px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--tone);
+  box-shadow: var(--shadow);
+}
+.swap:hover:not(:disabled) {
+  border-color: var(--tone);
+}
+.pop-foot {
+  display: flex;
+  gap: 8px;
+  margin: 18px -20px 0;
+  padding: 14px 20px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.pop-foot .go {
+  flex: 1;
+  justify-content: center;
+  background: var(--tone);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: none;
+}
+.pop-foot .go:hover:not(:disabled) {
+  filter: brightness(1.06);
+  background: var(--tone);
+}
+.entry-pop .move-split {
+  margin-top: 10px;
+}
+
+/* A desk: centred, rising slightly as it opens, rather than sliding up from
+   the bottom edge of a wide screen. */
+@media (min-width: 701px) {
+  .sheet.entry-pop {
+    top: 50%;
+    bottom: auto;
+    width: min(420px, calc(100% - 32px));
+    border-bottom: 1px solid var(--line);
+    border-radius: var(--r-pane);
+    padding: 20px 20px 18px;
+    transform: translate(-50%, -46%) scale(0.98);
+    opacity: 0;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 0.9, 0.3, 1),
+      opacity 0.2s ease,
+      visibility 0.28s;
+  }
+  .sheet.entry-pop.open {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+  .sheet.entry-pop .grabber {
+    display: none;
+  }
+}
+/* In dark mode the three colours are light, so the button's words go dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .pop-foot .go {
+    color: #0b1220;
+  }
+}
+:root[data-theme='dark'] .pop-foot .go {
+  color: #0b1220;
+}

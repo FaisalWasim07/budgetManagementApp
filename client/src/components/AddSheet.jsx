@@ -2,23 +2,47 @@ import { useEffect, useRef, useState } from 'react';
 import { createTransaction, createTransfer } from '../api/transactions';
 import CategoryPicker from './CategoryPicker';
 import { convertBetween } from './TransferModal';
-import { Exchange } from './icons';
+import { ArrowDown, ArrowUp, Cross, Exchange, Swap } from './icons';
 import { useScrollLock } from '../utils/scrollLock';
 import { useToast } from '../utils/toast';
 import { useDisplay } from '../utils/display';
 
-// Money moved between two of your own accounts is the third choice at the top
-// rather than a button under Save. Under Save it came after the whole form,
-// and people filled the form in as "Received" into savings before ever seeing
-// it. A move to one account is done here; splitting across several, or by
-// share of a salary, is the full dialog, a tap away.
 const MOVE = 'transfer';
 
-// The phone half of entering money: thumb at the bottom of the screen, the
-// amount the biggest thing on it, and one tap to save. Also what "Add to this
-// account" opens on any size of screen, since it already knows the account.
+// What each of the three popups is. The choice is made before this opens, on
+// the + (Spent, Received or Moved), so each popup is only that one job: its
+// own title, its own colour (the one the month card uses for it), its own
+// fields and its own button. A move to one account is done here; splitting
+// across several, or by share of a salary, is the full dialog, a tap away.
+const KINDS = {
+  expense: {
+    title: 'Spent',
+    subtitle: 'Money out of one of your accounts',
+    sign: '−',
+    go: 'Save spending',
+    Icon: ArrowDown,
+  },
+  income: {
+    title: 'Received',
+    subtitle: 'Money into one of your accounts',
+    sign: '+',
+    go: 'Save income',
+    Icon: ArrowUp,
+  },
+  [MOVE]: {
+    title: 'Moved',
+    subtitle: 'Between two of your own accounts',
+    sign: '',
+    go: 'Move money',
+    Icon: Exchange,
+  },
+};
+
+// Entering money: the amount the biggest thing on it, and one tap to save.
+// Centred on a desk, a sheet from the bottom on a phone, where the thumb is.
 export default function AddSheet({
   open,
+  kind: initialKind = 'expense',
   accounts,
   month,
   defaultAccountId,
@@ -67,12 +91,14 @@ export default function AddSheet({
     setError(null);
     setArriving('');
     setOwnArriving(false);
+    setToId('');
+    setKind(initialKind);
     setAccountId(String(defaultAccountId ?? accounts[0]?.id ?? ''));
     // Waited out rather than done immediately: focusing mid-slide makes some
     // browsers scroll to the element and fight the transition.
     const focus = setTimeout(() => amountField.current?.focus(), 220);
     return () => clearTimeout(focus);
-  }, [open, defaultAccountId]);
+  }, [open, defaultAccountId, initialKind]);
 
   // The category dropdown starts from its list on each opening, and only on
   // opening. Keyed off anything that changes with a render, it remounted every
@@ -130,14 +156,16 @@ export default function AddSheet({
   // Cards may go below zero: moving off one is borrowing, not an overdraft.
   const overdrawn = moving && account && account.type !== 'credit' && Number(amount) > account.balance;
 
-  // Switching between spent and received swaps the list, so a category picked
-  // from one is not left selected against the other.
-  const switchKind = (next) => {
-    if (next === kind) return;
-    setKind(next);
-    setError(null);
-    setCategory('');
-    setPickerKey((k) => k + 1);
+  const meta = KINDS[kind] ?? KINDS.expense;
+
+  // Moved: From and To change places, and the arriving figure starts again
+  // from the rate in the new direction.
+  const swap = () => {
+    if (!to || !account) return;
+    const from = account.id;
+    setAccountId(String(to.id));
+    setToId(String(from));
+    setOwnArriving(false);
   };
 
   async function save() {
@@ -235,55 +263,54 @@ export default function AddSheet({
     <>
       {open && <div className="sheet-scrim" onClick={onClose} />}
       <div
-        className={open ? 'sheet open' : 'sheet'}
+        className={open ? 'sheet entry-pop open' : 'sheet entry-pop'}
+        data-kind={kind}
         ref={sheetRef}
         onKeyDown={trapTab}
         role="dialog"
         aria-modal="true"
-        aria-label="Add money"
+        aria-label={meta.title}
         aria-hidden={!open}
       >
         <div className="grabber" />
 
-        <div className="seg" role="group" aria-label="What happened">
-          <button
-            className={kind === 'expense' ? 'active' : ''}
-            aria-pressed={kind === 'expense'}
-            onClick={() => switchKind('expense')}
-          >
-            Spent
-          </button>
-          <button
-            className={kind === 'income' ? 'active' : ''}
-            aria-pressed={kind === 'income'}
-            onClick={() => switchKind('income')}
-          >
-            Received
-          </button>
-          <button
-            className={moving ? 'active' : ''}
-            aria-pressed={moving}
-            onClick={() => switchKind(MOVE)}
-            disabled={accounts.length < 2}
-            title={accounts.length < 2 ? 'Moving money needs a second account.' : undefined}
-          >
-            Moved
+        <div className="pop-head">
+          <span className="pop-tile" aria-hidden="true">
+            <meta.Icon size={20} />
+          </span>
+          <span className="pop-title">
+            <b>{meta.title}</b>
+            <small>{meta.subtitle}</small>
+          </span>
+          <button type="button" className="icon-button pop-x" onClick={onClose} aria-label="Close">
+            <Cross size={16} />
           </button>
         </div>
 
+        {/* The figure first, its sign before it in the popup's colour and the
+            account's currency after it, the way an amount is said. The box is
+            as wide as the number, so neither drifts away from it. */}
         <div className="amount-field">
-          <div className="cur">{account?.currency ?? ''}</div>
-          <input
-            ref={amountField}
-            className="num"
-            type="text"
-            inputMode="decimal"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && save()}
-            aria-label="Amount"
-          />
+          <span className="pop-figure">
+            {meta.sign && (
+              <span className="pop-sign" aria-hidden="true">
+                {meta.sign}
+              </span>
+            )}
+            <input
+              ref={amountField}
+              className="num"
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={amount}
+              style={{ width: amount ? `${amount.length + 0.1}ch` : '1.15ch' }}
+              onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+              aria-label="Amount"
+            />
+            <span className="cur">{account?.currency ?? ''}</span>
+          </span>
         </div>
 
         <label className="field">
@@ -315,6 +342,11 @@ export default function AddSheet({
 
         {moving && (
           <>
+            <div className="swap-row">
+              <button type="button" className="swap" onClick={swap} aria-label="Swap from and to">
+                <Swap size={16} />
+              </button>
+            </div>
             <label className="field" style={{ marginTop: 14 }}>
               <span className="label">To</span>
               <select
@@ -395,23 +427,6 @@ export default function AddSheet({
 
         {error && <div className="error-text" style={{ marginTop: 12 }}>{error}</div>}
 
-        <button
-          className="primary"
-          onClick={save}
-          disabled={busy}
-          style={{ width: '100%', marginTop: 16, padding: '12px' }}
-        >
-          {busy ? (
-            <>
-              <span className="spinner on-button" aria-hidden="true" /> Saving…
-            </>
-          ) : moving ? (
-            'Move'
-          ) : (
-            'Save'
-          )}
-        </button>
-
         {/* One account at a time here. Several at once, or by share of a
             salary, is the full dialog. */}
         {moving && (
@@ -427,6 +442,21 @@ export default function AddSheet({
             Split across several accounts
           </button>
         )}
+
+        <div className="pop-foot">
+          <button type="button" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button type="button" className="primary go" onClick={save} disabled={busy}>
+            {busy ? (
+              <>
+                <span className="spinner on-button" aria-hidden="true" /> Saving…
+              </>
+            ) : (
+              meta.go
+            )}
+          </button>
+        </div>
       </div>
     </>
   );

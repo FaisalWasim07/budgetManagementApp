@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { openEntry } = require('./helpers');
 
 // The breakdown behind each figure on Home's month card.
 //
@@ -199,13 +200,14 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   check('and the crumb in the top bar goes back', (await page.locator('.flow-activity').count()) === 1);
 
   // --- the add sheet's category is a dropdown of the ones used before -------
-  await page.click('.add-top');
-  await page.waitForSelector('.sheet.open');
+  await openEntry(page, 'Spent');
   const options = () => page.locator('.sheet select[aria-label="Category"] option').allTextContents();
   const spentOptions = await options();
   check('spending categories are offered, most used first',
     spentOptions.join(',') === 'No category,Groceries,Fuel,New category…', spentOptions.join(','));
-  await page.locator('.sheet button', { hasText: 'Received' }).click();
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  await openEntry(page, 'Received');
   const inOptions = await options();
   check('and money in has its own list', inOptions.join(',') === 'No category,Salary,New category…', inOptions.join(','));
   await page.locator('.sheet select[aria-label="Category"]').selectOption('__new');
@@ -215,6 +217,30 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   check('and the list comes back', (await page.locator('.sheet input[aria-label="New category"]').count()) === 0);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
+
+  // --- the gooey + and its three popups ---------------------------------
+  await page.hover('.gooey-desk .gooey-main');
+  await page.waitForTimeout(700);
+  check('pointing at the + opens its three balls', (await page.locator('.gooey-desk.open').count()) === 1);
+  check('and fades the page behind them', (await page.locator('.gooey-scrim-desk').count()) === 1);
+  await page.mouse.move(10, 600);
+  await page.waitForTimeout(500);
+  check('moving away closes them again', (await page.locator('.gooey-desk.open').count()) === 0);
+  for (const [kind, title, go] of [['Spent', 'Spent', 'Save spending'], ['Received', 'Received', 'Save income'], ['Moved', 'Moved', 'Move money']]) {
+    await openEntry(page, kind);
+    const got = (await page.locator('.sheet.open .pop-title b').textContent()).trim();
+    const button = (await page.locator('.sheet.open .pop-foot .go').textContent()).trim();
+    check(`${kind} opens its own popup, with its own button`, got === title && button === go, `${got} / ${button}`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  }
+  await openEntry(page, 'Spent');
+  await page.locator('.sheet input[aria-label="Amount"]').fill('12');
+  const order = await page.locator('.sheet.open .pop-figure').evaluate((el) =>
+    [...el.children].map((c) => (c.tagName === 'INPUT' ? 'amount' : c.className)).join(','));
+  check('the sign comes before the amount and the currency after it', order === 'pop-sign,amount,cur', order);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
 
   // --- a phone ------------------------------------------------------------
   const cookies = await context.cookies();

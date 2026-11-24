@@ -117,7 +117,7 @@ async function signUp(page, username, password) {
   await openActivity(b);
   await b.waitForTimeout(600);
   check('a viewer sees the money', (await b.locator('.txn-list').textContent()).includes('Salary'));
-  check('a viewer gets no way to add money', await b.locator('.add-top').count() === 0);
+  check('a viewer gets no way to add money', await b.locator('.gooey-add').count() === 0);
   check('a viewer cannot add an account', await b.locator('.account-row.add').count() === 0);
   check('a viewer gets no edit or delete buttons', await b.locator('.txn-acts').count() === 0);
   // A disabled + is a promise already broken; it is not in their bar at all.
@@ -155,7 +155,7 @@ async function signUp(page, username, password) {
     !(await b.locator('.txn-list').textContent()).includes('Salary'));
   await b.click('.side-nav button:has-text("Home")');
   await b.waitForTimeout(600);
-  check('in their own household they can write again', await b.locator('.add-top').count() === 1);
+  check('in their own household they can write again', await b.locator('.gooey-desk').count() === 1);
 
   await b.click('.household-trigger');
   const options = await b.locator('.menu button').allTextContents();

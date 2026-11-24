@@ -476,3 +476,24 @@ export const Pulse = ({ size = 20 }) => (
     <path d="M3 12h4l2.5-6 5 12 2.5-6h4" {...stroke} strokeWidth="1.7" />
   </svg>
 );
+
+// The three ways money moves, as the + offers them: straight down for money
+// out, straight up for money in.
+export const ArrowDown = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <path d="M12 5v14M6 13l6 6 6-6" {...stroke} strokeWidth="2.1" />
+  </svg>
+);
+
+export const ArrowUp = ({ size = 20 }) => (
+  <svg {...base(size)}>
+    <path d="M12 19V5M6 11l6-6 6 6" {...stroke} strokeWidth="2.1" />
+  </svg>
+);
+
+// Two arrows passing each other vertically: From and To changing places.
+export const Swap = ({ size = 16 }) => (
+  <svg {...base(size)}>
+    <path d="M8 4v16l-4-4M16 20V4l4 4" {...stroke} strokeWidth="2.1" />
+  </svg>
+);

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { addMoney, openActivity } = require('./helpers');
+const { addMoney, openEntry, openActivity } = require('./helpers');
 
 // The phone shell, driven at the width it is actually used at. Everything the
 // other suites check is checked at a desk, where there is room for a sidebar
@@ -312,8 +312,7 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await openActivity(page);
   await page.waitForTimeout(900);
   await page.evaluate(() => window.scrollTo(0, 40));
-  await page.locator('.tabbar button.add').tap();
-  await page.waitForSelector('.sheet.open', { timeout: 8000 });
+  await openEntry(page, 'Spent');
   check(
     'the page is locked behind the add sheet',
     (await page.evaluate(() => document.body.style.overflow)) === 'hidden'

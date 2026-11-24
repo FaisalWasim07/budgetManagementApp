@@ -12,11 +12,12 @@ import HouseholdMenu from './components/HouseholdMenu';
 import Sidebar from './components/Sidebar';
 import HouseholdModal from './components/HouseholdModal';
 import OverflowMenu from './components/OverflowMenu';
+import GooeyAdd from './components/GooeyAdd';
 import AddSheet from './components/AddSheet';
 import Splash from './components/Splash';
 import TransferModal from './components/TransferModal';
 import PasskeyNudge from './components/PasskeyNudge';
-import { Bars, Doc, Eye, EyeOff, Home, List, Mark, Plus, Refresh, Repeat } from './components/icons';
+import { Bars, Doc, Eye, EyeOff, Home, List, Mark, Refresh, Repeat } from './components/icons';
 import { getSummary, getTrend, getCategories } from './api/summary';
 import { logout } from './api/auth';
 import { listHouseholds } from './api/households';
@@ -271,7 +272,7 @@ export default function App({ user, onSignedOut, onUserChange }) {
     const shortcut = (e) => {
       if (e.key?.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
-      if (accounts.length > 0) setSheet({ accountId: null });
+      if (accounts.length > 0) setSheet({ accountId: null, kind: 'expense' });
     };
     document.addEventListener('keydown', shortcut);
     return () => document.removeEventListener('keydown', shortcut);
@@ -460,13 +461,12 @@ export default function App({ user, onSignedOut, onUserChange }) {
               <span id="tool-slot" className="tool-slot" />
 
               {!phone && !readOnly && !ownsAction && (
-                <button
-                  className="primary add-top"
+                <GooeyAdd
+                  variant="desk"
                   disabled={accounts.length === 0}
-                  onClick={() => setSheet({ accountId: null })}
-                >
-                  <Plus size={16} /> Add
-                </button>
+                  canMove={accounts.length > 1}
+                  onPick={(kind) => setSheet({ accountId: null, kind })}
+                />
               )}
 
               {phone && (
@@ -553,7 +553,7 @@ export default function App({ user, onSignedOut, onUserChange }) {
             primaryCurrency={summary.primaryCurrency}
             onBack={() => setAccountId(null)}
             onChanged={load}
-            onAddEntry={(account) => setSheet({ accountId: account.id })}
+            onAddEntry={(account, kind) => setSheet({ accountId: account.id, kind })}
             readOnly={readOnly}
             phone={phone}
           />
@@ -628,14 +628,14 @@ export default function App({ user, onSignedOut, onUserChange }) {
           </button>
         ))}
         {!readOnly && (
-          <button
-            className="add"
-            aria-label="Add money"
+          // On an account's page it starts on that account, the way the
+          // desk's + on that page does.
+          <GooeyAdd
+            variant="phone"
             disabled={accounts.length === 0}
-            onClick={() => setSheet({ accountId: null })}
-          >
-            <Plus />
-          </button>
+            canMove={accounts.length > 1}
+            onPick={(kind) => setSheet({ accountId: openAccount?.id ?? null, kind })}
+          />
         )}
         {NAV.slice(2).map(([key, label, Icon]) => (
           <button
@@ -653,6 +653,7 @@ export default function App({ user, onSignedOut, onUserChange }) {
       {accounts.length > 0 && (
         <AddSheet
           open={Boolean(sheet)}
+          kind={sheet?.kind ?? 'expense'}
           accounts={accounts}
           month={month}
           defaultAccountId={sheet?.accountId}

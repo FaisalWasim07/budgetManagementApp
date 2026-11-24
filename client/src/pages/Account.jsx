@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { listTransactions } from '../api/transactions';
 import { listSubscriptions } from '../api/subscriptions';
 import { Money, useDisplay } from '../utils/display';
-import { ChevronLeft, Pencil, Plus, Trash } from './../components/icons';
+import { ChevronLeft, Pencil, Trash } from './../components/icons';
+import GooeyAdd from '../components/GooeyAdd';
 import { iconForAccount, iconForEntry, toneForEntry } from '../utils/categoryIcon';
 import TransactionEditModal from '../components/TransactionEditModal';
 import AccountFormModal from '../components/AccountFormModal';
@@ -133,9 +134,9 @@ export default function Account({
       <button className="tiny subtle" onClick={() => setEditingAccount(true)}>
         Edit account
       </button>
-      <button className="primary add-top" onClick={() => onAddEntry(account)}>
-        <Plus size={16} /> Add to this account
-      </button>
+      {/* The same gooey + as the top bar, already on this account. On a phone
+          the + in the tab bar does this, so it is not drawn twice. */}
+      {!phone && <GooeyAdd variant="desk" onPick={(kind) => onAddEntry(account, kind)} />}
     </>
   );
 
