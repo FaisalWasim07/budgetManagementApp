@@ -7416,29 +7416,54 @@ summary.set-top > svg {
   transition-delay: 0.08s;
 }
 
-/* Desk: in the top bar's corner, the balls out to the left, bottom-left and
-   straight down. Labels where they cannot collide: beside the first two,
-   under the third. */
+/* Desk: in the top bar's corner, the same size as the eye and refresh
+   buttons beside it, the balls out to the left, bottom-left and straight
+   down. Labels where they cannot collide: beside the first two, under the
+   third. The balls are a little larger than the + and centred on it. */
+.gooey-add.gooey-desk {
+  width: 38px;
+  height: 38px;
+}
 .gooey-desk .gooey-layer {
   top: -30px;
   right: -30px;
   width: 260px;
   height: 200px;
 }
-.gooey-desk .gooey-blob,
-.gooey-desk .gooey-opt,
-.gooey-desk .gooey-main {
+.gooey-desk .gooey-main,
+.gooey-desk .gooey-blob.main {
   top: 30px;
   right: 30px;
+  width: 38px;
+  height: 38px;
+}
+.gooey-desk .gooey-blob[data-i],
+.gooey-desk .gooey-opt {
+  top: 26px;
+  right: 26px;
+}
+/* The hover area: from the + out past the left ball and down past the
+   bottom one, only while open. */
+.gooey-bridge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 0;
+  height: 0;
+}
+.gooey-desk.open .gooey-bridge {
+  width: 150px;
+  height: 150px;
+  border-bottom-left-radius: 80px;
 }
 .gooey-desk.open [data-i='1'] {
-  transform: translate(-80px, 0) scale(1);
+  transform: translate(-76px, 0) scale(1);
 }
 .gooey-desk.open [data-i='2'] {
-  transform: translate(-62px, 62px) scale(1);
+  transform: translate(-58px, 60px) scale(1);
 }
 .gooey-desk.open [data-i='3'] {
-  transform: translate(0, 82px) scale(1);
+  transform: translate(0, 78px) scale(1);
 }
 .gooey-desk .gooey-opt[data-i='1'] b,
 .gooey-desk .gooey-opt[data-i='2'] b {
@@ -7669,4 +7694,23 @@ summary.set-top > svg {
 }
 :root[data-theme='dark'] .pop-foot .go {
   color: #0b1220;
+}
+
+/* Refreshing at a desk: the refresh icon turns rather than a spinner
+   appearing beside it. */
+.icon-button.refresh svg {
+  transition: transform 0.2s ease;
+}
+.icon-button.refresh.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+.icon-button.refresh.spinning:disabled {
+  opacity: 1;
+  color: var(--brand-deep);
+  cursor: progress;
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-button.refresh.spinning svg {
+    animation-duration: 2.4s;
+  }
 }

@@ -223,6 +223,27 @@ const panelOpen = async (page) => (await page.locator('.flow-detail').count()) =
   await page.waitForTimeout(700);
   check('pointing at the + opens its three balls', (await page.locator('.gooey-desk.open').count()) === 1);
   check('and fades the page behind them', (await page.locator('.gooey-scrim-desk').count()) === 1);
+  // The pointer travelling from the + to a ball crosses the gap between them;
+  // that must not count as leaving (it used to snap them shut on the way).
+  {
+    const from = await page.locator('.gooey-desk .gooey-main').boundingBox();
+    const to = await page.locator('.gooey-desk .gooey-opt[data-kind="transfer"]').boundingBox();
+    let shut = 0;
+    for (let i = 1; i <= 16; i++) {
+      await page.mouse.move(
+        from.x + from.width / 2 + ((to.x + to.width / 2) - (from.x + from.width / 2)) * (i / 16),
+        from.y + from.height / 2 + ((to.y + to.height / 2) - (from.y + from.height / 2)) * (i / 16),
+      );
+      await page.waitForTimeout(20);
+      if (!(await page.locator('.gooey-desk.open').count())) shut++;
+    }
+    check('travelling from the + to a ball keeps them open the whole way', shut === 0, `${shut} of 16 steps closed`);
+  }
+  const plus = await page.locator('.gooey-desk .gooey-main').boundingBox();
+  const eye = await page.locator('.topbar .icon-button.refresh').boundingBox();
+  check('the + is the same size as the buttons beside it',
+    Math.round(plus.width) === Math.round(eye.width) && Math.round(plus.height) === Math.round(eye.height),
+    `${plus.width}×${plus.height} vs ${eye.width}×${eye.height}`);
   await page.mouse.move(10, 600);
   await page.waitForTimeout(500);
   check('moving away closes them again', (await page.locator('.gooey-desk.open').count()) === 0);

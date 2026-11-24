@@ -32,6 +32,11 @@ export default function GooeyAdd({ variant = 'desk', disabled = false, canMove =
   // Whether a hover opened it. Moving onto the + opens it, and the click that
   // usually follows must not then close it again.
   const viaHover = useRef(false);
+  // A moment's grace before a hover-opened menu closes: a pointer heading for
+  // a ball, or overshooting one, must not snap it shut on the way.
+  const closing = useRef(null);
+  const cancelClose = () => clearTimeout(closing.current);
+  useEffect(() => cancelClose, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -61,6 +66,7 @@ export default function GooeyAdd({ variant = 'desk', disabled = false, canMove =
 
   const hover = variant === 'desk';
   const pick = (kind) => {
+    cancelClose();
     setOpen(false);
     onPick(kind);
   };
@@ -71,13 +77,17 @@ export default function GooeyAdd({ variant = 'desk', disabled = false, canMove =
       className={`gooey-add gooey-${variant}${open ? ' open' : ''}`}
       onPointerEnter={(e) => {
         if (!hover || disabled || e.pointerType !== 'mouse') return;
-        viaHover.current = true;
+        cancelClose();
+        if (!open) viaHover.current = true;
         setOpen(true);
       }}
       onPointerLeave={(e) => {
         if (!hover || e.pointerType !== 'mouse') return;
-        viaHover.current = false;
-        setOpen(false);
+        cancelClose();
+        closing.current = setTimeout(() => {
+          viaHover.current = false;
+          setOpen(false);
+        }, 260);
       }}
     >
       <svg className="gooey-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -92,6 +102,11 @@ export default function GooeyAdd({ variant = 'desk', disabled = false, canMove =
           <feComposite in="SourceGraphic" in2="goo" operator="atop" />
         </filter>
       </svg>
+
+      {/* While open, an invisible area spanning the + and its three balls,
+          so the pointer travelling from one to another never crosses a gap
+          that counts as leaving. */}
+      {hover && <span className="gooey-bridge" aria-hidden="true" />}
 
       <div className="gooey-layer gooey-shapes" aria-hidden="true">
         {OPTIONS.map((o, i) => (

@@ -404,7 +404,9 @@ export default function App({ user, onSignedOut, onUserChange }) {
 
               <span className="spacer" />
 
-              {(loading || busy) && <span className="spinner" aria-label="Updating" />}
+              {/* A phone's bar has no refresh button to turn, so it keeps the
+                  spinner; at a desk the refresh icon itself spins instead. */}
+              {phone && (loading || busy) && <span className="spinner" aria-label="Updating" />}
 
               {/* Nothing here goes stale on its own — the other person in the
                   household is what changes it — so refreshing is a thing you
@@ -412,11 +414,12 @@ export default function App({ user, onSignedOut, onUserChange }) {
                   phone's bar has no room for it; there it is in the ⋮ menu. */}
               {!phone && (
                 <button
-                  className="icon-button"
+                  className={loading || busy ? 'icon-button refresh spinning' : 'icon-button refresh'}
                   onClick={refreshAll}
                   disabled={loading || busy}
-                  title="Refresh"
-                  aria-label="Refresh"
+                  title={loading || busy ? 'Updating' : 'Refresh'}
+                  aria-label={loading || busy ? 'Updating' : 'Refresh'}
+                  aria-busy={loading || busy}
                 >
                   <Refresh />
                 </button>
