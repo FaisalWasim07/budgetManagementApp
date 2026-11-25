@@ -308,6 +308,31 @@ const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
+  // --- tapping away from the + only closes it -----------------------------
+  // It used to close on the press, so the rest of the tap landed on whatever
+  // was underneath and opened it: backing out over an account opened it.
+  await page.locator('.tabbar button', { hasText: /^Home$/ }).tap();
+  await page.waitForSelector('.account-row:not(.add)', { timeout: 10000 });
+  const accountRow = page.locator('.account-row:not(.add)').first();
+  // Near the top of the screen and at the row's left edge, well clear of the
+  // balls fanning up from the tab bar, so the tap lands on the row itself.
+  await accountRow.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(300);
+  const box = await accountRow.boundingBox();
+  const spot = { x: box.x + 24, y: box.y + box.height / 2 };
+  await page.locator('.gooey-phone .gooey-main').tap();
+  await page.waitForTimeout(600);
+  check('the + opens on a tap', (await page.locator('.gooey-phone.open').count()) === 1);
+  await page.touchscreen.tap(spot.x, spot.y);
+  await page.waitForTimeout(600);
+  check('tapping away closes it', (await page.locator('.gooey-phone.open').count()) === 0);
+  check('without opening what was under the tap', (await page.locator('.account-page').count()) === 0);
+  await page.touchscreen.tap(spot.x, spot.y);
+  await page.waitForTimeout(700);
+  check('and the next tap on it works as usual', (await page.locator('.account-page').count()) === 1);
+  await page.locator('.tabbar button', { hasText: /^Home$/ }).tap();
+  await page.waitForTimeout(500);
+
   // --- a sheet holds the page still ---------------------------------------
   await openActivity(page);
   await page.waitForTimeout(900);

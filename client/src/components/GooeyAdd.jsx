@@ -47,15 +47,23 @@ export default function GooeyAdd({ variant = 'desk', disabled = false, canMove =
         main.current?.focus();
       }
     };
+    // A tap or click outside only closes it. It used to close on the press,
+    // which took the backdrop away before the tap finished, so the tap then
+    // landed on whatever was underneath: tapping beside the balls to back out
+    // opened the account under your finger. Now the whole click is caught on
+    // its way down, before anything else sees it, and spent on closing.
     const outside = (e) => {
-      if (!box.current?.contains(e.target)) setOpen(false);
+      if (box.current?.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
     };
     document.addEventListener('keydown', key);
-    document.addEventListener('pointerdown', outside);
+    document.addEventListener('click', outside, true);
     return () => {
       document.body.classList.remove('gooey-open', `gooey-open-${variant}`);
       document.removeEventListener('keydown', key);
-      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('click', outside, true);
     };
   }, [open, variant]);
 
